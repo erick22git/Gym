@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Check, ChevronRight, ChevronLeft, ChevronDown, CreditCard, DollarSign,
-         CheckCircle, Banknote, QrCode, ArrowLeftRight, Wallet, Maximize2, Receipt, FileText } from 'lucide-react'
+         CheckCircle, Banknote, QrCode, ArrowLeftRight, Wallet, Maximize2, Receipt, FileText, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Select } from '../ui/Select'
 import { useAuth } from '../../context/AuthContext'
@@ -11,8 +11,8 @@ import { PAGES } from '../../constants'
 import VistaRecibo from '../../modules/recibos/VistaRecibo'
 
 // ── Indicador de pasos ────────────────────────────────────────────────────────
-function StepIndicator({ paso, pasoMax }) {
-  const steps = ['Datos', 'Plan', 'Pago']
+function StepIndicator({ paso, esGrupal }) {
+  const steps = esGrupal ? ['Datos', 'Plan', 'Miembros', 'Pago'] : ['Datos', 'Plan', 'Pago']
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 0, justifyContent: 'center', marginBottom: 28 }}>
       {steps.map((label, i) => {
@@ -219,7 +219,7 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
 }
 
 // ── Paso 2: Selección de Plan ─────────────────────────────────────────────────
-function PasoPlan({ seleccion, onChange, onNext, onBack, onCancel }) {
+function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onBack, onCancel }) {
   const [planes, setPlanes] = useState([])
   const [descuentos, setDescuentos] = useState([])
   const [descuentoId, setDescuentoId] = useState(null)
@@ -267,6 +267,7 @@ function PasoPlan({ seleccion, onChange, onNext, onBack, onCancel }) {
       plan_nombre: plan.nombre,
       plan_precio: plan.precio,
       plan_duracion: plan.duracion_dias,
+      plan_capacidad: plan.capacidad || 1,
       fecha_inicio: hoy,
       fecha_fin: fin,
     })
@@ -281,13 +282,18 @@ function PasoPlan({ seleccion, onChange, onNext, onBack, onCancel }) {
     }
     onChange({
       ...seleccion,
+      plan_capacidad: planSel?.capacidad || 1,
       descuento_id: descuentoId !== 'personalizado' ? descuentoId : null,
       descuento_valor: descValor,
       descuento_nombre: descObj?.nombre || (descuentoId === 'personalizado' ? 'Personalizado' : null),
       subtotal,
       total,
     })
-    onNext()
+    if ((planSel?.capacidad || 1) > 1 && onNextMiembros) {
+      onNextMiembros(planSel.capacidad)
+    } else {
+      onNext()
+    }
   }
 
   const ICON_COLORS = ['var(--blue)', 'var(--amber)', 'var(--green)', 'var(--red)']
@@ -413,6 +419,24 @@ function PasoPlan({ seleccion, onChange, onNext, onBack, onCancel }) {
         </div>
       )}
 
+      {(planSel?.capacidad || 1) > 1 && (() => {
+        const extras = (planSel.capacidad || 2) - 1
+        return (
+          <div style={{ background: 'oklch(0.74 0.13 250 / .08)', border: '1.5px solid oklch(0.74 0.13 250 / .4)', borderRadius: 12, padding: '12px 16px', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 8, background: 'oklch(0.74 0.13 250 / .18)', border: '1px solid oklch(0.74 0.13 250 / .35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Users size={16} color="oklch(0.80 0.12 250)" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.88 0.09 250)' }}>Plan grupal · {planSel.capacidad} personas</div>
+                <div style={{ fontSize: 11, color: 'oklch(0.65 0.08 250)', marginTop: 1 }}>{extras} miembro{extras !== 1 ? 's' : ''} adicional{extras !== 1 ? 'es' : ''} · mismo vencimiento</div>
+              </div>
+              <span style={{ background: 'oklch(0.74 0.13 250 / .22)', border: '1px solid oklch(0.74 0.13 250 / .5)', borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 800, color: 'oklch(0.80 0.12 250)' }}>+{extras}</span>
+            </div>
+          </div>
+        )
+      })()}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
         <button className="btn-secondary" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ChevronLeft size={16} /> Atrás
@@ -420,6 +444,101 @@ function PasoPlan({ seleccion, onChange, onNext, onBack, onCancel }) {
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
           <button className="btn-primary" onClick={handleNext} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            {(planSel?.capacidad || 1) > 1 ? `Agregar miembros (${(planSel.capacidad || 2) - 1})` : 'Siguiente: Pago'} <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Paso 2.5: Miembros adicionales (solo planes grupales) ─────────────────────
+function PasoMiembros({ seleccion, miembros, onChangeMiembros, onNext, onBack, onCancel }) {
+  const debounceRefs = useRef({})
+  const [busqMiembros, setBusqMiembros] = useState({})
+  const extras = Math.max(0, (seleccion.plan_capacidad || 2) - 1)
+
+  async function buscarMiembro(idx, carnet) {
+    const nuevos = [...miembros]
+    nuevos[idx] = { ...nuevos[idx], carnet }
+    onChangeMiembros(nuevos)
+    if (carnet.length < 3) { setBusqMiembros(p => ({ ...p, [idx]: [] })); return }
+    clearTimeout(debounceRefs.current[idx])
+    debounceRefs.current[idx] = setTimeout(async () => {
+      const res = await window.api.clientes.search(carnet)
+      setBusqMiembros(p => ({ ...p, [idx]: res || [] }))
+    }, 300)
+  }
+
+  function seleccionarCliente(idx, cliente) {
+    const nuevos = [...miembros]
+    nuevos[idx] = { carnet: cliente.carnet, nombre: `${cliente.nombre} ${cliente.apellido}`, cliente_id: cliente.id }
+    onChangeMiembros(nuevos)
+    setBusqMiembros(p => ({ ...p, [idx]: [] }))
+  }
+
+  return (
+    <div>
+      <div style={{ background: 'oklch(0.74 0.13 250 / .08)', border: '1px solid oklch(0.74 0.13 250 / .25)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 12, color: 'oklch(0.74 0.13 250)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Users size={13} />
+        Plan {seleccion.plan_nombre} · {seleccion.plan_capacidad || 2} personas · mismo vencimiento para todos
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 5, letterSpacing: '.06em', textTransform: 'uppercase' }}>Miembro 1 — Titular (quien paga)</div>
+        <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--ink)' }}>
+          El cliente actual ya queda como titular
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {miembros.map((m, idx) => (
+          <div key={idx}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+              Miembro {idx + 2}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 8 }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="gym-input"
+                  placeholder="Carnet / CI"
+                  value={m.carnet}
+                  onChange={e => buscarMiembro(idx, e.target.value)}
+                  style={{ fontSize: 13 }}
+                />
+                {busqMiembros[idx]?.length > 0 && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'oklch(0.14 0.015 250)', border: '1px solid var(--line)', borderRadius: 8, zIndex: 100, maxHeight: 140, overflowY: 'auto', marginTop: 2 }}>
+                    {busqMiembros[idx].map(c => (
+                      <div key={c.id} onClick={() => seleccionarCliente(idx, c)}
+                        style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--line)', fontSize: 12 }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'oklch(1 0 0 / .05)'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}>
+                        {c.nombre} {c.apellido} · {c.carnet}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <input
+                className="gym-input"
+                placeholder="Nombre completo"
+                value={m.nombre}
+                onChange={e => { const n = [...miembros]; n[idx] = { ...n[idx], nombre: e.target.value, cliente_id: null }; onChangeMiembros(n) }}
+                style={{ fontSize: 13 }}
+              />
+            </div>
+            {m.cliente_id && <div style={{ fontSize: 10, color: 'oklch(0.78 0.16 155)', marginTop: 3 }}>✓ Cliente registrado encontrado</div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
+        <button className="btn-secondary" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <ChevronLeft size={16} /> Atrás
+        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
+          <button className="btn-primary" onClick={onNext} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             Siguiente: Pago <ChevronRight size={16} />
           </button>
         </div>
@@ -894,6 +1013,8 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
   const [notasCaja, setNotasCaja] = useState('')
   const [abriendoCaja, setAbriendoCaja] = useState(false)
   const [pendingPagoInfo, setPendingPagoInfo] = useState(null)
+  const [miembros, setMiembros] = useState([])
+  const [enMiembros, setEnMiembros] = useState(false)
 
   useEffect(() => {
     if (mode === 'renovar' && clienteId) {
@@ -961,6 +1082,22 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
       })
 
       if (res.ok) {
+        const memId = res.membresia_id
+        if ((seleccion.plan_capacidad || 1) > 1 && memId) {
+          await window.api.membresiaMiembros.sincronizarTitular(memId, cId)
+          for (const [idx, m] of miembros.filter(m => m.nombre || m.cliente_id).entries()) {
+            if (m.cliente_id) {
+              await window.api.membresiaMiembros.addMiembro(memId, m.cliente_id, false).catch(() => {})
+            } else if (m.nombre) {
+              try {
+                const [first, ...rest] = m.nombre.trim().split(/\s+/)
+                const carnetFinal = m.carnet || `GRP-${memId}-${idx + 1}`
+                const nuevo = await window.api.clientes.create({ nombre: first, apellido: rest.join(' '), carnet: carnetFinal })
+                if (nuevo?.id) await window.api.membresiaMiembros.addMiembro(memId, nuevo.id, false).catch(() => {})
+              } catch (_) {}
+            }
+          }
+        }
         const clienteNombre = mode === 'nuevo'
           ? `${datos.nombre || ''} ${datos.apellido || ''}`.trim()
           : `${clienteExistente?.nombre || ''} ${clienteExistente?.apellido || ''}`.trim()
@@ -1005,6 +1142,8 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
   }
 
   const titulo = mode === 'renovar' ? 'Renovar Plan' : 'Nuevo Cliente'
+  const esGrupal = (seleccion.plan_capacidad || 1) > 1
+  const pasoIndicador = enMiembros ? 3 : (esGrupal && paso === 3 ? 4 : paso)
 
   return (
     <motion.div
@@ -1055,10 +1194,10 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
             <ConfirmacionExito resultado={exito} onFinalizar={handleFinalizar} />
           ) : (
             <>
-              <StepIndicator paso={paso} pasoMax={3} />
+              <StepIndicator paso={pasoIndicador} esGrupal={esGrupal} />
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={paso}
+                  key={`${paso}-${enMiembros}`}
                   initial={{ opacity: 0, x: 30 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -30 }}
@@ -1072,12 +1211,26 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
                       onCancel={onClose}
                     />
                   )}
-                  {paso === 2 && (
+                  {paso === 2 && !enMiembros && (
                     <PasoPlan
                       seleccion={seleccion}
                       onChange={setSeleccion}
                       onNext={() => setPaso(3)}
+                      onNextMiembros={(capacidad) => {
+                        setMiembros(Array.from({ length: Math.max(0, (capacidad || 2) - 1) }, () => ({ carnet: '', nombre: '', cliente_id: null })))
+                        setEnMiembros(true)
+                      }}
                       onBack={() => mode === 'renovar' ? onClose() : setPaso(1)}
+                      onCancel={onClose}
+                    />
+                  )}
+                  {paso === 2 && enMiembros && (
+                    <PasoMiembros
+                      seleccion={seleccion}
+                      miembros={miembros}
+                      onChangeMiembros={setMiembros}
+                      onNext={() => { setEnMiembros(false); setPaso(3) }}
+                      onBack={() => setEnMiembros(false)}
                       onCancel={onClose}
                     />
                   )}
