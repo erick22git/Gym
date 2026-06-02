@@ -79,9 +79,23 @@ export default function VistaRecibo({ venta, onClose }) {
     setGuardando(false)
   }
 
-  function imprimir() {
+  async function imprimir() {
     setDesplegada(true)
-    setTimeout(() => window.api.pos.imprimir(), 200)
+    await new Promise(r => setTimeout(r, 300))
+    const paperEl = document.querySelector('#recibo-print-root .recibo-paper')
+    if (!paperEl) { toast.error('Error al preparar el comprobante'); return }
+    const margin = fmt === 'ticket' ? '2mm' : '10mm'
+    const pageSize = fmt === 'ticket' ? '80mm auto' : fmt === 'carta' ? 'letter' : '5.5in 8.5in'
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  @page { size: ${pageSize}; margin: ${margin}; }
+  body { margin: 0; padding: 0; background: #fff; }
+  .recibo-paper { width: 100% !important; max-width: 100% !important; transform: none !important;
+    box-shadow: none !important; max-height: none !important; overflow: visible !important; }
+</style>
+</head><body>${paperEl.outerHTML}</body></html>`
+    const result = await window.api.pos.imprimir({ html, formato: fmt })
+    if (result && !result.ok) toast.error('Error al generar PDF: ' + (result.error || ''))
   }
 
   if (!config) return null

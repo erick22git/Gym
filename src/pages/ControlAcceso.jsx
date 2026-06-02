@@ -10,6 +10,18 @@ import VistaRecibo from '../modules/recibos/VistaRecibo'
 
 // ─── Formulario de datos para recibo (venta rápida) ──────────────────────────
 function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar }) {
+  const [buscando, setBuscando] = useState(false)
+
+  async function buscarPorCarnet() {
+    if (!datos.doc || datos.doc.length < 3) return
+    setBuscando(true)
+    try {
+      const c = await window.api.clientes.getByCarnet(datos.doc)
+      if (c) onDatos({ ...datos, nombre: `${c.nombre} ${c.apellido}`.trim() })
+    } catch (_) {}
+    setBuscando(false)
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 250, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div onClick={onCancelar} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .6)', backdropFilter: 'blur(4px)' }} />
@@ -17,14 +29,17 @@ function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar }) {
         <h3 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 18, letterSpacing: '.06em' }}>Datos del comprobante</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Nombre del cliente</label>
-            <input className="gym-input" placeholder="Nombre completo (opcional)" value={datos.nombre}
-              onChange={e => onDatos({ ...datos, nombre: e.target.value })} autoFocus />
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>
+              CI / NIT {buscando && <span style={{ fontWeight: 400, color: 'var(--dim)' }}>— buscando...</span>}
+            </label>
+            <input className="gym-input" placeholder="Carnet o NIT (autollena el nombre)" value={datos.doc} autoFocus
+              onChange={e => onDatos({ ...datos, doc: e.target.value })}
+              onBlur={buscarPorCarnet} />
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>CI / NIT (opcional)</label>
-            <input className="gym-input" placeholder="Carnet o NIT" value={datos.doc}
-              onChange={e => onDatos({ ...datos, doc: e.target.value })} />
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Nombre del cliente</label>
+            <input className="gym-input" placeholder="Nombre completo (opcional)" value={datos.nombre}
+              onChange={e => onDatos({ ...datos, nombre: e.target.value })} />
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>

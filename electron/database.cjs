@@ -717,6 +717,9 @@ const clientes = {
       FROM clientes c WHERE c.id=?
     `, [id])
   },
+  getByCarnet(carnet) {
+    return queryOne('SELECT id, nombre, apellido, carnet, telefono, email FROM clientes WHERE carnet=? AND activo=1', [carnet])
+  },
   search(query) {
     const q = `%${query}%`
     return queryAll(`

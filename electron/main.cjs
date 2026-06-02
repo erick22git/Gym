@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, session } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, session, shell } = require('electron')
 const { initFacturacion, registrarHandlers: registrarHandlersFacturacion } = require('./facturacion/handlers.cjs')
 const path = require('path')
 const fs = require('fs')
@@ -91,6 +91,7 @@ ipcMain.handle('window:close', () => mainWindow.close())
 ipcMain.handle('clientes:getAll', () => require('./database.cjs').clientes.getAll())
 ipcMain.handle('clientes:getPaginated', (_, filtros) => require('./database.cjs').clientes.getPaginated(filtros))
 ipcMain.handle('clientes:getById', (_, id) => require('./database.cjs').clientes.getById(id))
+ipcMain.handle('clientes:getByCarnet', (_, carnet) => require('./database.cjs').clientes.getByCarnet(carnet))
 ipcMain.handle('clientes:search', (_, query) => require('./database.cjs').clientes.search(query))
 ipcMain.handle('clientes:create', (_, data) => require('./database.cjs').clientes.create(data))
 ipcMain.handle('clientes:update', (_, id, data) => require('./database.cjs').clientes.update(id, data))
@@ -227,11 +228,28 @@ ipcMain.handle('descuentos:delete', (_, id) => require('./database.cjs').descuen
 ipcMain.handle('pos:getConfig', () => require('./database.cjs').configuracionPOS.get())
 ipcMain.handle('pos:saveConfig', (_, data) => require('./database.cjs').configuracionPOS.save(data))
 ipcMain.handle('pos:getPrinters', (event) => event.sender.getPrinters())
-ipcMain.handle('pos:imprimir', () => new Promise(resolve => {
-  mainWindow.webContents.print({ silent: false, printBackground: true }, (success, reason) => {
-    resolve({ ok: success, reason: reason || null })
-  })
-}))
+ipcMain.handle('pos:imprimir', async (_, { html, formato } = {}) => {
+  try {
+    const pageSizes = {
+      ticket: { width: 80000, height: 600000 },
+      media:  { width: 139700, height: 215900 },
+      carta:  { width: 215900, height: 279400 },
+    }
+    const tmpHtml = path.join(app.getPath('temp'), `comprobante_${Date.now()}.html`)
+    const tmpPdf  = path.join(app.getPath('temp'), `comprobante_${Date.now()}.pdf`)
+    fs.writeFileSync(tmpHtml, html || '', 'utf-8')
+    const win = new BrowserWindow({ show: false, width: 700, height: 900, webPreferences: { nodeIntegration: false, javascript: false } })
+    await win.loadFile(tmpHtml)
+    const pdfData = await win.webContents.printToPDF({ printBackground: true, pageSize: pageSizes[formato] || pageSizes.media })
+    win.destroy()
+    fs.writeFileSync(tmpPdf, pdfData)
+    try { fs.unlinkSync(tmpHtml) } catch (_) {}
+    await shell.openPath(tmpPdf)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
 ipcMain.handle('pos:testPrint', (_, printerName) => new Promise(resolve => {
   const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } })
   win.loadURL('data:text/html,<!DOCTYPE html><html><body style="font-family:monospace;padding:20px"><h2>Test de Impresión</h2><p>Urban Fitness Club</p><p>Si ves esto, la impresora funciona correctamente.</p><p>' + new Date().toLocaleString('es-BO') + '</p></body></html>')

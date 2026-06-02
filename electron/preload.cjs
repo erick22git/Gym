@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
     getAll: () => ipcRenderer.invoke('clientes:getAll'),
     getPaginated: (filtros) => ipcRenderer.invoke('clientes:getPaginated', filtros),
     getById: (id) => ipcRenderer.invoke('clientes:getById', id),
+    getByCarnet: (carnet) => ipcRenderer.invoke('clientes:getByCarnet', carnet),
     search: (query) => ipcRenderer.invoke('clientes:search', query),
     create: (data) => ipcRenderer.invoke('clientes:create', data),
     update: (id, data) => ipcRenderer.invoke('clientes:update', id, data),
@@ -182,7 +183,7 @@ contextBridge.exposeInMainWorld('api', {
     saveConfig: (data) => ipcRenderer.invoke('pos:saveConfig', data),
     getPrinters: () => ipcRenderer.invoke('pos:getPrinters'),
     testPrint: (printerName) => ipcRenderer.invoke('pos:testPrint', printerName),
-    imprimir: () => ipcRenderer.invoke('pos:imprimir'),
+    imprimir: (data) => ipcRenderer.invoke('pos:imprimir', data),
   },
 
   // Inventario
