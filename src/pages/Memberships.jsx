@@ -256,17 +256,40 @@ export default function Memberships() {
               <span style={{ color: 'var(--muted)' }}>Monto a pagar:</span>
               <strong style={{ color: 'oklch(0.75 0.18 25)', fontSize: 17, fontFamily: 'Oxanium, sans-serif' }}>Bs. {planActual.precio}</strong>
             </div>
-            {esGrupal && (
-              <div style={{ marginTop: 8, fontSize: 11, color: 'oklch(0.74 0.13 250)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Users size={11} /> Plan grupal — cubre {planActual.capacidad || 2} personas · El siguiente paso registra a los miembros
-              </div>
-            )}
           </div>
         )}
+
+        {esGrupal && (() => {
+          const extras = (planActual.capacidad || 2) - 1
+          return (
+            <div style={{ background: 'oklch(0.74 0.13 250 / .08)', border: '1.5px solid oklch(0.74 0.13 250 / .35)', borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 9, background: 'oklch(0.74 0.13 250 / .18)', border: '1px solid oklch(0.74 0.13 250 / .35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Users size={17} color="oklch(0.80 0.12 250)" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.88 0.09 250)', lineHeight: 1.3 }}>Plan grupal · {planActual.capacidad || 2} personas</div>
+                    <div style={{ fontSize: 11, color: 'oklch(0.65 0.08 250)', marginTop: 1 }}>
+                      {extras} miembro{extras !== 1 ? 's' : ''} adicional{extras !== 1 ? 'es' : ''} · mismo vencimiento
+                    </div>
+                  </div>
+                </div>
+                <span style={{ background: 'oklch(0.74 0.13 250 / .22)', border: '1px solid oklch(0.74 0.13 250 / .45)', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 700, color: 'oklch(0.80 0.12 250)', whiteSpace: 'nowrap' }}>
+                  +{extras}
+                </span>
+              </div>
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid oklch(0.74 0.13 250 / .2)', fontSize: 11, color: 'oklch(0.60 0.06 250)' }}>
+                Al continuar podrás registrar los datos de cada miembro adicional
+              </div>
+            </div>
+          )
+        })()}
+
         <div className="flex gap-3">
           <button type="button" className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancelar</button>
           <button type="submit" className="btn-primary flex-1" disabled={procesando}>
-            {procesando ? 'Procesando...' : esGrupal ? 'Siguiente → Miembros' : 'Guardar'}
+            {procesando ? 'Procesando...' : esGrupal ? `Agregar miembros (${(planActual.capacidad || 2) - 1})` : 'Guardar'}
           </button>
         </div>
       </form>
