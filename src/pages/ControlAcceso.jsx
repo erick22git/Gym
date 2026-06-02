@@ -8,6 +8,34 @@ import ClienteCard from '../components/pos/ClienteCard'
 import NuevoClienteWizard from '../components/pos/NuevoClienteWizard'
 import VistaRecibo from '../modules/recibos/VistaRecibo'
 
+// ─── Formulario de datos para recibo (venta rápida) ──────────────────────────
+function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 250, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={onCancelar} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .6)', backdropFilter: 'blur(4px)' }} />
+      <div style={{ position: 'relative', zIndex: 1, width: 360, background: 'oklch(0.13 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 16, padding: '24px 22px', boxShadow: '0 20px 60px oklch(0 0 0 / .6)' }}>
+        <h3 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 18, letterSpacing: '.06em' }}>Datos del comprobante</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Nombre del cliente</label>
+            <input className="gym-input" placeholder="Nombre completo (opcional)" value={datos.nombre}
+              onChange={e => onDatos({ ...datos, nombre: e.target.value })} autoFocus />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>CI / NIT (opcional)</label>
+            <input className="gym-input" placeholder="Carnet o NIT" value={datos.doc}
+              onChange={e => onDatos({ ...datos, doc: e.target.value })} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+          <button className="btn-secondary" style={{ flex: 1 }} onClick={onCancelar}>Cancelar</button>
+          <button className="btn-primary" style={{ flex: 2 }} onClick={() => onConfirmar(datos)}>Confirmar e imprimir</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Modal Venta Rápida de Productos ─────────────────────────────────────────
 
 function ModalVentaRapida({ usuario, onClose }) {
@@ -29,6 +57,7 @@ function ModalVentaRapida({ usuario, onClose }) {
   const [imprimendoRecibo, setImprimendoRecibo] = useState(false)
   const [emitiendo, setEmitiendo] = useState(false)
   const [reciboPrevia, setReciboPrevia] = useState(null)
+  const [formRecibo, setFormRecibo] = useState(null)
   const [cajaCerradaPrompt, setCajaCerradaPrompt] = useState(false)
   const [montoInicialCaja, setMontoInicialCaja] = useState('0')
   const [notasCaja, setNotasCaja] = useState('')
@@ -157,11 +186,19 @@ function ModalVentaRapida({ usuario, onClose }) {
   }
 
   function imprimirRecibo() {
+    setFormRecibo({
+      nombre: '',
+      doc: '',
+      concepto: carrito.map(i => i.nombre_producto).join(', '),
+    })
+  }
+
+  function confirmarRecibo(datos) {
     setReciboPrevia({
       numero: ventaId || Date.now(),
       fecha: new Date().toLocaleString('es-BO'),
-      cliente_nombre: 'Venta Directa',
-      cliente_doc: '',
+      cliente_nombre: datos.nombre || 'Venta Directa',
+      cliente_doc: datos.doc || '',
       items: carrito.map(i => ({ nombre: i.nombre_producto, cantidad: i.cantidad, total: i.cantidad * i.precio_unitario })),
       total,
       metodo_pago: metodoPago,
@@ -169,6 +206,7 @@ function ModalVentaRapida({ usuario, onClose }) {
       vuelto,
       cajero: usuario?.nombre_completo || '',
     })
+    setFormRecibo(null)
   }
 
   async function emitirFacturaVenta() {
@@ -495,6 +533,7 @@ function ModalVentaRapida({ usuario, onClose }) {
         )}
       </motion.div>
     </div>
+    {formRecibo && <FormDatosRecibo datos={formRecibo} onDatos={setFormRecibo} onConfirmar={confirmarRecibo} onCancelar={() => setFormRecibo(null)} />}
     {reciboPrevia && <VistaRecibo venta={reciboPrevia} onClose={() => setReciboPrevia(null)} />}
     </>
   )

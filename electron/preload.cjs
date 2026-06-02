@@ -182,6 +182,7 @@ contextBridge.exposeInMainWorld('api', {
     saveConfig: (data) => ipcRenderer.invoke('pos:saveConfig', data),
     getPrinters: () => ipcRenderer.invoke('pos:getPrinters'),
     testPrint: (printerName) => ipcRenderer.invoke('pos:testPrint', printerName),
+    imprimir: () => ipcRenderer.invoke('pos:imprimir'),
   },
 
   // Inventario

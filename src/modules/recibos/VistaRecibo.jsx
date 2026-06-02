@@ -81,7 +81,7 @@ export default function VistaRecibo({ venta, onClose }) {
 
   function imprimir() {
     setDesplegada(true)
-    setTimeout(() => window.print(), 200)
+    setTimeout(() => window.api.pos.imprimir(), 200)
   }
 
   if (!config) return null
@@ -96,20 +96,6 @@ export default function VistaRecibo({ venta, onClose }) {
   return (
     <div id="recibo-print-root" style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'oklch(0 0 0 / .8)', backdropFilter: 'blur(8px)' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, maxHeight: '92vh', position: 'relative' }}>
-
-        {/* Selector de formato */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, zIndex: 10 }} className="print-actions">
-          {[['ticket','Ticket 80mm'],['media','Media carta'],['carta','Carta']].map(([f, label]) => (
-            <button key={f} onClick={() => cambiarFormato(f)} style={{
-              padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: fmt === f ? 700 : 400,
-              background: fmt === f ? 'oklch(0.66 0.22 25 / .25)' : 'oklch(1 0 0 / .08)',
-              border: `1px solid ${fmt === f ? 'oklch(0.66 0.22 25 / .5)' : 'oklch(1 0 0 / .15)'}`,
-              color: fmt === f ? 'oklch(0.88 0.1 25)' : 'oklch(0.7 0 0)', cursor: 'pointer',
-            }}>
-              {label}
-            </button>
-          ))}
-        </div>
 
         {/* Impresora + papel */}
         <div style={{ width: printerW, position: 'relative' }} className="impresora-wrap">
