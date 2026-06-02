@@ -219,7 +219,7 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
 }
 
 // ── Paso 2: Selección de Plan ─────────────────────────────────────────────────
-function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onBack, onCancel }) {
+function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onPlanCambio, onBack, onCancel }) {
   const [planes, setPlanes] = useState([])
   const [descuentos, setDescuentos] = useState([])
   const [descuentoId, setDescuentoId] = useState(null)
@@ -271,6 +271,7 @@ function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onBack, onCance
       fecha_inicio: hoy,
       fecha_fin: fin,
     })
+    if (onPlanCambio) onPlanCambio(plan.capacidad || 1)
   }
 
   function handleNext() {
@@ -1083,9 +1084,11 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
 
       if (res.ok) {
         const memId = res.membresia_id
-        if ((seleccion.plan_capacidad || 1) > 1 && memId) {
+        const planEsGrupal = (seleccion.plan_capacidad || 1) > 1
+        const miembrosARegistrar = planEsGrupal ? miembros : []
+        if (planEsGrupal && memId) {
           await window.api.membresiaMiembros.sincronizarTitular(memId, cId)
-          for (const [idx, m] of miembros.filter(m => m.nombre || m.cliente_id).entries()) {
+          for (const [idx, m] of miembrosARegistrar.filter(m => m.nombre || m.cliente_id).entries()) {
             if (m.cliente_id) {
               await window.api.membresiaMiembros.addMiembro(memId, m.cliente_id, false).catch(() => {})
             } else if (m.nombre) {
@@ -1219,6 +1222,9 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
                       onNextMiembros={(capacidad) => {
                         setMiembros(Array.from({ length: Math.max(0, (capacidad || 2) - 1) }, () => ({ carnet: '', nombre: '', cliente_id: null })))
                         setEnMiembros(true)
+                      }}
+                      onPlanCambio={(capacidad) => {
+                        if ((capacidad || 1) <= 1) { setMiembros([]); setEnMiembros(false) }
                       }}
                       onBack={() => mode === 'renovar' ? onClose() : setPaso(1)}
                       onCancel={onClose}

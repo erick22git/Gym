@@ -729,6 +729,10 @@ const clientes = {
     `, [q, q, q, q])
   },
   create(data) {
+    if (data.carnet) {
+      const existente = queryOne('SELECT id FROM clientes WHERE carnet=?', [data.carnet])
+      if (existente) return clientes.getById(existente.id)
+    }
     const r = run(
       'INSERT INTO clientes (carnet, nombre, apellido, telefono, email, fecha_nacimiento, foto_path) VALUES (?,?,?,?,?,?,?)',
       [data.carnet, data.nombre, data.apellido, data.telefono || null, data.email || null, data.fecha_nacimiento || null, data.foto_path || null]
@@ -753,6 +757,8 @@ const clientes = {
     return 'UFC' + String(num).padStart(4, '0')
   },
   createCompleto(data) {
+    const existente = queryOne('SELECT id FROM clientes WHERE carnet=?', [data.carnet])
+    if (existente) return clientes.getById(existente.id)
     const codigo = clientes.getNextCodigo()
     const r = run(
       `INSERT INTO clientes (carnet, nombre, apellido, telefono, email, fecha_nacimiento, foto_path,
