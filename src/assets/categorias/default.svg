@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0f1a"/>
+      <stop offset="100%" stop-color="#1e1e3a"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#g)"/>
+  <!-- box base -->
+  <rect x="54" y="86" width="92" height="66" rx="6" fill="#374151" opacity="0.85"/>
+  <!-- box top face -->
+  <path d="M54 86 L100 68 L146 86 Z" fill="#4b5563" opacity="0.85"/>
+  <!-- box right face -->
+  <path d="M146 86 L146 152 L100 152 L100 134 Z" fill="#1f2937" opacity="0.6"/>
+  <!-- lid line -->
+  <rect x="54" y="104" width="92" height="4" rx="2" fill="#6b7280" opacity="0.4"/>
+  <!-- tape strip -->
+  <rect x="92" y="86" width="16" height="66" rx="0" fill="#9ca3af" opacity="0.15"/>
+  <rect x="92" y="68" width="16" height="20" rx="0" fill="#9ca3af" opacity="0.1"/>
+  <!-- shine -->
+  <rect x="60" y="90" width="30" height="14" rx="4" fill="#ffffff" opacity="0.05"/>
+  <text x="100" y="174" text-anchor="middle" fill="#9ca3af" font-size="11" font-family="system-ui,sans-serif" font-weight="700" letter-spacing="1.5">PRODUCTO</text>
+</svg>

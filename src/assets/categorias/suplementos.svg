@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e0a3c"/>
+      <stop offset="100%" stop-color="#4c1d95"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#g)"/>
+  <rect x="74" y="38" width="52" height="10" rx="5" fill="#a78bfa" opacity="0.9"/>
+  <rect x="78" y="48" width="44" height="88" rx="10" fill="#6d28d9" opacity="0.85"/>
+  <rect x="84" y="55" width="32" height="22" rx="5" fill="#c4b5fd" opacity="0.35"/>
+  <rect x="84" y="82" width="32" height="3" rx="1" fill="#ede9fe" opacity="0.45"/>
+  <rect x="84" y="92" width="22" height="3" rx="1" fill="#ede9fe" opacity="0.3"/>
+  <rect x="84" y="102" width="28" height="3" rx="1" fill="#ede9fe" opacity="0.3"/>
+  <rect x="84" y="112" width="32" height="3" rx="1" fill="#ede9fe" opacity="0.3"/>
+  <rect x="78" y="136" width="44" height="12" rx="6" fill="#7c3aed" opacity="0.6"/>
+  <text x="100" y="170" text-anchor="middle" fill="#c4b5fd" font-size="10" font-family="system-ui,sans-serif" font-weight="700" letter-spacing="1.5">SUPLEMENTOS</text>
+</svg>

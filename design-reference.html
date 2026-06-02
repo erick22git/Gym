@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<title>Urban Fitness Club — Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<style>/* cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("4dc6b51d-f902-49b6-ab7b-12e68cb00cd7") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("826d2acb-e495-427b-be64-66b6babaef13") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("bf0bcfc7-c0b3-43b7-8154-4ae88cdabcc3") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("5ada0acf-00a1-4e3a-9fb6-c7712fdd9df5") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("d40bf343-a68b-4ede-9d15-7ede11a7ccf1") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("a55c2d4f-1788-4e18-ab2f-0cc8098df40b") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("05d59190-a6bd-4eb7-956c-df41be584f00") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("4dc6b51d-f902-49b6-ab7b-12e68cb00cd7") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("826d2acb-e495-427b-be64-66b6babaef13") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("bf0bcfc7-c0b3-43b7-8154-4ae88cdabcc3") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("5ada0acf-00a1-4e3a-9fb6-c7712fdd9df5") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("d40bf343-a68b-4ede-9d15-7ede11a7ccf1") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("a55c2d4f-1788-4e18-ab2f-0cc8098df40b") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("05d59190-a6bd-4eb7-956c-df41be584f00") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("4dc6b51d-f902-49b6-ab7b-12e68cb00cd7") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("826d2acb-e495-427b-be64-66b6babaef13") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("bf0bcfc7-c0b3-43b7-8154-4ae88cdabcc3") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("5ada0acf-00a1-4e3a-9fb6-c7712fdd9df5") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("d40bf343-a68b-4ede-9d15-7ede11a7ccf1") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("a55c2d4f-1788-4e18-ab2f-0cc8098df40b") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("05d59190-a6bd-4eb7-956c-df41be584f00") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("4dc6b51d-f902-49b6-ab7b-12e68cb00cd7") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("826d2acb-e495-427b-be64-66b6babaef13") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("bf0bcfc7-c0b3-43b7-8154-4ae88cdabcc3") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("5ada0acf-00a1-4e3a-9fb6-c7712fdd9df5") format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("d40bf343-a68b-4ede-9d15-7ede11a7ccf1") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("a55c2d4f-1788-4e18-ab2f-0cc8098df40b") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("05d59190-a6bd-4eb7-956c-df41be584f00") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("e3ae278b-2618-4314-adeb-aa192cf3a30f") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("00ca5bad-cfa2-4626-9de4-d64c4e9e9e8a") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("e3ae278b-2618-4314-adeb-aa192cf3a30f") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("00ca5bad-cfa2-4626-9de4-d64c4e9e9e8a") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("e3ae278b-2618-4314-adeb-aa192cf3a30f") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("00ca5bad-cfa2-4626-9de4-d64c4e9e9e8a") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("e3ae278b-2618-4314-adeb-aa192cf3a30f") format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Oxanium';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("00ca5bad-cfa2-4626-9de4-d64c4e9e9e8a") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+
+<style>
+  :root{
+    --red: oklch(0.66 0.22 25);
+    --red-soft: oklch(0.70 0.18 25);
+    --red-glow: oklch(0.66 0.22 25 / .55);
+    --green: oklch(0.78 0.16 155);
+    --blue:  oklch(0.74 0.13 250);
+    --cyan:  oklch(0.80 0.12 200);
+    --amber: oklch(0.82 0.14 75);
+
+    --ink: oklch(0.98 0.01 250);
+    --muted: oklch(0.78 0.02 250 / .72);
+    --dim: oklch(0.78 0.02 250 / .42);
+    --line: oklch(1 0 0 / .10);
+    --line-strong: oklch(1 0 0 / .16);
+
+    --glass: oklch(1 0 0 / .055);
+    --glass-2: oklch(1 0 0 / .085);
+    --glass-edge: linear-gradient(180deg, oklch(1 0 0 /.16), oklch(1 0 0 /.02) 40%, oklch(1 0 0 /.0));
+
+    --display: 'Oxanium', 'Inter', sans-serif;
+    --body: 'Inter', system-ui, sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; }
+  body{
+    font-family: var(--body);
+    color: var(--ink);
+    background: #060709;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── atmospheric background ───────────────────────────── */
+  .bg{
+    position: fixed; inset:0; z-index:0;
+    background:
+      url("f76e2693-63f4-4b7a-b245-da2524fc728e") center/cover no-repeat,
+      #050608;
+  }
+  .bg::before{
+    content:""; position:absolute; inset:0;
+    background:
+      radial-gradient(60% 50% at 50% 50%, transparent, oklch(0 0 0 / .55) 75%),
+      linear-gradient(180deg, oklch(0 0 0 / .35), oklch(0 0 0 / .55));
+    backdrop-filter: blur(2px);
+  }
+  .bg::after{
+    /* film grain + faint vertical dumbbell silhouette implied */
+    content:""; position:absolute; inset:0;
+    background-image:
+      repeating-linear-gradient(115deg, transparent 0 3px, oklch(1 0 0 / .012) 3px 4px),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode: overlay;
+    opacity:.6;
+    pointer-events:none;
+  }
+  /* silver / chrome text effect */
+  .silver, .silver-soft{
+    background: linear-gradient(180deg,
+      #ffffff 0%,
+      #f4f5f7 12%,
+      #d3d6dc 32%,
+      #8a8c93 52%,
+      #4a4c52 58%,
+      #b9bdc4 70%,
+      #f0f1f4 88%,
+      #ffffff 100%);
+    -webkit-background-clip: text;
+            background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 1px 0 oklch(0 0 0 /.55)) drop-shadow(0 2px 8px oklch(0 0 0 /.6)) drop-shadow(0 0 12px oklch(0.95 0.01 250 /.18));
+  }
+  @keyframes silverShine {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  .silver{
+    background-size: 200% 100%;
+    animation: silverShine 6s linear infinite;
+  }
+  .nav-label{
+    background: linear-gradient(180deg, #ffffff, #b9bdc4 55%, #f0f1f4);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ── app shell ───────────────────────────── */
+  .app{
+    position: fixed; inset:0; z-index:1;
+    display:grid;
+    grid-template-rows: 44px 1fr;
+    padding: 14px;
+    gap: 14px;
+  }
+
+  /* title bar (pill) */
+  .titlebar{
+    grid-row:1;
+    display:flex; align-items:center; gap:14px;
+    padding: 0 14px;
+    border-radius: 14px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    backdrop-filter: blur(28px) saturate(140%);
+    border: 1px solid var(--line);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / .08),
+      0 1px 0 oklch(0 0 0 / .4);
+  }
+  .brand{
+    display:flex; align-items:center; gap:12px;
+    font-family: var(--display);
+    font-weight: 800;
+    letter-spacing: .16em;
+    font-size: 13px;
+  }
+  .brand img{
+    width: 38px; height: 38px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px oklch(0 0 0 /.6));
+  }
+  .titlebar .session{
+    margin-left:6px;
+    display:inline-flex; align-items:center; gap:8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border:1px solid oklch(0.66 0.22 25 / .55);
+    background: linear-gradient(180deg, oklch(0.66 0.22 25 / .22), oklch(0.66 0.22 25 / .08));
+    color: oklch(0.92 0.07 25);
+    font-size: 11px; letter-spacing:.14em; font-weight:600;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .titlebar .session:hover{
+    background: linear-gradient(180deg, oklch(0.66 0.22 25 / .35), oklch(0.66 0.22 25 / .14));
+  }
+  .titlebar .spacer{ flex:1; }
+  .titlebar .search{
+    display:flex; align-items:center; gap:8px;
+    padding: 6px 12px; border-radius:10px;
+    background: oklch(1 0 0 / .04);
+    border:1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    min-width: 240px;
+  }
+  .titlebar .search kbd{
+    margin-left:auto;
+    font-family: var(--body);
+    font-size:10px; padding: 2px 6px; border-radius:4px;
+    background: oklch(1 0 0 /.06); border:1px solid var(--line); color: var(--dim);
+  }
+  .winctrl{ display:flex; gap:8px; }
+  .winctrl span{
+    width:12px; height:12px; border-radius:50%;
+    background: oklch(1 0 0 / .14);
+    border:1px solid oklch(1 0 0 / .15);
+  }
+  .winctrl span:nth-child(3){ background: oklch(0.66 0.22 25 /.55); border-color: oklch(0.66 0.22 25 /.4);}
+
+  /* main grid: sidebar + content */
+  .main{
+    grid-row:2;
+    display:grid;
+    grid-template-columns: 248px 1fr;
+    gap: 14px;
+    min-height: 0;
+  }
+
+  /* sidebar */
+  .sidebar{
+    display:flex; flex-direction:column; gap: 14px;
+    padding: 16px;
+    border-radius: 18px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    backdrop-filter: blur(28px) saturate(140%);
+    border: 1px solid var(--line);
+    position:relative; overflow:hidden;
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / .08),
+      0 30px 60px oklch(0 0 0 /.4);
+  }
+  .sidebar::before{
+    content:""; position:absolute; inset:-1px;
+    border-radius:inherit;
+    background: var(--glass-edge);
+    pointer-events:none; mix-blend-mode: screen; opacity:.6;
+  }
+  .logo{
+    position:relative;
+    height: 110px; border-radius: 12px;
+    overflow:hidden;
+    background:
+      radial-gradient(60% 80% at 50% 40%, oklch(0.66 0.22 25 / .35), transparent 70%),
+      linear-gradient(180deg, oklch(0.18 0.02 250 / .7), oklch(0.08 0.02 250 / .85));
+    border: 1px solid oklch(0.66 0.22 25 / .35);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 0 1px oklch(1 0 0 /.04) inset, 0 12px 24px oklch(0 0 0 /.5);
+  }
+  .logo svg{ width: 78%; height:auto; }
+  .logo .ring{
+    position:absolute; inset:8px; border:1px dashed oklch(1 0 0 / .12); border-radius:8px;
+    pointer-events:none;
+  }
+
+  .nav-label{
+    font-size: 10px; letter-spacing:.22em; font-weight:600;
+    color: var(--dim); text-transform:uppercase;
+    padding: 0 6px; margin-top: 4px;
+  }
+  .nav{ display:flex; flex-direction:column; gap:4px; }
+  .nav a{
+    display:flex; align-items:center; gap:12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    color: transparent;
+    background: linear-gradient(180deg, #f5f6f8, #c2c6cc 55%, #efeff2);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 13.5px; font-weight: 600;
+    text-decoration:none;
+    border:1px solid transparent;
+    cursor:pointer;
+    transition: filter .15s, border-color .15s;
+    background-color: transparent;
+  }
+  .nav a > .ico, .nav a > span{ -webkit-text-fill-color: initial; }
+  .nav a:hover{
+    background-color: oklch(1 0 0 / .045);
+    filter: brightness(1.15);
+  }
+  .nav a.active{
+    background-color: oklch(0.66 0.22 25 / .14);
+    border-color: oklch(0.66 0.22 25 / .45);
+    box-shadow: inset 0 1px 0 oklch(1 0 0 /.08), 0 6px 18px oklch(0.66 0.22 25 / .18);
+    filter: drop-shadow(0 0 6px oklch(0.95 0 0 /.25));
+  }
+  .nav a.active .ico{ color: var(--red-soft); }
+  .nav .ico{
+    width: 18px; height:18px; flex:none;
+    color: var(--muted);
+  }
+  .nav a:hover .ico{ color: var(--ink); }
+
+  .side-foot{
+    margin-top:auto;
+    padding: 12px; border-radius: 12px;
+    background: oklch(1 0 0 / .04);
+    border: 1px solid var(--line);
+    display:flex; align-items:center; gap:10px;
+  }
+  .avatar{
+    width:34px; height:34px; border-radius:50%;
+    background: linear-gradient(135deg, oklch(0.66 0.22 25), oklch(0.45 0.18 25));
+    display:grid; place-items:center;
+    font-size: 12px; font-weight:700; letter-spacing:.05em;
+  }
+  .side-foot .who{ font-size:12.5px; font-weight:700; background: linear-gradient(180deg, #ffffff, #c2c6cc 55%, #f0f1f4); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .side-foot .role{ font-size: 10.5px; color: var(--dim); letter-spacing:.18em; text-transform: uppercase; }
+
+  /* content area */
+  .content{
+    overflow:auto;
+    padding-right: 4px;
+    display:flex; flex-direction:column; gap: 16px;
+    min-height: 0;
+  }
+  .content::-webkit-scrollbar{ width: 8px; }
+  .content::-webkit-scrollbar-thumb{ background: oklch(1 0 0 /.08); border-radius:8px; }
+
+  .page-head{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    padding: 4px 4px 0;
+  }
+  .page-head h1{
+    font-family: var(--display);
+    font-size: 42px; font-weight: 800;
+    letter-spacing: .16em; margin:0;
+  }
+  .page-head .sub{
+    color: var(--muted); font-size: 12.5px; margin-top: 4px;
+    text-transform: capitalize;
+  }
+  .head-tools{ display:flex; gap:8px; }
+  .chip{
+    display:inline-flex; align-items:center; gap:8px;
+    padding: 8px 12px; border-radius: 10px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    border: 1px solid var(--line);
+    color: var(--ink); font-size: 12px; font-weight: 500;
+    cursor:pointer;
+  }
+  .chip:hover{ background: var(--glass-2); }
+  .chip.primary{
+    background: linear-gradient(180deg, oklch(0.66 0.22 25 / .35), oklch(0.66 0.22 25 / .15));
+    border-color: oklch(0.66 0.22 25 / .55);
+    box-shadow: inset 0 1px 0 oklch(1 0 0 /.10), 0 8px 22px oklch(0.66 0.22 25 / .22);
+  }
+
+  /* glass card primitive */
+  .card{
+    position: relative;
+    border-radius: 18px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(30px) saturate(140%);
+    backdrop-filter: blur(30px) saturate(140%);
+    border: 1px solid var(--line);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / .09),
+      0 24px 60px oklch(0 0 0 /.45);
+    overflow: hidden;
+  }
+  .card::before{
+    /* top sheen */
+    content:""; position:absolute; left:0; right:0; top:0; height:1px;
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / .35), transparent);
+  }
+  .card::after{
+    /* faint bottom red rim — keeps brand DNA from previous UI */
+    content:""; position:absolute; left:14%; right:14%; bottom:-1px; height:1px;
+    background: linear-gradient(90deg, transparent, oklch(0.66 0.22 25 / .55), transparent);
+    opacity:.6;
+  }
+
+  /* KPI row */
+  .kpis{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .kpi{ padding: 18px 18px 16px; }
+  .kpi .row{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .kpi .label{
+    font-size: 10.5px; letter-spacing: .22em; font-weight:600;
+    color: var(--muted); text-transform: uppercase;
+    line-height: 1.4;
+  }
+  .kpi .value{
+    margin-top: 14px;
+    font-family: var(--display);
+    font-size: 34px; font-weight: 700; letter-spacing: -.01em;
+    background: linear-gradient(180deg, #ffffff 0%, #d8dce2 40%, #7e8088 60%, #cbd0d6 80%, #f6f7f9 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 4px oklch(0 0 0 /.5));
+  }
+  .kpi .value .unit{ font-size: 17px; color: var(--muted); margin-right: 2px; font-weight:600;}
+  .kpi .delta{
+    margin-top: 10px;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .kpi .delta b{ color: var(--green); font-weight:600; }
+  .kpi-icon{
+    width: 42px; height:42px; border-radius: 12px;
+    display:grid; place-items:center;
+    background: oklch(1 0 0 / .04);
+    border: 1px solid var(--line);
+  }
+  .kpi-icon.green{ color: var(--green); background: oklch(0.78 0.16 155 / .12); border-color: oklch(0.78 0.16 155 / .35);}
+  .kpi-icon.blue{  color: var(--blue);  background: oklch(0.74 0.13 250 / .14); border-color: oklch(0.74 0.13 250 / .35);}
+  .kpi-icon.cyan{  color: var(--cyan);  background: oklch(0.80 0.12 200 / .14); border-color: oklch(0.80 0.12 200 / .35);}
+  .kpi-icon.amber{ color: var(--amber); background: oklch(0.82 0.14 75 / .14);  border-color: oklch(0.82 0.14 75 / .40);}
+
+  /* sparkline */
+  .spark{ height: 28px; margin-top: 8px; width:100%; opacity:.85; }
+
+  /* row 2 */
+  .row-2{
+    display:grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 14px;
+  }
+
+  .card-head{
+    padding: 16px 18px 12px;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .card-head h3{
+    margin:0; font-size: 12px; letter-spacing: .22em; font-weight:700;
+    text-transform: uppercase;
+    background: linear-gradient(180deg, #ffffff, #c2c6cc 55%, #f0f1f3);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .card-head .meta{ color: var(--dim); font-size: 11.5px; }
+  .tabs{ display:flex; gap: 4px;}
+  .tabs button{
+    background: transparent; border:1px solid transparent;
+    color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing:.14em;
+    padding: 5px 10px; border-radius: 8px; cursor:pointer; text-transform: uppercase;
+  }
+  .tabs button.on{
+    color: var(--ink);
+    background: oklch(1 0 0 / .06); border-color: var(--line-strong);
+  }
+
+  /* table */
+  table{ width:100%; border-collapse: collapse; }
+  thead th{
+    text-align:left; font-size: 10.5px; letter-spacing:.18em; font-weight: 600;
+    color: var(--dim); text-transform: uppercase;
+    padding: 10px 18px; border-bottom: 1px solid var(--line);
+  }
+  tbody td{
+    padding: 12px 18px;
+    font-size: 13.5px;
+    border-bottom: 1px solid oklch(1 0 0 / .05);
+  }
+  tbody tr:last-child td{ border-bottom: none; }
+  tbody tr:hover td{ background: oklch(1 0 0 / .03); }
+  .client{ display:flex; align-items:center; gap:12px; font-weight: 500; }
+  .client .ic{
+    width:32px; height:32px; border-radius:50%;
+    display:grid; place-items:center;
+    font-size: 11px; font-weight:700; letter-spacing:.05em;
+    border:1px solid var(--line);
+  }
+  .ic.c1{ background: oklch(0.66 0.22 25 / .14); color: oklch(0.85 0.10 25); border-color: oklch(0.66 0.22 25 / .35);}
+  .ic.c2{ background: oklch(0.82 0.14 75 / .14); color: oklch(0.92 0.10 75); border-color: oklch(0.82 0.14 75 / .35);}
+  .ic.c3{ background: oklch(0.74 0.13 250 / .14); color: oklch(0.88 0.08 250); border-color: oklch(0.74 0.13 250 / .35);}
+  .ic.c4{ background: oklch(0.78 0.16 155 / .14); color: oklch(0.90 0.10 155); border-color: oklch(0.78 0.16 155 / .35);}
+  .ic.c5{ background: oklch(0.80 0.12 200 / .14); color: oklch(0.92 0.08 200); border-color: oklch(0.80 0.12 200 / .35);}
+  .plan{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size: 11.5px; font-weight: 600;
+    padding: 3px 9px; border-radius: 999px;
+    border:1px solid var(--line);
+    background: oklch(1 0 0 / .04);
+    color: var(--muted);
+  }
+  .plan.premium{ color: oklch(0.92 0.10 75); background: oklch(0.82 0.14 75 / .10); border-color: oklch(0.82 0.14 75 / .35);}
+  .plan.anual  { color: oklch(0.88 0.08 250); background: oklch(0.74 0.13 250 / .10); border-color: oklch(0.74 0.13 250 / .35);}
+  .plan.basico { color: oklch(0.90 0.06 250 /.85); background: oklch(1 0 0 / .04); }
+  .hora{ font-variant-numeric: tabular-nums; color: var(--muted); }
+
+  /* alerts */
+  .alerts{ padding: 8px 0; }
+  .alert{
+    display:grid; grid-template-columns: auto 1fr auto; align-items:center; gap:12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid oklch(1 0 0 / .05);
+  }
+  .alert:last-child{ border-bottom: none; }
+  .alert .name{ font-size: 13.5px; font-weight: 600; }
+  .alert .plan-line{ font-size: 11px; color: var(--muted); margin-top: 2px;}
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; letter-spacing:.10em;
+    text-transform: uppercase;
+  }
+  .pill .dot{ width: 6px; height:6px; border-radius:50%; background: currentColor;}
+  .pill.danger { color: oklch(0.85 0.18 25); background: oklch(0.66 0.22 25 / .18); border:1px solid oklch(0.66 0.22 25 / .45);}
+  .pill.warn   { color: oklch(0.92 0.14 75); background: oklch(0.82 0.14 75 / .15); border:1px solid oklch(0.82 0.14 75 / .40);}
+  .pill.ok     { color: oklch(0.90 0.10 155); background: oklch(0.78 0.16 155 / .15); border:1px solid oklch(0.78 0.16 155 / .35);}
+
+  /* chart row */
+  .chartcard{ padding-bottom: 8px; }
+  .chart-wrap{ padding: 12px 12px 16px; }
+  .chart{ width:100%; height: 220px; }
+  .legend{ display:flex; gap:18px; padding: 0 18px 4px; color: var(--muted); font-size: 11.5px; }
+  .legend .k{ display:inline-flex; align-items:center; gap:8px;}
+  .legend .sw{ width:10px; height:10px; border-radius:3px; }
+
+  /* utility */
+  .icon{ width:20px; height:20px; stroke-width: 1.7; }
+  .ghost-btn{
+    width: 28px; height:28px; border-radius:8px;
+    display:grid; place-items:center;
+    background: oklch(1 0 0 / .04);
+    border:1px solid var(--line);
+    color: var(--muted); cursor:pointer;
+  }
+  .ghost-btn:hover{ color: var(--ink); background: oklch(1 0 0 / .07); }
+
+  /* responsive: collapse */
+  @media (max-width: 1180px){
+    .row-2{ grid-template-columns: 1fr; }
+    .kpis{ grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 860px){
+    .main{ grid-template-columns: 1fr; }
+    .sidebar{ display:none; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+  <div class="room" aria-hidden="true">
+    <div class="lamp-l"></div>
+    <div class="lamp-r"></div>
+    <div class="mon-l"></div>
+    <div class="mon-r"></div>
+    <div class="plant"></div>
+    <div class="desk"></div>
+  </div>
+
+  <div class="app" data-screen-label="Dashboard">
+
+    <!-- TITLE BAR -->
+    <header class="titlebar">
+      <div class="brand">
+        <img src="f76e2693-63f4-4b7a-b245-da2524fc728e" alt="Urban Fitness Club">
+        <span class="silver">URBAN FITNESS&nbsp;CLUB</span>
+      </div>
+      <div class="spacer"></div>
+      <button class="session" id="logoutBtn">
+        <svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path></svg>
+        Admin · Cerrar Sesión
+      </button>
+    </header>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="nav-label" style="margin-top:0">Operaciones</div>
+        <nav class="nav" id="navOps">
+          <a data-page="ingreso">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path><path d="m17 4 3 3-3 3"></path></svg>
+            Registro Ingreso
+          </a>
+          <a data-page="alertas">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10 21a2 2 0 0 0 4 0"></path></svg>
+            Alertas
+            <span style="margin-left:auto; font-size:10px; padding:2px 8px; border-radius:999px; background: oklch(0.66 0.22 25 / .25); color: oklch(0.92 0.08 25); border:1px solid oklch(0.66 0.22 25 / .4); letter-spacing:.06em; font-weight:700;">4</span>
+          </a>
+        </nav>
+
+        <div class="nav-label">Administración</div>
+        <nav class="nav" id="navAdmin">
+          <a data-page="dashboard" class="active">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>
+            Dashboard
+          </a>
+          <a data-page="clientes">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.6"></circle><path d="M14.5 18.5A4.5 4.5 0 0 1 21 18"></path></svg>
+            Clientes
+          </a>
+          <a data-page="membresias">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 10h18"></path><path d="M7 15h4"></path></svg>
+            Membresías
+          </a>
+          <a data-page="asistencia">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M8 3v4M16 3v4"></path><path d="m9 15 2 2 4-4"></path></svg>
+            Asistencia
+          </a>
+          <a data-page="ingresos">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 17l6-6 4 4 8-8"></path><path d="M14 7h7v7"></path></svg>
+            Ingresos
+          </a>
+          <a data-page="config">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
+            Configuración
+          </a>
+        </nav>
+
+        <div class="side-foot">
+          <div class="avatar">AD</div>
+          <div>
+            <div class="who">Admin Principal</div>
+            <div class="role">Sesión Activa</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CONTENT -->
+      <section class="content">
+
+        <div class="page-head">
+          <div>
+            <h1 class="silver">DASHBOARD</h1>
+            <div class="sub" id="dateLine">Sábado, 4 De Abril · 22:58</div>
+          </div>
+          <div class="head-tools">
+            <button class="chip">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M8 3v4M16 3v4"></path></svg>
+              Hoy · Sáb 4 Abr
+            </button>
+            <button class="chip">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg>
+              Exportar
+            </button>
+            <button class="chip primary">
+              <svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+              Nuevo Ingreso
+            </button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpis">
+          <div class="card kpi">
+            <div class="row">
+              <div class="kpi-icon green" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2v20"></path><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              </div>
+              <div class="label">Ingresos<br>Del Mes</div>
+            </div>
+            <div class="value"><span class="unit">Bs.</span>1 300</div>
+            <svg class="spark" viewBox="0 0 200 30" preserveAspectRatio="none">
+              <polyline fill="none" stroke="oklch(0.78 0.16 155)" stroke-width="1.5" points="0,22 18,18 36,21 54,15 72,17 90,11 108,14 126,9 144,12 162,7 180,9 200,4"></polyline>
+              <polyline fill="oklch(0.78 0.16 155 / .12)" stroke="none" points="0,22 18,18 36,21 54,15 72,17 90,11 108,14 126,9 144,12 162,7 180,9 200,4 200,30 0,30"></polyline>
+            </svg>
+            <div class="delta"><b>+18.4%</b> vs. marzo</div>
+          </div>
+
+          <div class="card kpi">
+            <div class="row">
+              <div class="kpi-icon blue" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><circle cx="17" cy="9" r="2.6"></circle><path d="M14.5 18.5A4.5 4.5 0 0 1 21 18"></path></svg>
+              </div>
+              <div class="label">Clientes<br>Activos</div>
+            </div>
+            <div class="value">9</div>
+            <svg class="spark" viewBox="0 0 200 30" preserveAspectRatio="none">
+              <polyline fill="none" stroke="oklch(0.74 0.13 250)" stroke-width="1.5" points="0,18 22,20 44,17 66,18 88,15 110,16 132,13 154,15 176,12 200,11"></polyline>
+            </svg>
+            <div class="delta"><b style="color:var(--blue)">+2</b> esta semana</div>
+          </div>
+
+          <div class="card kpi">
+            <div class="row">
+              <div class="kpi-icon cyan" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 21a7 7 0 0 1 14 0"></path><path d="m16 4 2 2 4-4"></path></svg>
+              </div>
+              <div class="label">Asistencias<br>Hoy</div>
+            </div>
+            <div class="value">8</div>
+            <svg class="spark" viewBox="0 0 200 30" preserveAspectRatio="none">
+              <g fill="oklch(0.80 0.12 200 / .55)">
+                <rect x="6" y="14" width="8" height="14" rx="1"></rect>
+                <rect x="22" y="10" width="8" height="18" rx="1"></rect>
+                <rect x="38" y="16" width="8" height="12" rx="1"></rect>
+                <rect x="54" y="6" width="8" height="22" rx="1"></rect>
+                <rect x="70" y="11" width="8" height="17" rx="1"></rect>
+                <rect x="86" y="8" width="8" height="20" rx="1"></rect>
+                <rect x="102" y="13" width="8" height="15" rx="1"></rect>
+                <rect x="118" y="5" width="8" height="23" rx="1"></rect>
+                <rect x="134" y="9" width="8" height="19" rx="1"></rect>
+                <rect x="150" y="12" width="8" height="16" rx="1"></rect>
+                <rect x="166" y="6" width="8" height="22" rx="1"></rect>
+                <rect x="182" y="3" width="8" height="25" rx="1" fill="oklch(0.80 0.12 200)"></rect>
+              </g>
+            </svg>
+            <div class="delta"><b style="color:var(--cyan)">Pico 19h–21h</b></div>
+          </div>
+
+          <div class="card kpi">
+            <div class="row">
+              <div class="kpi-icon amber" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10 21a2 2 0 0 0 4 0"></path></svg>
+              </div>
+              <div class="label">Por<br>Vencer</div>
+            </div>
+            <div class="value">4</div>
+            <svg class="spark" viewBox="0 0 200 30" preserveAspectRatio="none">
+              <line x1="0" x2="200" y1="22" y2="22" stroke="oklch(1 0 0 /.06)" stroke-dasharray="2 4"></line>
+              <circle cx="40" cy="16" r="3" fill="oklch(0.66 0.22 25)"></circle>
+              <circle cx="80" cy="14" r="3" fill="oklch(0.82 0.14 75)"></circle>
+              <circle cx="120" cy="10" r="3" fill="oklch(0.82 0.14 75)"></circle>
+              <circle cx="160" cy="6" r="3" fill="oklch(0.82 0.14 75)"></circle>
+            </svg>
+            <div class="delta"><b style="color: oklch(0.85 0.18 25)">2 vencen hoy</b> · próximos 5 días</div>
+          </div>
+        </div>
+
+        <!-- ROW 2: TABLE + ALERTS -->
+        <div class="row-2">
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Últimas Asistencias</h3>
+              <div class="tabs">
+                <button class="on">Hoy</button>
+                <button>Semana</button>
+                <button>Mes</button>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:50%">Cliente</th>
+                  <th>Plan</th>
+                  <th>Hora</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div class="client">
+                      <div class="ic c1">JP</div>
+                      <div>
+                        <div>Juan Pérez Mamani</div>
+                        <div style="font-size:11px;color:var(--dim)">ID 0142 · Ingreso por torno</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="plan premium">Premium</span></td>
+                  <td class="hora">22:58</td>
+                  <td><button class="ghost-btn" aria-label="Ver"><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></button></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="client">
+                      <div class="ic c2">FC</div>
+                      <div>
+                        <div>Fernando Choque Limachi</div>
+                        <div style="font-size:11px;color:var(--dim)">ID 0089 · Renovó ayer</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="plan anual">Anual</span></td>
+                  <td class="hora">20:46</td>
+                  <td><button class="ghost-btn"><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></button></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="client">
+                      <div class="ic c3">AT</div>
+                      <div>
+                        <div>Ana Torrez López</div>
+                        <div style="font-size:11px;color: oklch(0.85 0.18 25)">⚠ vence hoy</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="plan basico">Básico</span></td>
+                  <td class="hora">18:53</td>
+                  <td><button class="ghost-btn"><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></button></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="client">
+                      <div class="ic c4">DM</div>
+                      <div>
+                        <div>Diego Morales Quispe</div>
+                        <div style="font-size:11px;color:var(--dim)">ID 0117 · Visita 23 del mes</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="plan premium">Premium</span></td>
+                  <td class="hora">15:58</td>
+                  <td><button class="ghost-btn"><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></button></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="client">
+                      <div class="ic c5">VS</div>
+                      <div>
+                        <div>Valeria Soria Blanco</div>
+                        <div style="font-size:11px;color:var(--dim)">ID 0156 · Pase invitado</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="plan basico">Estándar</span></td>
+                  <td class="hora">12:24</td>
+                  <td><button class="ghost-btn"><svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Alertas Críticas</h3>
+              <div class="meta">4 pendientes</div>
+            </div>
+            <div class="alerts">
+              <div class="alert">
+                <div class="ic c1" style="width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px">AT</div>
+                <div>
+                  <div class="name">Ana Torrez López</div>
+                  <div class="plan-line">Plan Básico · vence hoy</div>
+                </div>
+                <span class="pill danger"><span class="dot"></span>0 D Restantes</span>
+              </div>
+              <div class="alert">
+                <div class="ic c5" style="width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px">CQ</div>
+                <div>
+                  <div class="name">Carlos Quispe Huanca</div>
+                  <div class="plan-line">Plan Estándar · vence mañana</div>
+                </div>
+                <span class="pill danger"><span class="dot"></span>1 D Restante</span>
+              </div>
+              <div class="alert">
+                <div class="ic c3" style="width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px">VS</div>
+                <div>
+                  <div class="name">Valeria Soria Blanco</div>
+                  <div class="plan-line">Plan Estándar</div>
+                </div>
+                <span class="pill warn"><span class="dot"></span>2 D Restantes</span>
+              </div>
+              <div class="alert">
+                <div class="ic c2" style="width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12px">RV</div>
+                <div>
+                  <div class="name">Roberto Vargas Chura</div>
+                  <div class="plan-line">Plan Premium</div>
+                </div>
+                <span class="pill warn"><span class="dot"></span>3 D Restantes</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- INGRESOS POR MES -->
+        <div class="card chartcard">
+          <div class="card-head">
+            <h3>Ingresos Por Mes</h3>
+            <div class="tabs">
+              <button>3 M</button>
+              <button class="on">6 M</button>
+              <button>12 M</button>
+            </div>
+          </div>
+          <div class="legend">
+            <span class="k"><span class="sw" style="background:linear-gradient(180deg, oklch(0.66 0.22 25), oklch(0.45 0.18 25))"></span> Ingresos</span>
+            <span class="k"><span class="sw" style="background: oklch(0.78 0.16 155 / .55); border:1px dashed oklch(0.78 0.16 155 /.7); border-radius:0"></span> Meta</span>
+            <span class="k" style="margin-left:auto; font-variant-numeric: tabular-nums;">Bs. <b style="color:var(--ink)">7 420</b> acumulado · meta Bs. 8 000</span>
+          </div>
+          <div class="chart-wrap">
+            <svg class="chart" viewBox="0 0 720 220" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="bar" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stop-color="oklch(0.72 0.20 25)" stop-opacity=".9"></stop>
+                  <stop offset="1" stop-color="oklch(0.45 0.18 25)" stop-opacity=".4"></stop>
+                </linearGradient>
+              </defs>
+              <!-- gridlines -->
+              <g stroke="oklch(1 0 0 /.06)" stroke-dasharray="2 4">
+                <line x1="40" x2="700" y1="40" y2="40"></line>
+                <line x1="40" x2="700" y1="90" y2="90"></line>
+                <line x1="40" x2="700" y1="140" y2="140"></line>
+                <line x1="40" x2="700" y1="190" y2="190"></line>
+              </g>
+              <!-- y labels -->
+              <g fill="oklch(1 0 0 /.4)" font-size="10" font-family="Inter">
+                <text x="34" y="44" text-anchor="end">2k</text>
+                <text x="34" y="94" text-anchor="end">1.5k</text>
+                <text x="34" y="144" text-anchor="end">1k</text>
+                <text x="34" y="194" text-anchor="end">.5k</text>
+              </g>
+              <!-- meta line -->
+              <line x1="40" x2="700" y1="55" y2="55" stroke="oklch(0.78 0.16 155 / .8)" stroke-dasharray="4 4"></line>
+              <!-- bars (Nov, Dic, Ene, Feb, Mar, Abr) -->
+              <g>
+                <rect x="80" y="120" width="60" height="70" rx="6" fill="url(#bar)" opacity=".55"></rect>
+                <rect x="190" y="100" width="60" height="90" rx="6" fill="url(#bar)" opacity=".65"></rect>
+                <rect x="300" y="85" width="60" height="105" rx="6" fill="url(#bar)" opacity=".75"></rect>
+                <rect x="410" y="70" width="60" height="120" rx="6" fill="url(#bar)" opacity=".85"></rect>
+                <rect x="520" y="60" width="60" height="130" rx="6" fill="url(#bar)" opacity=".92"></rect>
+                <rect x="630" y="48" width="60" height="142" rx="6" fill="url(#bar)"></rect>
+                <!-- highlight glow on last bar -->
+                <rect x="630" y="48" width="60" height="142" rx="6" fill="none" stroke="oklch(0.85 0.18 25 /.7)" stroke-width="1"></rect>
+              </g>
+              <!-- value labels -->
+              <g fill="oklch(1 0 0 /.85)" font-size="11" font-family="Inter" font-weight="600" text-anchor="middle">
+                <text x="110" y="115">820</text>
+                <text x="220" y="95">1 010</text>
+                <text x="330" y="80">1 180</text>
+                <text x="440" y="65">1 320</text>
+                <text x="550" y="55">1 410</text>
+                <text x="660" y="43" fill="oklch(0.92 0.10 25)">1 300</text>
+              </g>
+              <!-- x labels -->
+              <g fill="oklch(1 0 0 /.55)" font-size="10.5" font-family="Inter" text-anchor="middle" letter-spacing="2">
+                <text x="110" y="210">NOV</text>
+                <text x="220" y="210">DIC</text>
+                <text x="330" y="210">ENE</text>
+                <text x="440" y="210">FEB</text>
+                <text x="550" y="210">MAR</text>
+                <text x="660" y="210" fill="oklch(0.92 0.10 25)">ABR</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </div>
+
+<script>
+  // sidebar nav (purely visual — single page)
+  document.querySelectorAll('.nav a').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.nav a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+
+  // tabs
+  document.querySelectorAll('.tabs').forEach(group => {
+    group.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        group.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+      });
+    });
+  });
+
+  // logout pulse
+  document.getElementById('logoutBtn').addEventListener('click', e => {
+    e.preventDefault();
+    const t = e.currentTarget;
+    t.style.transform = 'scale(.96)';
+    setTimeout(() => t.style.transform = '', 140);
+  });
+</script>
+
+
+</body></html>

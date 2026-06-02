@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1a2e"/>
+      <stop offset="100%" stop-color="#0e4a5e"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#g)"/>
+  <!-- shirt silhouette -->
+  <path d="M66 58 L44 80 L60 88 L60 148 L140 148 L140 88 L156 80 L134 58 Q118 70 100 70 Q82 70 66 58 Z" fill="#0891b2" opacity="0.75"/>
+  <!-- collar -->
+  <path d="M88 60 Q100 72 112 60 Q104 54 100 52 Q96 54 88 60 Z" fill="#06b6d4" opacity="0.5"/>
+  <!-- shoulder seam lines -->
+  <line x1="60" y1="88" x2="60" y2="148" stroke="#22d3ee" stroke-width="1.5" opacity="0.2"/>
+  <line x1="140" y1="88" x2="140" y2="148" stroke="#22d3ee" stroke-width="1.5" opacity="0.2"/>
+  <!-- chest stripe -->
+  <rect x="72" y="100" width="56" height="8" rx="3" fill="#67e8f9" opacity="0.2"/>
+  <!-- bottom hem -->
+  <rect x="60" y="140" width="80" height="8" rx="4" fill="#0e7490" opacity="0.6"/>
+  <text x="100" y="174" text-anchor="middle" fill="#67e8f9" font-size="11" font-family="system-ui,sans-serif" font-weight="700" letter-spacing="1.5">ROPA</text>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c0a00"/>
+      <stop offset="100%" stop-color="#7c2d12"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#g)"/>
+  <!-- dumbbell bar -->
+  <rect x="56" y="96" width="88" height="8" rx="4" fill="#ea580c" opacity="0.9"/>
+  <!-- left weight plate outer -->
+  <rect x="46" y="74" width="22" height="52" rx="8" fill="#c2410c" opacity="0.85"/>
+  <!-- left weight plate inner -->
+  <rect x="52" y="82" width="10" height="36" rx="4" fill="#fb923c" opacity="0.5"/>
+  <!-- right weight plate outer -->
+  <rect x="132" y="74" width="22" height="52" rx="8" fill="#c2410c" opacity="0.85"/>
+  <!-- right weight plate inner -->
+  <rect x="138" y="82" width="10" height="36" rx="4" fill="#fb923c" opacity="0.5"/>
+  <!-- center knurl lines -->
+  <rect x="88" y="93" width="4" height="14" rx="1" fill="#fed7aa" opacity="0.4"/>
+  <rect x="96" y="93" width="4" height="14" rx="1" fill="#fed7aa" opacity="0.4"/>
+  <rect x="104" y="93" width="4" height="14" rx="1" fill="#fed7aa" opacity="0.4"/>
+  <text x="100" y="162" text-anchor="middle" fill="#fb923c" font-size="10" font-family="system-ui,sans-serif" font-weight="700" letter-spacing="1.5">ACCESORIOS</text>
+</svg>

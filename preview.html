@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Urban Fitness Club — Preview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red:      oklch(0.66 0.22 25);
+  --red-soft: oklch(0.70 0.18 25);
+  --green:    oklch(0.78 0.16 155);
+  --blue:     oklch(0.74 0.13 250);
+  --amber:    oklch(0.82 0.14 75);
+  --ink:      oklch(0.98 0.01 250);
+  --muted:    oklch(0.78 0.02 250 / .72);
+  --dim:      oklch(0.78 0.02 250 / .42);
+  --line:     oklch(1 0 0 / .10);
+  --glass:    oklch(1 0 0 / .055);
+  --glass-2:  oklch(1 0 0 / .085);
+  --display:  'Oxanium', sans-serif;
+  --body:     'Inter', system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: var(--body); color: var(--ink); overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+/* ─── BACKGROUND ─── */
+.bg {
+  position: fixed; inset: 0; z-index: 0;
+  background: url('public/logo.jpg') center/cover no-repeat, #060709;
+}
+.bg::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 50%, oklch(0 0 0 / .73), oklch(0 0 0 / .89) 70%);
+  backdrop-filter: blur(3px);
+}
+.bg::after {
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 55% 40% at 15% 0%, oklch(0.66 0.22 25 / .13), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 85% 100%, oklch(0.55 0.18 25 / .08), transparent 55%);
+  pointer-events: none;
+}
+
+/* ─── SHELL ─── */
+.app {
+  position: fixed; inset: 0; z-index: 1;
+  display: grid;
+  grid-template-rows: 44px 1fr;
+  padding: 14px; gap: 14px;
+}
+
+/* ─── TITLEBAR ─── */
+.titlebar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 16px; border-radius: 14px;
+  background: var(--glass);
+  backdrop-filter: blur(28px) saturate(140%);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / .08), 0 1px 0 oklch(0 0 0 / .4);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand img {
+  width: 30px; height: 30px; border-radius: 7px;
+  object-fit: cover; object-position: center 30%;
+  border: 1px solid oklch(0.66 0.22 25 / .4);
+  filter: drop-shadow(0 2px 6px oklch(0 0 0 /.6));
+}
+.brand-name {
+  font-family: var(--display); font-weight: 800; font-size: 13px; letter-spacing: .16em;
+  background: linear-gradient(180deg, #fff 0%, #f4f5f7 12%, #d3d6dc 32%, #8a8c93 52%, #4a4c52 58%, #b9bdc4 70%, #f0f1f4 88%, #fff 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  background-size: 200% 100%; animation: shimmer 6s linear infinite;
+}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.admin-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px; border-radius: 999px;
+  border: 1px solid oklch(0.66 0.22 25 / .55);
+  background: linear-gradient(180deg, oklch(0.66 0.22 25 / .22), oklch(0.66 0.22 25 / .08));
+  color: oklch(0.92 0.07 25); font-size: 11px; letter-spacing: .14em; font-weight: 600; text-transform: uppercase;
+}
+.spacer { flex: 1; }
+.winctrl { display: flex; gap: 8px; }
+.winbtn {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid oklch(1 0 0 / .15); cursor: pointer;
+}
+.winbtn.min { background: oklch(0.82 0.14 75 / .7); }
+.winbtn.max { background: oklch(0.74 0.13 250 / .7); }
+.winbtn.cls { background: oklch(0.66 0.22 25 / .8); border-color: oklch(0.66 0.22 25 / .5); }
+
+/* ─── MAIN GRID ─── */
+.main { display: grid; grid-template-columns: 248px 1fr; gap: 14px; min-height: 0; }
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  display: flex; flex-direction: column; gap: 10px; padding: 14px;
+  border-radius: 18px;
+  background: var(--glass);
+  backdrop-filter: blur(28px) saturate(140%);
+  border: 1px solid var(--line);
+  position: relative; overflow: hidden;
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / .08), 0 30px 60px oklch(0 0 0 /.4);
+}
+.sidebar::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit;
+  background: linear-gradient(180deg, oklch(1 0 0 /.16), oklch(1 0 0 /.02) 40%, oklch(1 0 0 /.0));
+  pointer-events: none; mix-blend-mode: screen; opacity: .6;
+}
+.logo-box {
+  position: relative; height: 116px; border-radius: 12px; overflow: hidden;
+  border: 1px solid oklch(0.66 0.22 25 / .40);
+  box-shadow: 0 0 28px oklch(0.66 0.22 25 / .18), inset 0 0 0 1px oklch(1 0 0 /.04);
+  flex-shrink: 0;
+}
+.logo-box img { width: 100%; height: 100%; object-fit: cover; object-position: center; opacity: .93; }
+.logo-box .ring {
+  position: absolute; inset: 7px; border: 1px dashed oklch(1 0 0 / .12);
+  border-radius: 8px; pointer-events: none;
+}
+.nav-section {
+  font-size: 10px; letter-spacing: .22em; font-weight: 600;
+  color: var(--dim); text-transform: uppercase; padding: 6px 6px 2px; margin-top: 2px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px; border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+  border: 1px solid transparent; cursor: pointer;
+  background: linear-gradient(180deg, #f5f6f8, #c2c6cc 55%, #efeff2);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  background-color: transparent;
+  transition: filter .15s, border-color .15s, background-color .15s;
+}
+.nav-item .ico { flex-shrink: 0; -webkit-text-fill-color: initial; color: var(--dim); font-size: 15px; }
+.nav-item:hover { background-color: oklch(1 0 0 / .045); filter: brightness(1.15); }
+.nav-item.active {
+  background-color: oklch(0.66 0.22 25 / .14);
+  border-color: oklch(0.66 0.22 25 / .45);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 /.08), 0 6px 18px oklch(0.66 0.22 25 / .18);
+  filter: drop-shadow(0 0 6px oklch(0.95 0 0 /.25));
+}
+.nav-item.active .ico { color: oklch(0.70 0.18 25) !important; }
+.side-foot {
+  margin-top: auto; padding: 11px; border-radius: 12px;
+  background: oklch(1 0 0 / .04); border: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, oklch(0.66 0.22 25), oklch(0.45 0.18 25));
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0;
+}
+
+/* ─── CONTENT ─── */
+.content { overflow-y: auto; overflow-x: hidden; padding: 2px 0; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.content::-webkit-scrollbar { width: 6px; }
+.content::-webkit-scrollbar-thumb { background: oklch(1 0 0 /.08); border-radius: 8px; }
+
+/* ─── PAGE HEADER ─── */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; padding: 2px 2px 0; }
+.page-title {
+  font-family: var(--display); font-size: 30px; font-weight: 800; letter-spacing: .12em;
+  background: linear-gradient(180deg, #fff 0%, #d3d6dc 32%, #8a8c93 55%, #b9bdc4 75%, #f0f1f4 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.page-sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: linear-gradient(180deg, oklch(0.66 0.22 25 / .35), oklch(0.66 0.22 25 / .15));
+  border: 1px solid oklch(0.66 0.22 25 / .55);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 /.10), 0 8px 22px oklch(0.66 0.22 25 / .22);
+  color: oklch(0.95 0.06 25);
+  border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--glass); backdrop-filter: blur(20px);
+  border: 1px solid var(--line);
+  color: var(--ink); border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+}
+
+/* ─── CARD ─── */
+.card {
+  position: relative; border-radius: 18px;
+  background: var(--glass);
+  backdrop-filter: blur(30px) saturate(140%);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / .09), 0 24px 60px oklch(0 0 0 /.45);
+  overflow: hidden;
+}
+.card::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / .35), transparent); pointer-events: none;
+}
+.card::after {
+  content: ""; position: absolute; left: 14%; right: 14%; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(0.66 0.22 25 / .55), transparent); opacity: .6; pointer-events: none;
+}
+.card-p { padding: 18px 20px; }
+
+/* ─── KPI GRID ─── */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.kpi .row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.kpi .label { font-size: 10.5px; letter-spacing: .22em; font-weight: 600; color: var(--muted); text-transform: uppercase; }
+.kpi .value {
+  margin-top: 14px; font-family: var(--display); font-size: 32px; font-weight: 700;
+  background: linear-gradient(180deg, #fff 0%, #d8dce2 40%, #7e8088 60%, #cbd0d6 80%, #f6f7f9 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 4px oklch(0 0 0 /.5));
+}
+.kpi .value.sm { font-size: 22px; }
+.kpi .delta { margin-top: 8px; font-size: 11px; color: var(--muted); }
+.kpi .delta b { color: var(--green); font-weight: 600; }
+.kpi-icon {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: grid; place-items: center;
+  font-size: 20px;
+}
+
+/* ─── TABLE ─── */
+.table-label { font-size: 10.5px; letter-spacing: .22em; font-weight: 600; color: var(--dim); text-transform: uppercase; padding: 16px 20px 10px; }
+table { width: 100%; border-collapse: collapse; }
+th { background: oklch(1 0 0 / .03); color: var(--dim); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .18em; padding: 9px 16px; text-align: left; border-bottom: 1px solid var(--line); }
+td { padding: 11px 16px; border-bottom: 1px solid oklch(1 0 0 / .05); font-size: 13px; color: var(--muted); vertical-align: middle; }
+tr:hover td { background: oklch(1 0 0 / .03); }
+tr:last-child td { border-bottom: none; }
+
+/* ─── BADGES ─── */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.bg { background: oklch(0.78 0.16 155 / .14); color: oklch(0.78 0.16 155); border: 1px solid oklch(0.78 0.16 155 / .35); }
+.by { background: oklch(0.82 0.14 75 / .14);  color: oklch(0.82 0.14 75);  border: 1px solid oklch(0.82 0.14 75 / .4); }
+.br { background: oklch(0.66 0.22 25 / .14);  color: oklch(0.75 0.18 25);  border: 1px solid oklch(0.66 0.22 25 / .35); }
+.bb { background: oklch(0.74 0.13 250 / .14); color: oklch(0.74 0.13 250); border: 1px solid oklch(0.74 0.13 250 / .35); }
+
+/* ─── TABS ─── */
+.tabs-bar { display: flex; gap: 3px; background: oklch(1 0 0 / .03); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 20px; }
+.tab { padding: 7px 14px; border-radius: 9px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid transparent; background: transparent; color: var(--dim); }
+.tab.active { background: oklch(0.66 0.22 25 / .18); border-color: oklch(0.66 0.22 25 / .4); color: oklch(0.85 0.12 25); }
+
+/* ─── FORM ─── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.gym-label { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .18em; display: block; margin-bottom: 6px; }
+.gym-input {
+  background: oklch(1 0 0 / .04); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); padding: 9px 14px; font-size: 13px; font-family: var(--body); width: 100%; outline: none;
+}
+.gym-input:focus { border-color: oklch(0.66 0.22 25 / .6); box-shadow: 0 0 0 3px oklch(0.66 0.22 25 / .12); }
+
+/* ─── CHARTS (fake sparkline) ─── */
+.sparkline { display: flex; align-items: flex-end; gap: 3px; height: 40px; }
+.bar-wrap { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.bar { border-radius: 3px 3px 0 0; transition: height .3s; }
+
+/* ─── SCROLL ─── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: oklch(1 0 0 /.1); border-radius: 8px; }
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+
+<div class="app">
+  <!-- TITLEBAR -->
+  <div class="titlebar">
+    <div class="brand">
+      <img src="public/logo.jpg" alt="Logo" />
+      <span class="brand-name">URBAN FITNESS CLUB</span>
+    </div>
+    <div class="admin-pill">
+      <span style="width:6px;height:6px;border-radius:50%;background:oklch(0.78 0.16 155);display:inline-block"></span>
+      ADMIN · CERRAR SESIÓN
+    </div>
+    <div class="spacer"></div>
+    <div class="winctrl">
+      <div class="winbtn min"></div>
+      <div class="winbtn max"></div>
+      <div class="winbtn cls"></div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="logo-box">
+        <div class="ring"></div>
+        <img src="public/logo.jpg" alt="Urban Fitness Club" />
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <div class="nav-section">Operaciones</div>
+        <div class="nav-item">
+          <span class="ico">⬡</span> Control Acceso
+        </div>
+        <div class="nav-item">
+          <span class="ico">◎</span> Alertas
+        </div>
+
+        <div class="nav-section">Administración</div>
+        <div class="nav-item active">
+          <span class="ico">▦</span> Dashboard
+        </div>
+        <div class="nav-item">
+          <span class="ico">◈</span> Clientes
+        </div>
+        <div class="nav-item">
+          <span class="ico">◉</span> Membresías
+        </div>
+        <div class="nav-item">
+          <span class="ico">◎</span> Asistencias
+        </div>
+        <div class="nav-item">
+          <span class="ico">◈</span> Ingresos
+        </div>
+
+        <div class="nav-section">Facturación SFE</div>
+        <div class="nav-item">
+          <span class="ico">◈</span> Emitir Factura
+        </div>
+        <div class="nav-item">
+          <span class="ico">◉</span> Historial
+        </div>
+        <div class="nav-item">
+          <span class="ico">⬡</span> Configurar SFE
+        </div>
+
+        <div class="nav-section">Sistema</div>
+        <div class="nav-item">
+          <span class="ico">⚙</span> Configuración
+        </div>
+      </div>
+
+      <div class="side-foot">
+        <div class="avatar">AD</div>
+        <div>
+          <div style="font-size:12.5px;font-weight:700;background:linear-gradient(180deg,#fff,#c2c6cc 55%,#f0f1f4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">Administrador</div>
+          <div style="font-size:10px;color:oklch(0.78 0.02 250 / .42);letter-spacing:.18em;text-transform:uppercase">Admin</div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- CONTENT: Dashboard -->
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub">Resumen operativo del gimnasio</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-secondary">📅 Mayo 2025</button>
+          <button class="btn-primary">+ Nueva Membresía</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpis">
+        <div class="card card-p kpi">
+          <div class="row">
+            <div class="label">Clientes Activos</div>
+            <div class="kpi-icon" style="background:oklch(0.74 0.13 250 / .14);border:1px solid oklch(0.74 0.13 250 / .35);color:oklch(0.74 0.13 250)">👥</div>
+          </div>
+          <div class="value">148</div>
+          <div class="delta"><b>+12</b> vs mes anterior</div>
+        </div>
+        <div class="card card-p kpi">
+          <div class="row">
+            <div class="label">Membresías Activas</div>
+            <div class="kpi-icon" style="background:oklch(0.78 0.16 155 / .14);border:1px solid oklch(0.78 0.16 155 / .35);color:oklch(0.78 0.16 155)">💳</div>
+          </div>
+          <div class="value">112</div>
+          <div class="delta"><b>+8</b> renovadas esta semana</div>
+        </div>
+        <div class="card card-p kpi">
+          <div class="row">
+            <div class="label">Asistencias Hoy</div>
+            <div class="kpi-icon" style="background:oklch(0.66 0.22 25 / .14);border:1px solid oklch(0.66 0.22 25 / .35);color:oklch(0.70 0.18 25)">⚡</div>
+          </div>
+          <div class="value">34</div>
+          <div class="delta">Pico: <b>10:00 – 12:00 hs</b></div>
+        </div>
+        <div class="card card-p kpi">
+          <div class="row">
+            <div class="label">Ingresos del Mes</div>
+            <div class="kpi-icon" style="background:oklch(0.82 0.14 75 / .14);border:1px solid oklch(0.82 0.14 75 / .4);color:oklch(0.82 0.14 75)">💰</div>
+          </div>
+          <div class="value sm">Bs. 18,450</div>
+          <div class="delta"><b>+22%</b> vs abril</div>
+        </div>
+      </div>
+
+      <!-- Tabla clientes + alertas -->
+      <div style="display:grid;grid-template-columns:1fr 380px;gap:14px">
+        <!-- Clientes recientes -->
+        <div class="card">
+          <div class="table-label">Clientes Recientes</div>
+          <table>
+            <thead><tr><th>Nombre</th><th>Membresía</th><th>Vence</th><th>Estado</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style="color:oklch(0.98 0.01 250);font-weight:600">Carlos Mamani</td>
+                <td>Plan Mensual</td>
+                <td>15 Jun 2025</td>
+                <td><span class="badge bg">Activa</span></td>
+              </tr>
+              <tr>
+                <td style="color:oklch(0.98 0.01 250);font-weight:600">Ana Flores</td>
+                <td>Plan Trimestral</td>
+                <td>22 Jul 2025</td>
+                <td><span class="badge bg">Activa</span></td>
+              </tr>
+              <tr>
+                <td style="color:oklch(0.98 0.01 250);font-weight:600">Pedro Quispe</td>
+                <td>Plan Mensual</td>
+                <td>08 May 2025</td>
+                <td><span class="badge by">Por vencer</span></td>
+              </tr>
+              <tr>
+                <td style="color:oklch(0.98 0.01 250);font-weight:600">María Condori</td>
+                <td>Plan Anual</td>
+                <td>30 Dic 2025</td>
+                <td><span class="badge bg">Activa</span></td>
+              </tr>
+              <tr>
+                <td style="color:oklch(0.98 0.01 250);font-weight:600">Luis Choque</td>
+                <td>Plan Mensual</td>
+                <td>01 May 2025</td>
+                <td><span class="badge br">Vencida</span></td>
+              </tr>
+              <tr>
+                <td style="color:oklch(0.98 0.01 250);font-weight:600">Rosa Tarqui</td>
+                <td>Plan Semestral</td>
+                <td>18 Sep 2025</td>
+                <td><span class="badge bg">Activa</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Panel lateral derecho -->
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- Alertas -->
+          <div class="card card-p">
+            <div style="font-size:10.5px;letter-spacing:.22em;font-weight:600;color:var(--dim);text-transform:uppercase;margin-bottom:14px">Alertas Activas</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:oklch(0.82 0.14 75 / .10);border:1px solid oklch(0.82 0.14 75 / .3)">
+                <span style="font-size:16px">⚠️</span>
+                <div>
+                  <div style="font-size:12.5px;font-weight:600;color:oklch(0.82 0.14 75)">7 membresías por vencer</div>
+                  <div style="font-size:11px;color:var(--dim)">Vencen en los próximos 5 días</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:oklch(0.66 0.22 25 / .10);border:1px solid oklch(0.66 0.22 25 / .3)">
+                <span style="font-size:16px">🔴</span>
+                <div>
+                  <div style="font-size:12.5px;font-weight:600;color:oklch(0.75 0.18 25)">3 membresías vencidas</div>
+                  <div style="font-size:11px;color:var(--dim)">Requieren renovación inmediata</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:oklch(0.74 0.13 250 / .10);border:1px solid oklch(0.74 0.13 250 / .3)">
+                <span style="font-size:16px">📄</span>
+                <div>
+                  <div style="font-size:12.5px;font-weight:600;color:oklch(0.74 0.13 250)">2 facturas pendientes</div>
+                  <div style="font-size:11px;color:var(--dim)">Sin conexión al SFE</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ingresos últimos 6 meses (fake chart) -->
+          <div class="card card-p" style="flex:1">
+            <div style="font-size:10.5px;letter-spacing:.22em;font-weight:600;color:var(--dim);text-transform:uppercase;margin-bottom:14px">Ingresos 6 Meses</div>
+            <div style="display:flex;align-items:flex-end;gap:6px;height:80px;padding-bottom:4px">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px">
+                <div style="width:100%;border-radius:4px 4px 0 0;background:oklch(0.66 0.22 25 / .4);height:45px"></div>
+                <div style="font-size:9px;color:var(--dim)">Dic</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px">
+                <div style="width:100%;border-radius:4px 4px 0 0;background:oklch(0.66 0.22 25 / .4);height:55px"></div>
+                <div style="font-size:9px;color:var(--dim)">Ene</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px">
+                <div style="width:100%;border-radius:4px 4px 0 0;background:oklch(0.66 0.22 25 / .4);height:48px"></div>
+                <div style="font-size:9px;color:var(--dim)">Feb</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px">
+                <div style="width:100%;border-radius:4px 4px 0 0;background:oklch(0.66 0.22 25 / .4);height:62px"></div>
+                <div style="font-size:9px;color:var(--dim)">Mar</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px">
+                <div style="width:100%;border-radius:4px 4px 0 0;background:oklch(0.66 0.22 25 / .4);height:58px"></div>
+                <div style="font-size:9px;color:var(--dim)">Abr</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px">
+                <div style="width:100%;border-radius:4px 4px 0 0;background:oklch(0.66 0.22 25 / .88);height:76px"></div>
+                <div style="font-size:9px;color:oklch(0.82 0.14 75)">May</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /CONTENT -->
+  </div>
+</div>
+
+</body>
+</html>

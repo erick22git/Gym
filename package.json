@@ -1,0 +1,77 @@
+{
+  "name": "urban-fitness-club",
+  "version": "1.0.0",
+  "description": "Sistema de gestión Urban Fitness Club con Facturación Electrónica SFE Bolivia",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build && electron-builder",
+    "build:vite": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.16.0",
+    "bcryptjs": "^3.0.3",
+    "dayjs": "^1.11.20",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.7.0",
+    "node-forge": "^1.4.0",
+    "nodemailer": "^6.10.1",
+    "pdfkit": "^0.14.0",
+    "qrcode": "^1.5.4",
+    "react-countup": "^6.5.3",
+    "react-hot-toast": "^2.6.0",
+    "recharts": "^3.8.1",
+    "sql.js": "^1.14.1",
+    "xml-js": "^1.6.11",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "concurrently": "^8.2.2",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.1",
+    "postcss": "^8.4.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.urbanfitness.club",
+    "productName": "Urban Fitness Club",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Urban Fitness Club",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "public/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "node_modules/sql.js/dist/sql-wasm.wasm",
+        "to": "resources/sql-wasm.wasm"
+      }
+    ]
+  }
+}
