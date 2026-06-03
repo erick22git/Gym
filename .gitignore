@@ -2,6 +2,7 @@ node_modules/
 dist/
 dist-electron/
 build/
+!build/icon.ico
 dev_data/
 .env
 .env.local
