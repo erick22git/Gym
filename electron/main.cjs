@@ -228,23 +228,6 @@ ipcMain.handle('descuentos:delete', (_, id) => require('./database.cjs').descuen
 ipcMain.handle('pos:getConfig', () => require('./database.cjs').configuracionPOS.get())
 ipcMain.handle('pos:saveConfig', (_, data) => require('./database.cjs').configuracionPOS.save(data))
 ipcMain.handle('pos:getPrinters', (event) => event.sender.getPrinters())
-ipcMain.handle('pos:imprimir', async (_, { html, formato } = {}) => {
-  try {
-    const widths = { ticket: 360, media: 640, carta: 750 }
-    const win = new BrowserWindow({
-      width: widths[formato] || widths.media,
-      height: 860,
-      show: true,
-      autoHideMenuBar: true,
-      title: 'Comprobante — Urban Fitness',
-      webPreferences: { nodeIntegration: false, contextIsolation: true },
-    })
-    await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html || ''))
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, error: err.message }
-  }
-})
 ipcMain.handle('pos:testPrint', (_, printerName) => new Promise(resolve => {
   const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } })
   win.loadURL('data:text/html,<!DOCTYPE html><html><body style="font-family:monospace;padding:20px"><h2>Test de Impresión</h2><p>Urban Fitness Club</p><p>Si ves esto, la impresora funciona correctamente.</p><p>' + new Date().toLocaleString('es-BO') + '</p></body></html>')

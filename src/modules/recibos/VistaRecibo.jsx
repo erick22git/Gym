@@ -14,7 +14,7 @@ function injectPrintStyle(formato) {
       @page { size: ${pageSize}; margin: ${formato === 'ticket' ? '2mm' : '10mm'}; }
       body * { visibility: hidden !important; }
       #recibo-print-root, #recibo-print-root * { visibility: visible !important; }
-      #recibo-print-root { position: fixed; top: 0; left: 0; width: 100%; background: white; z-index: 999999; }
+      #recibo-print-root { position: fixed; top: 0; left: 0; width: 100%; background: white !important; backdrop-filter: none !important; z-index: 999999; }
       #recibo-print-root .impresora-wrap, #recibo-print-root .print-actions { display: none !important; }
       .recibo-paper {
         transform: none !important;
@@ -79,39 +79,11 @@ export default function VistaRecibo({ venta, onClose }) {
     setGuardando(false)
   }
 
-  async function imprimir() {
+  function imprimir() {
     setDesplegada(true)
-    await new Promise(r => setTimeout(r, 300))
-    const paperEl = document.querySelector('#recibo-print-root .recibo-paper')
-    if (!paperEl) { toast.error('Error al preparar el comprobante'); return }
-    const margin = fmt === 'ticket' ? '2mm' : '10mm'
-    const pageSize = fmt === 'ticket' ? '80mm auto' : fmt === 'carta' ? 'letter' : '5.5in 8.5in'
-    const fmtLabel = fmt === 'ticket' ? 'Ticket 80mm' : fmt === 'carta' ? 'Carta' : 'Media carta'
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comprobante</title>
-<style>
-  body{margin:0;background:#1a1a1d;font-family:sans-serif}
-  .toolbar{position:sticky;top:0;z-index:10;background:#111;padding:10px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #2a2a2a}
-  .btn-print{background:#c0392b;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px}
-  .btn-close{background:#2a2a2a;color:#ccc;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px}
-  .paper-wrap{display:flex;justify-content:center;padding:24px}
-  @page{size:${pageSize};margin:${margin}}
-  @media print{
-    body{background:#fff!important}
-    .toolbar{display:none!important}
-    .paper-wrap{padding:0!important}
-    .recibo-paper{width:100%!important;max-width:100%!important;transform:none!important;box-shadow:none!important;max-height:none!important;overflow:visible!important}
-  }
-</style>
-</head><body>
-<div class="toolbar">
-  <button class="btn-print" onclick="window.print()">🖨&nbsp; Imprimir</button>
-  <button class="btn-close" onclick="window.close()">✕ Cerrar</button>
-  <span style="margin-left:8px;color:#666;font-size:12px">Vista previa · ${fmtLabel}</span>
-</div>
-<div class="paper-wrap">${paperEl.outerHTML}</div>
-</body></html>`
-    const result = await window.api.pos.imprimir({ html, formato: fmt })
-    if (result && !result.ok) toast.error('Error al mostrar comprobante: ' + (result.error || ''))
+    // La animación del recibo es la vista previa. window.print() usa el
+    // @media print que muestra solo el papel con fondo blanco.
+    setTimeout(() => window.print(), 200)
   }
 
   if (!config) return null
