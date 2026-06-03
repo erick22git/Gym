@@ -10,45 +10,120 @@ import VistaRecibo from '../modules/recibos/VistaRecibo'
 
 // ─── Formulario de datos para recibo (venta rápida) ──────────────────────────
 function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar }) {
-  const [buscando, setBuscando] = useState(false)
+  const [sugerencias, setSugerencias] = useState([])
+  const [errores, setErrores] = useState({})
+  const blurRef = useRef(null)
 
-  // Busca mientras el usuario escribe (debounce 450ms) para que al hacer
-  // click en Confirmar el nombre ya esté llenado (onBlur + async era demasiado tarde)
+  // Búsqueda parcial por carnet o nombre mientras escribe
   useEffect(() => {
-    if (!datos.doc || datos.doc.length < 3) return
-    setBuscando(true)
+    const q = datos.doc?.trim()
+    if (!q || q.length < 2) { setSugerencias([]); return }
     const timer = setTimeout(async () => {
       try {
-        const c = await window.api.clientes.getByCarnet(datos.doc.trim())
-        if (c) onDatos(d => ({ ...d, nombre: `${c.nombre} ${c.apellido}`.trim() }))
-      } catch (_) {}
-      setBuscando(false)
-    }, 450)
-    return () => { clearTimeout(timer); setBuscando(false) }
+        const res = await window.api.clientes.search(q)
+        setSugerencias(res?.slice(0, 8) || [])
+      } catch (_) { setSugerencias([]) }
+    }, 280)
+    return () => clearTimeout(timer)
   }, [datos.doc])
+
+  function seleccionar(c) {
+    clearTimeout(blurRef.current)
+    onDatos({ ...datos, doc: c.carnet, nombre: `${c.nombre} ${c.apellido}`.trim() })
+    setSugerencias([])
+    setErrores({})
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && sugerencias.length >= 1) seleccionar(sugerencias[0])
+    if (e.key === 'Escape') setSugerencias([])
+  }
+
+  function handleBlur() {
+    blurRef.current = setTimeout(() => setSugerencias([]), 150)
+  }
+
+  function handleConfirmar() {
+    const errs = {}
+    if (!datos.doc?.trim()) errs.doc = 'El CI/NIT es obligatorio'
+    if (!datos.nombre?.trim()) errs.nombre = 'El nombre es obligatorio'
+    if (Object.keys(errs).length) { setErrores(errs); return }
+    onConfirmar(datos)
+  }
+
+  const ERR = { fontSize: 10, color: 'oklch(0.75 0.18 25)', marginTop: 3 }
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 250, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div onClick={onCancelar} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .6)', backdropFilter: 'blur(4px)' }} />
-      <div style={{ position: 'relative', zIndex: 1, width: 360, background: 'oklch(0.13 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 16, padding: '24px 22px', boxShadow: '0 20px 60px oklch(0 0 0 / .6)' }}>
+      <div style={{ position: 'relative', zIndex: 1, width: 380, background: 'oklch(0.13 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 16, padding: '24px 22px', boxShadow: '0 20px 60px oklch(0 0 0 / .6)' }}>
         <h3 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 18, letterSpacing: '.06em' }}>Datos del comprobante</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* ── CI / NIT con dropdown ── */}
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>
-              CI / NIT {buscando && <span style={{ fontWeight: 400, color: 'oklch(0.74 0.13 250)' }}>buscando...</span>}
+              CI / NIT <span style={{ color: 'oklch(0.75 0.18 25)' }}>*</span>
             </label>
-            <input className="gym-input" placeholder="Carnet o NIT (autollena el nombre)" value={datos.doc} autoFocus
-              onChange={e => onDatos({ ...datos, doc: e.target.value })} />
+            <div style={{ position: 'relative' }}>
+              <input
+                className="gym-input"
+                placeholder="Carnet, NIT o nombre del cliente"
+                value={datos.doc}
+                autoFocus
+                onChange={e => { onDatos({ ...datos, doc: e.target.value }); setErrores(p => ({ ...p, doc: null })) }}
+                onKeyDown={handleKeyDown}
+                onBlur={handleBlur}
+                style={{ borderColor: errores.doc ? 'oklch(0.75 0.18 25 / .6)' : undefined }}
+              />
+              {sugerencias.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300,
+                  background: 'oklch(0.14 0.015 250)', border: '1px solid var(--line-s)',
+                  borderRadius: 10, maxHeight: 240, overflowY: 'auto',
+                  boxShadow: '0 12px 32px oklch(0 0 0 / .5)',
+                }}>
+                  {sugerencias.map((c, i) => (
+                    <div
+                      key={c.id}
+                      onMouseDown={() => seleccionar(c)}
+                      style={{
+                        padding: '9px 14px', cursor: 'pointer',
+                        borderBottom: i < sugerencias.length - 1 ? '1px solid oklch(1 0 0 / .05)' : 'none',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'oklch(1 0 0 / .06)'}
+                      onMouseLeave={e => e.currentTarget.style.background = ''}
+                    >
+                      <div style={{ fontSize: 13, color: 'var(--ink)' }}>{c.nombre} {c.apellido}</div>
+                      <div style={{ fontSize: 11, color: 'var(--dim)', fontFamily: 'monospace' }}>{c.carnet}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {errores.doc && <div style={ERR}>{errores.doc}</div>}
           </div>
+
+          {/* ── Nombre ── */}
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Nombre del cliente</label>
-            <input className="gym-input" placeholder="Nombre completo (opcional)" value={datos.nombre}
-              onChange={e => onDatos({ ...datos, nombre: e.target.value })} />
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>
+              Nombre del cliente <span style={{ color: 'oklch(0.75 0.18 25)' }}>*</span>
+            </label>
+            <input
+              className="gym-input"
+              placeholder="Nombre completo"
+              value={datos.nombre}
+              onChange={e => { onDatos({ ...datos, nombre: e.target.value }); setErrores(p => ({ ...p, nombre: null })) }}
+              style={{ borderColor: errores.nombre ? 'oklch(0.75 0.18 25 / .6)' : undefined }}
+            />
+            {errores.nombre && <div style={ERR}>{errores.nombre}</div>}
           </div>
         </div>
+
         <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
           <button className="btn-secondary" style={{ flex: 1 }} onClick={onCancelar}>Cancelar</button>
-          <button className="btn-primary" style={{ flex: 2 }} onClick={() => onConfirmar(datos)}>Confirmar e imprimir</button>
+          <button className="btn-primary" style={{ flex: 2 }} onClick={handleConfirmar}>Confirmar e imprimir</button>
         </div>
       </div>
     </div>
