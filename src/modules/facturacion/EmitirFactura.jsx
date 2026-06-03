@@ -76,6 +76,19 @@ export default function EmitirFactura() {
     }
   }, [busquedaCliente])
 
+  async function autocompletarPorDoc() {
+    if (!form.cliente_documento || form.cliente_documento.length < 3) return
+    try {
+      const c = await window.api.clientes.getByCarnet(form.cliente_documento)
+      if (c) setForm(p => ({
+        ...p,
+        cliente_nombre: `${c.nombre} ${c.apellido}`.trim(),
+        cliente_correo: c.email || p.cliente_correo,
+        cliente_telefono: c.telefono || p.cliente_telefono,
+      }))
+    } catch (_) {}
+  }
+
   async function seleccionarCliente(cliente) {
     setClienteSeleccionadoId(cliente.id)
     setForm(p => ({
@@ -240,7 +253,7 @@ export default function EmitirFactura() {
             </div>
             <div>
               <label className="gym-label">Número Documento *</label>
-              <input className="gym-input" value={form.cliente_documento} onChange={f('cliente_documento')} required placeholder="Ej: 12345678" />
+              <input className="gym-input" value={form.cliente_documento} onChange={f('cliente_documento')} onBlur={autocompletarPorDoc} required placeholder="Ej: 12345678" />
             </div>
             <div className="form-full">
               <label className="gym-label">Razón Social / Nombre *</label>
