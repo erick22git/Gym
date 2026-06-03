@@ -2052,7 +2052,7 @@ const inventario = {
     const pageSize = filtros.pageSize || 10
     const offset = (page - 1) * pageSize
     let sql = `
-      SELECT p.*, c.nombre as categoria_nombre, pv.nombre as proveedor_nombre, c.color as categoria_color
+      SELECT p.*, c.nombre as categoria_nombre, c.color as categoria_color, c.imagen as categoria_imagen, pv.nombre as proveedor_nombre
       FROM productos p
       LEFT JOIN categorias_productos c ON p.categoria_id=c.id
       LEFT JOIN proveedores pv ON p.proveedor_id=pv.id
