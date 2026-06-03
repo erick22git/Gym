@@ -12,15 +12,20 @@ import VistaRecibo from '../modules/recibos/VistaRecibo'
 function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar }) {
   const [buscando, setBuscando] = useState(false)
 
-  async function buscarPorCarnet() {
+  // Busca mientras el usuario escribe (debounce 450ms) para que al hacer
+  // click en Confirmar el nombre ya esté llenado (onBlur + async era demasiado tarde)
+  useEffect(() => {
     if (!datos.doc || datos.doc.length < 3) return
     setBuscando(true)
-    try {
-      const c = await window.api.clientes.getByCarnet(datos.doc)
-      if (c) onDatos({ ...datos, nombre: `${c.nombre} ${c.apellido}`.trim() })
-    } catch (_) {}
-    setBuscando(false)
-  }
+    const timer = setTimeout(async () => {
+      try {
+        const c = await window.api.clientes.getByCarnet(datos.doc.trim())
+        if (c) onDatos(d => ({ ...d, nombre: `${c.nombre} ${c.apellido}`.trim() }))
+      } catch (_) {}
+      setBuscando(false)
+    }, 450)
+    return () => { clearTimeout(timer); setBuscando(false) }
+  }, [datos.doc])
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 250, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -30,11 +35,10 @@ function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>
-              CI / NIT {buscando && <span style={{ fontWeight: 400, color: 'var(--dim)' }}>— buscando...</span>}
+              CI / NIT {buscando && <span style={{ fontWeight: 400, color: 'oklch(0.74 0.13 250)' }}>buscando...</span>}
             </label>
             <input className="gym-input" placeholder="Carnet o NIT (autollena el nombre)" value={datos.doc} autoFocus
-              onChange={e => onDatos({ ...datos, doc: e.target.value })}
-              onBlur={buscarPorCarnet} />
+              onChange={e => onDatos({ ...datos, doc: e.target.value })} />
           </div>
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Nombre del cliente</label>

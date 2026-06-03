@@ -67,7 +67,7 @@ export default function EmitirFactura() {
     }
   }, [])
 
-  // Búsqueda de cliente
+  // Búsqueda de cliente por nombre
   useEffect(() => {
     if (busquedaCliente.length > 1) {
       window.api.clientes.search(busquedaCliente).then(setClientesSugeridos)
@@ -75,6 +75,24 @@ export default function EmitirFactura() {
       setClientesSugeridos([])
     }
   }, [busquedaCliente])
+
+  // Autocompletar por número de documento (debounce 450ms para que ocurra
+  // antes de que el usuario haga click en "Emitir")
+  useEffect(() => {
+    if (!form.cliente_documento || form.cliente_documento.length < 3) return
+    const timer = setTimeout(async () => {
+      try {
+        const c = await window.api.clientes.getByCarnet(form.cliente_documento.trim())
+        if (c && !form.cliente_nombre) setForm(p => ({
+          ...p,
+          cliente_nombre: `${c.nombre} ${c.apellido}`.trim(),
+          cliente_correo: c.email || p.cliente_correo,
+          cliente_telefono: c.telefono || p.cliente_telefono,
+        }))
+      } catch (_) {}
+    }, 450)
+    return () => clearTimeout(timer)
+  }, [form.cliente_documento])
 
   async function autocompletarPorDoc() {
     if (!form.cliente_documento || form.cliente_documento.length < 3) return
