@@ -1219,7 +1219,7 @@ const usuarios = {
     return { ok: true, id: r.lastInsertRowid }
   },
   cambiarPasswordPorCarnet(carnet, nuevaPassword) {
-    const u = queryOne("SELECT id, nombre_completo FROM usuarios WHERE carnet=?", [carnet])
+    const u = queryOne("SELECT id, nombre_completo FROM usuarios WHERE TRIM(carnet)=TRIM(?)", [carnet])
     if (!u) return { ok: false, error: 'No se encontró ningún usuario con ese carnet' }
     const hash = bcrypt.hashSync(nuevaPassword, 10)
     run("UPDATE usuarios SET password_hash=?, primer_login=0, updated_at=datetime('now','localtime') WHERE id=?", [hash, u.id])
@@ -1248,10 +1248,10 @@ const usuarios = {
   login(username, password) {
     const u = queryOne(`
       SELECT u.id, u.username, u.nombre_completo, u.password_hash,
-        u.activo, u.primer_login, u.rol_id, r.nombre as rol_nombre
+        u.activo, u.primer_login, u.rol_id, u.foto, r.nombre as rol_nombre
       FROM usuarios u JOIN roles r ON u.rol_id = r.id
-      WHERE u.username=?
-    `, [username])
+      WHERE u.username=? OR (u.carnet IS NOT NULL AND TRIM(u.carnet)=TRIM(?))
+    `, [username, username])
 
     if (!u) return { ok: false, error: 'Usuario no encontrado' }
     if (!u.activo) return { ok: false, error: 'Usuario desactivado' }
@@ -1287,6 +1287,7 @@ const usuarios = {
         rol_id: u.rol_id,
         rol_nombre: u.rol_nombre,
         primer_login: u.primer_login === 1,
+        foto: u.foto || null,
         permisos: permisosArray,
       }
     }
@@ -1300,7 +1301,7 @@ const sesiones = {
     if (!token) return null
     const sesion = queryOne(`
       SELECT s.usuario_id, s.token, s.fin,
-        u.username, u.nombre_completo, u.activo, u.primer_login, u.rol_id,
+        u.username, u.nombre_completo, u.activo, u.primer_login, u.rol_id, u.foto,
         r.nombre as rol_nombre
       FROM sesiones s
       JOIN usuarios u ON s.usuario_id = u.id
@@ -1324,6 +1325,7 @@ const sesiones = {
       rol_id: sesion.rol_id,
       rol_nombre: sesion.rol_nombre,
       primer_login: sesion.primer_login === 1,
+      foto: sesion.foto || null,
       permisos: permisosList.map(p => p.codigo),
     }
   },

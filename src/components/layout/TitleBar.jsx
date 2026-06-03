@@ -268,6 +268,18 @@ export default function TitleBar() {
     ? usuario.nombre_completo.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
     : '?'
 
+  // Color determinista por nombre (igual que UserAvatar en GestionUsuarios)
+  const AVATAR_COLORS = [
+    'oklch(0.60 0.18 25)', 'oklch(0.55 0.20 250)', 'oklch(0.58 0.17 155)',
+    'oklch(0.62 0.15 75)', 'oklch(0.57 0.19 300)', 'oklch(0.60 0.16 200)',
+  ]
+  function avatarColor(nombre = '') {
+    let h = 0
+    for (let i = 0; i < nombre.length; i++) h = (h * 31 + nombre.charCodeAt(i)) & 0xffffffff
+    return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
+  }
+  const colorAvatar = avatarColor(usuario?.nombre_completo || '')
+
   async function handleLogout() {
     setShowDropdown(false)
     await logout()
@@ -345,16 +357,24 @@ export default function TitleBar() {
                 transition: 'background .15s',
               }}
             >
-              <div style={{
-                width: 26, height: 26, borderRadius: 6,
-                background: 'oklch(0.66 0.22 25 / .25)',
-                border: '1px solid oklch(0.66 0.22 25 / .4)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, fontWeight: 700, color: 'oklch(0.80 0.12 25)',
-                letterSpacing: '.04em', flexShrink: 0,
-              }}>
-                {initiales}
-              </div>
+              {usuario?.foto ? (
+                <img
+                  src={usuario.foto}
+                  alt={usuario.nombre_completo}
+                  style={{ width: 26, height: 26, borderRadius: 6, objectFit: 'cover', border: '1px solid oklch(1 0 0 / .2)', flexShrink: 0 }}
+                />
+              ) : (
+                <div style={{
+                  width: 26, height: 26, borderRadius: 6,
+                  background: colorAvatar,
+                  border: '1px solid oklch(1 0 0 / .15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, fontWeight: 700, color: 'white',
+                  letterSpacing: '.04em', flexShrink: 0,
+                }}>
+                  {initiales}
+                </div>
+              )}
               <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'oklch(0.95 0.01 250)' }}>
                   {usuario.nombre_completo}
