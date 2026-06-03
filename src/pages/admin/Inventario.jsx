@@ -433,11 +433,11 @@ function ProductCard({ p, onEdit, onStock, onEliminar }) {
             src={toFileUrl(p.imagen)}
             alt={p.nombre}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={e => { e.target.src = getCategoryImg(p.categoria_nombre) }}
+            onError={e => { e.target.src = getCategoryImg(p.categoria_nombre, p.categoria_imagen) }}
           />
         ) : (
           <img
-            src={getCategoryImg(p.categoria_nombre)}
+            src={getCategoryImg(p.categoria_nombre, p.categoria_imagen)}
             alt={p.categoria_nombre || 'producto'}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
@@ -719,6 +719,18 @@ function TabCategorias({ categorias, onRefresh }) {
 
   async function guardar() {
     if (!form.nombre.trim()) return toast.error('El nombre es obligatorio')
+
+    // Alerta solo cuando se CAMBIA la imagen de una categoría existente
+    if (editando && form.imagen !== (editando.imagen || '') && (editando.imagen || form.imagen)) {
+      const ok = await confirmar({
+        titulo: '¿Cambiar imagen de la categoría?',
+        mensaje: 'Los productos que usan la imagen de esta categoría mostrarán la nueva imagen automáticamente. Los productos con imagen propia no se verán afectados. ¿Continuar?',
+        tipo: 'advertencia',
+        textoConfirmar: 'Sí, cambiar imagen',
+      })
+      if (!ok) return
+    }
+
     setGuardando(true)
     try {
       if (editando) {
@@ -819,7 +831,7 @@ function TabCategorias({ categorias, onRefresh }) {
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
             {editando && (
-              <button onClick={() => { setEditando(null); setForm({ nombre: '', descripcion: '', color: 'oklch(0.74 0.13 250)' }) }} className="btn-secondary" style={{ flex: 1 }}>
+              <button onClick={() => { setEditando(null); setForm({ nombre: '', descripcion: '', color: 'oklch(0.74 0.13 250)', imagen: '' }) }} className="btn-secondary" style={{ flex: 1 }}>
                 Cancelar
               </button>
             )}
