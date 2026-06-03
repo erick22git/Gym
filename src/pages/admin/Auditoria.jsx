@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  BookOpen, Search, Filter, ChevronDown, ChevronUp,
+  BookOpen, Search, ChevronDown, ChevronUp,
   LogIn, LogOut, Plus, Edit3, Trash2, RefreshCw,
-  ToggleRight, Package, ShieldCheck, Download, X,
+  ToggleRight, Package, ShieldCheck, Download, X, Key,
 } from 'lucide-react'
 import { Select } from '../../components/ui/Select'
 import Pagination from '../../components/ui/Pagination'
@@ -26,34 +26,46 @@ function fmtFechaCorta(iso) {
 }
 
 const ACCION_META = {
-  LOGIN_EXITOSO:       { label: 'Inicio de sesión',    icon: LogIn,      color: 'oklch(0.74 0.16 155)' },
-  LOGIN_FALLIDO:       { label: 'Login fallido',        icon: LogIn,      color: 'oklch(0.65 0.22 25)'  },
-  LOGOUT:              { label: 'Cierre de sesión',     icon: LogOut,     color: 'oklch(0.78 0.02 250)' },
-  CLIENTE_CREADO:      { label: 'Cliente creado',       icon: Plus,       color: 'oklch(0.74 0.16 155)' },
-  CLIENTE_EDITADO:     { label: 'Cliente editado',      icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
-  CLIENTE_ELIMINADO:   { label: 'Cliente eliminado',    icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
-  CLIENTE_RESTAURADO:  { label: 'Cliente restaurado',   icon: RefreshCw,  color: 'oklch(0.74 0.16 155)' },
-  PLAN_CREADO:         { label: 'Plan creado',           icon: Plus,       color: 'oklch(0.74 0.16 155)' },
-  PLAN_EDITADO:        { label: 'Plan editado',          icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
-  PLAN_ELIMINADO:      { label: 'Plan eliminado',        icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
-  MEMBRESIA_CREADA:    { label: 'Membresía creada',     icon: Plus,       color: 'oklch(0.74 0.16 155)' },
-  MEMBRESIA_EDITADA:   { label: 'Membresía editada',    icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
-  MEMBRESIA_ANULADA:   { label: 'Membresía anulada',    icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
-  PRODUCTO_CREADO:     { label: 'Producto creado',      icon: Plus,       color: 'oklch(0.74 0.16 155)' },
-  PRODUCTO_EDITADO:    { label: 'Producto editado',     icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
-  PRODUCTO_ELIMINADO:  { label: 'Producto eliminado',   icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
-  STOCK_AJUSTADO:      { label: 'Stock ajustado',       icon: Package,    color: 'oklch(0.82 0.14 75)'  },
-  CAJA_ABIERTA:        { label: 'Caja abierta',         icon: Plus,       color: 'oklch(0.74 0.16 155)' },
-  CAJA_CERRADA:        { label: 'Caja cerrada',         icon: Trash2,     color: 'oklch(0.82 0.14 75)'  },
-  MODULO_ACTIVADO:     { label: 'Módulo activado',      icon: ToggleRight, color: 'oklch(0.74 0.16 155)' },
-  MODULO_DESACTIVADO:  { label: 'Módulo desactivado',   icon: ToggleRight, color: 'oklch(0.65 0.22 25)'  },
-  FACTURA_EMITIDA:     { label: 'Factura emitida',      icon: Plus,       color: 'oklch(0.74 0.16 155)' },
-  FACTURA_ANULADA:     { label: 'Factura anulada',      icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
-  RESPALDO_CREADO:     { label: 'Respaldo creado',      icon: Download,   color: 'oklch(0.74 0.13 250)' },
-  PERMISO_CAMBIADO:    { label: 'Permiso cambiado',     icon: ShieldCheck, color: 'oklch(0.82 0.14 75)' },
-  USUARIO_CREADO:      { label: 'Usuario creado',       icon: Plus,       color: 'oklch(0.74 0.16 155)' },
-  USUARIO_EDITADO:     { label: 'Usuario editado',      icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
-  USUARIO_ELIMINADO:   { label: 'Usuario eliminado',    icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  LOGIN_EXITOSO:                  { label: 'Inicio de sesión',         icon: LogIn,      color: 'oklch(0.74 0.16 155)' },
+  LOGIN_FALLIDO:                  { label: 'Login fallido',             icon: LogIn,      color: 'oklch(0.65 0.22 25)'  },
+  LOGOUT:                         { label: 'Cierre de sesión',          icon: LogOut,     color: 'oklch(0.78 0.02 250)' },
+  USUARIO_REGISTRADO:             { label: 'Usuario registrado',        icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  CAMBIO_CONTRASENA_RECUPERACION: { label: 'Recuperación contraseña',   icon: Key,        color: 'oklch(0.82 0.14 75)'  },
+  USUARIO_CREADO:                 { label: 'Usuario creado',            icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  USUARIO_EDITADO:                { label: 'Usuario editado',           icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
+  USUARIO_ELIMINADO:              { label: 'Usuario eliminado',         icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  USUARIO_ACTIVADO:               { label: 'Usuario activado',          icon: ToggleRight, color: 'oklch(0.74 0.16 155)' },
+  USUARIO_DESACTIVADO:            { label: 'Usuario desactivado',       icon: ToggleRight, color: 'oklch(0.65 0.22 25)'  },
+  PASSWORD_CAMBIADO:              { label: 'Contraseña cambiada',       icon: Key,        color: 'oklch(0.82 0.14 75)'  },
+  ROL_CREADO:                     { label: 'Rol creado',                icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  ROL_EDITADO:                    { label: 'Rol editado',               icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
+  ROL_ELIMINADO:                  { label: 'Rol eliminado',             icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  PERMISOS_MODIFICADOS:           { label: 'Permisos modificados',      icon: ShieldCheck, color: 'oklch(0.82 0.14 75)' },
+  CLIENTE_CREADO:                 { label: 'Cliente creado',            icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  CLIENTE_EDITADO:                { label: 'Cliente editado',           icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
+  CLIENTE_ELIMINADO:              { label: 'Cliente eliminado',         icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  CLIENTE_RESTAURADO:             { label: 'Cliente restaurado',        icon: RefreshCw,  color: 'oklch(0.74 0.16 155)' },
+  PLAN_CREADO:                    { label: 'Plan creado',               icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  PLAN_EDITADO:                   { label: 'Plan editado',              icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
+  PLAN_ELIMINADO:                 { label: 'Plan eliminado',            icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  MEMBRESIA_CREADA:               { label: 'Membresía creada',          icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  MEMBRESIA_EDITADA:              { label: 'Membresía editada',         icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
+  MEMBRESIA_ANULADA:              { label: 'Membresía anulada',         icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  PRODUCTO_CREADO:                { label: 'Producto creado',           icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  PRODUCTO_EDITADO:               { label: 'Producto editado',          icon: Edit3,      color: 'oklch(0.74 0.13 250)' },
+  PRODUCTO_ELIMINADO:             { label: 'Producto eliminado',        icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  STOCK_AJUSTADO:                 { label: 'Stock ajustado',            icon: Package,    color: 'oklch(0.82 0.14 75)'  },
+  CAJA_ABIERTA:                   { label: 'Caja abierta',              icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  CAJA_CERRADA:                   { label: 'Caja cerrada',              icon: Trash2,     color: 'oklch(0.82 0.14 75)'  },
+  MODULO_ACTIVADO:                { label: 'Módulo activado',           icon: ToggleRight, color: 'oklch(0.74 0.16 155)' },
+  MODULO_DESACTIVADO:             { label: 'Módulo desactivado',        icon: ToggleRight, color: 'oklch(0.65 0.22 25)'  },
+  FACTURA_EMITIDA:                { label: 'Factura emitida',           icon: Plus,       color: 'oklch(0.74 0.16 155)' },
+  FACTURA_ANULADA:                { label: 'Factura anulada',           icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  RESPALDO_CREADO:                { label: 'Respaldo creado',           icon: Download,   color: 'oklch(0.74 0.13 250)' },
+  DATOS_PRUEBA_GENERADOS:         { label: 'Datos prueba generados',    icon: Plus,       color: 'oklch(0.74 0.13 250)' },
+  DATOS_PRUEBA_ELIMINADOS:        { label: 'Datos prueba eliminados',   icon: Trash2,     color: 'oklch(0.65 0.22 25)'  },
+  SISTEMA_RESETEADO:              { label: 'Sistema reseteado',         icon: RefreshCw,  color: 'oklch(0.65 0.22 25)'  },
+  PERMISO_CAMBIADO:               { label: 'Permiso cambiado',          icon: ShieldCheck, color: 'oklch(0.82 0.14 75)' },
 }
 
 function accionMeta(accion) {
@@ -159,7 +171,7 @@ function FilaRegistro({ reg }) {
 
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 
-function Filtros({ filtros, onChange, onLimpiar }) {
+function Filtros({ filtros, onChange, onLimpiar, usuarios }) {
   const moduloOptions = [
     { value: '', label: 'Todos los módulos' },
     ...Object.entries(MODULOS_LABEL).map(([k, v]) => ({ value: k, label: v })),
@@ -168,13 +180,19 @@ function Filtros({ filtros, onChange, onLimpiar }) {
     { value: '', label: 'Todas las acciones' },
     ...Object.entries(ACCION_META).map(([k, v]) => ({ value: k, label: v.label })),
   ]
+  const usuarioOptions = [
+    { value: '', label: 'Todos los usuarios' },
+    ...usuarios.map(u => ({ value: String(u.id), label: u.nombre_completo || u.username })),
+  ]
+
+  const hayFiltros = filtros.busqueda || filtros.modulo || filtros.accion || filtros.desde || filtros.hasta || filtros.usuario_id
 
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
       <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 180 }}>
         <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)' }} />
         <input
-          placeholder="Buscar usuario o detalle..."
+          placeholder="Buscar acción, usuario o detalle..."
           value={filtros.busqueda}
           onChange={e => onChange({ ...filtros, busqueda: e.target.value })}
           style={{
@@ -185,21 +203,30 @@ function Filtros({ filtros, onChange, onLimpiar }) {
         />
       </div>
 
-      <div style={{ minWidth: 170 }}>
-        <Select
-          value={filtros.modulo}
-          onChange={v => onChange({ ...filtros, modulo: v })}
-          options={moduloOptions}
-          placeholder="Todos los módulos"
-        />
-      </div>
-
-      <div style={{ minWidth: 170 }}>
+      <div style={{ minWidth: 160 }}>
         <Select
           value={filtros.accion}
           onChange={v => onChange({ ...filtros, accion: v })}
           options={accionOptions}
           placeholder="Todas las acciones"
+        />
+      </div>
+
+      <div style={{ minWidth: 160 }}>
+        <Select
+          value={filtros.usuario_id}
+          onChange={v => onChange({ ...filtros, usuario_id: v })}
+          options={usuarioOptions}
+          placeholder="Todos los usuarios"
+        />
+      </div>
+
+      <div style={{ minWidth: 150 }}>
+        <Select
+          value={filtros.modulo}
+          onChange={v => onChange({ ...filtros, modulo: v })}
+          options={moduloOptions}
+          placeholder="Todos los módulos"
         />
       </div>
 
@@ -225,7 +252,7 @@ function Filtros({ filtros, onChange, onLimpiar }) {
         }}
       />
 
-      {(filtros.busqueda || filtros.modulo || filtros.accion || filtros.desde || filtros.hasta) && (
+      {hayFiltros && (
         <button
           onClick={onLimpiar}
           style={{
@@ -243,7 +270,7 @@ function Filtros({ filtros, onChange, onLimpiar }) {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
-const FILTROS_VACIOS = { busqueda: '', modulo: '', accion: '', desde: '', hasta: '' }
+const FILTROS_VACIOS = { busqueda: '', modulo: '', accion: '', desde: '', hasta: '', usuario_id: '' }
 
 export default function Auditoria() {
   const [registros, setRegistros] = useState([])
@@ -252,6 +279,11 @@ export default function Auditoria() {
   const [pageSize, setPageSize] = useState(25)
   const [cargando, setCargando] = useState(true)
   const [filtros, setFiltros] = useState(FILTROS_VACIOS)
+  const [usuarios, setUsuarios] = useState([])
+
+  useEffect(() => {
+    window.api.usuarios.getAll().then(setUsuarios).catch(() => {})
+  }, [])
 
   async function cargar(p, ps, f) {
     setCargando(true)
@@ -276,8 +308,6 @@ export default function Auditoria() {
     cargar(newPage, pageSize, f)
   }
 
-  const slice = registros
-
   return (
     <div style={{ padding: '0 2px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
@@ -293,6 +323,7 @@ export default function Auditoria() {
         filtros={filtros}
         onChange={handleFiltros}
         onLimpiar={() => handleFiltros(FILTROS_VACIOS)}
+        usuarios={usuarios}
       />
 
       {/* Lista */}
@@ -300,7 +331,7 @@ export default function Auditoria() {
         <div style={{ textAlign: 'center', padding: 60 }}>
           <div className="spinner" style={{ margin: '0 auto' }} />
         </div>
-      ) : slice.length === 0 ? (
+      ) : registros.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--dim)', fontSize: 13 }}>
           No se encontraron registros
         </div>
@@ -321,7 +352,7 @@ export default function Auditoria() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {slice.map(r => <FilaRegistro key={r.id} reg={r} />)}
+            {registros.map(r => <FilaRegistro key={r.id} reg={r} />)}
           </div>
 
           <Pagination

@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Eye, EyeOff, Dumbbell, Lock, User } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Eye, EyeOff, Dumbbell, Lock, User, ArrowLeft, UserPlus, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 
-export default function Login() {
+// ─── Formulario de inicio de sesión ──────────────────────────────────────────
+
+function FormLogin({ onRegistrar, onRecuperar }) {
   const { login } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -17,192 +19,214 @@ export default function Login() {
     setCargando(true)
     try {
       const resultado = await login(username.trim(), password)
-      if (!resultado.ok) {
-        toast.error(resultado.error || 'Credenciales incorrectas')
-      }
-      // Si ok → AuthContext setea usuario → AppRoot renderiza app (con modal si primer_login)
-    } catch (err) {
-      toast.error('Error al iniciar sesión')
-    } finally {
-      setCargando(false)
-    }
+      if (!resultado.ok) toast.error(resultado.error || 'Credenciales incorrectas')
+    } catch { toast.error('Error al iniciar sesión') }
+    finally { setCargando(false) }
   }
 
   return (
-    <>
-      {/* Fondo atmosférico */}
-      <div className="bg-atmospheric" />
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ position: 'relative' }}>
+        <label className="gym-label" style={{ display: 'block', marginBottom: 6 }}>Usuario</label>
+        <div style={{ position: 'relative' }}>
+          <User size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.78 0.02 250 / .35)', pointerEvents: 'none' }} />
+          <input className="gym-input" type="text" placeholder="nombre de usuario o carnet" value={username} onChange={e => setUsername(e.target.value)} autoComplete="username" autoFocus style={{ paddingLeft: 38, width: '100%' }} />
+        </div>
+      </div>
+      <div>
+        <label className="gym-label" style={{ display: 'block', marginBottom: 6 }}>Contraseña</label>
+        <div style={{ position: 'relative' }}>
+          <Lock size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.78 0.02 250 / .35)', pointerEvents: 'none' }} />
+          <input className="gym-input" type={showPass ? 'text' : 'password'} placeholder="contraseña" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" style={{ paddingLeft: 38, paddingRight: 42, width: '100%' }} />
+          <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'oklch(0.78 0.02 250 / .4)', padding: 4, display: 'flex', alignItems: 'center' }} tabIndex={-1}>
+            {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+      </div>
+      <motion.button type="submit" className="btn-primary" disabled={cargando} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }} style={{ marginTop: 8, height: 48, fontSize: 13, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.12em', fontWeight: 700 }}>
+        {cargando ? <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}><motion.span animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} style={{ width: 16, height: 16, border: '2px solid oklch(1 0 0 / .3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} />Verificando...</span> : 'INICIAR SESIÓN'}
+      </motion.button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+        <button type="button" onClick={onRegistrar} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'oklch(0.74 0.13 250)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <UserPlus size={12} /> Registrarse
+        </button>
+        <button type="button" onClick={onRecuperar} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'oklch(0.78 0.02 250 / .5)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <KeyRound size={12} /> Olvidé mi contraseña
+        </button>
+      </div>
+    </form>
+  )
+}
 
-      <div style={{
-        position: 'fixed', inset: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 10,
-        padding: 24,
-      }}>
+// ─── Formulario de Registro ───────────────────────────────────────────────────
+
+function FormRegistrar({ onVolver }) {
+  const [form, setForm] = useState({ nombre_completo: '', carnet: '', telefono: '', password: '', confirmar: '' })
+  const [showPass, setShowPass] = useState(false)
+  const [cargando, setCargando] = useState(false)
+
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!form.nombre_completo.trim()) { toast.error('El nombre completo es obligatorio'); return }
+    if (!form.carnet.trim()) { toast.error('El carnet es obligatorio'); return }
+    if (!form.telefono.trim()) { toast.error('El celular es obligatorio'); return }
+    if (!form.password) { toast.error('La contraseña es obligatoria'); return }
+    if (form.password.length < 6) { toast.error('La contraseña debe tener al menos 6 caracteres'); return }
+    if (form.password !== form.confirmar) { toast.error('Las contraseñas no coinciden'); return }
+    setCargando(true)
+    try {
+      const r = await window.api.usuarios.registrar({ nombre_completo: form.nombre_completo.trim(), carnet: form.carnet.trim(), telefono: form.telefono.trim(), password: form.password })
+      if (r.ok) {
+        await window.api.auditoria.log({ accion: 'USUARIO_REGISTRADO', modulo: 'auth', detalle: `Usuario registrado: ${form.nombre_completo} · CI ${form.carnet}`, usuario_nombre: form.nombre_completo })
+        toast.success('¡Cuenta creada! Puedes iniciar sesión con tu carnet.')
+        onVolver()
+      } else {
+        toast.error(r.error || 'Error al registrar')
+      }
+    } catch { toast.error('Error al registrar') }
+    finally { setCargando(false) }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+      <button type="button" onClick={onVolver} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'oklch(0.78 0.02 250 / .5)', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, marginBottom: 4, padding: 0 }}>
+        <ArrowLeft size={12} /> Volver al login
+      </button>
+      <div>
+        <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Nombre completo *</label>
+        <input className="gym-input" value={form.nombre_completo} onChange={e => set('nombre_completo', e.target.value)} placeholder="Nombre Apellido" autoFocus style={{ width: '100%' }} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div>
+          <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Carnet / CI *</label>
+          <input className="gym-input" value={form.carnet} onChange={e => set('carnet', e.target.value)} placeholder="Carnet de identidad" style={{ width: '100%' }} />
+        </div>
+        <div>
+          <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Celular *</label>
+          <input className="gym-input" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="7XXXXXXX" style={{ width: '100%' }} />
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div>
+          <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Contraseña *</label>
+          <div style={{ position: 'relative' }}>
+            <input className="gym-input" type={showPass ? 'text' : 'password'} value={form.password} onChange={e => set('password', e.target.value)} placeholder="mín. 6 caracteres" style={{ width: '100%', paddingRight: 36 }} />
+            <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'oklch(0.78 0.02 250 / .4)', padding: 2, display: 'flex' }} tabIndex={-1}>{showPass ? <EyeOff size={13} /> : <Eye size={13} />}</button>
+          </div>
+        </div>
+        <div>
+          <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Confirmar *</label>
+          <input className="gym-input" type="password" value={form.confirmar} onChange={e => set('confirmar', e.target.value)} placeholder="repetir" style={{ width: '100%' }} />
+        </div>
+      </div>
+      <button type="submit" className="btn-primary" disabled={cargando} style={{ marginTop: 4, height: 44, fontSize: 13, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.1em', fontWeight: 700 }}>
+        {cargando ? 'Registrando...' : 'CREAR CUENTA'}
+      </button>
+      <p style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .35)', textAlign: 'center', margin: 0 }}>Tu cuenta se crea con rol Cajero. El admin puede cambiar tu rol.</p>
+    </form>
+  )
+}
+
+// ─── Formulario Recuperar contraseña ─────────────────────────────────────────
+
+function FormRecuperar({ onVolver }) {
+  const [carnet, setCarnet] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmar, setConfirmar] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [cargando, setCargando] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!carnet.trim()) { toast.error('Ingresa tu carnet'); return }
+    if (!password) { toast.error('Ingresa la nueva contraseña'); return }
+    if (password.length < 6) { toast.error('Mínimo 6 caracteres'); return }
+    if (password !== confirmar) { toast.error('Las contraseñas no coinciden'); return }
+    setCargando(true)
+    try {
+      const r = await window.api.usuarios.cambiarPasswordPorCarnet(carnet.trim(), password)
+      if (r.ok) {
+        await window.api.auditoria.log({ accion: 'CAMBIO_CONTRASENA_RECUPERACION', modulo: 'auth', detalle: `Contraseña recuperada para usuario: ${r.nombre} · CI ${carnet}`, usuario_nombre: r.nombre || 'Desconocido' })
+        toast.success('Contraseña actualizada. Puedes iniciar sesión.')
+        onVolver()
+      } else {
+        toast.error(r.error || 'Error al cambiar contraseña')
+      }
+    } catch { toast.error('Error al cambiar contraseña') }
+    finally { setCargando(false) }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <button type="button" onClick={onVolver} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'oklch(0.78 0.02 250 / .5)', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, marginBottom: 4, padding: 0 }}>
+        <ArrowLeft size={12} /> Volver al login
+      </button>
+      <div>
+        <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Carnet / CI *</label>
+        <input className="gym-input" value={carnet} onChange={e => setCarnet(e.target.value)} placeholder="Tu carnet de identidad" autoFocus style={{ width: '100%' }} />
+      </div>
+      <div>
+        <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Nueva contraseña *</label>
+        <div style={{ position: 'relative' }}>
+          <input className="gym-input" type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="mín. 6 caracteres" style={{ width: '100%', paddingRight: 36 }} />
+          <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'oklch(0.78 0.02 250 / .4)', padding: 2, display: 'flex' }} tabIndex={-1}>{showPass ? <EyeOff size={13} /> : <Eye size={13} />}</button>
+        </div>
+      </div>
+      <div>
+        <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Confirmar contraseña *</label>
+        <input className="gym-input" type="password" value={confirmar} onChange={e => setConfirmar(e.target.value)} placeholder="repetir" style={{ width: '100%' }} />
+      </div>
+      <button type="submit" className="btn-primary" disabled={cargando} style={{ marginTop: 4, height: 44, fontSize: 13, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.1em', fontWeight: 700 }}>
+        {cargando ? 'Actualizando...' : 'CAMBIAR CONTRASEÑA'}
+      </button>
+    </form>
+  )
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
+export default function Login() {
+  const [vista, setVista] = useState('login') // 'login' | 'registrar' | 'recuperar'
+
+  const titulos = { login: 'Sistema de Gestión', registrar: 'Crear Cuenta', recuperar: 'Recuperar Contraseña' }
+
+  return (
+    <>
+      <div className="bg-atmospheric" />
+      <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: 24 }}>
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
-          style={{
-            width: '100%',
-            maxWidth: 420,
-            background: 'oklch(0.14 0.01 250 / .85)',
-            backdropFilter: 'blur(32px)',
-            WebkitBackdropFilter: 'blur(32px)',
-            border: '1px solid oklch(1 0 0 / .1)',
-            borderRadius: 20,
-            padding: '48px 40px 40px',
-            boxShadow: '0 32px 80px oklch(0 0 0 / .6), inset 0 1px 0 oklch(1 0 0 / .08)',
-          }}
+          style={{ width: '100%', maxWidth: vista === 'registrar' ? 480 : 420, background: 'oklch(0.14 0.01 250 / .85)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)', border: '1px solid oklch(1 0 0 / .1)', borderRadius: 20, padding: '48px 40px 40px', boxShadow: '0 32px 80px oklch(0 0 0 / .6), inset 0 1px 0 oklch(1 0 0 / .08)' }}
         >
           {/* Logo */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
-            <div style={{
-              width: 80, height: 80,
-              borderRadius: 20,
-              overflow: 'hidden',
-              border: '2px solid oklch(0.66 0.22 25 / .5)',
-              boxShadow: '0 0 32px oklch(0.66 0.22 25 / .35)',
-              marginBottom: 16,
-            }}>
-              <img
-                src="/logo.jpg"
-                alt="Urban Fitness Club"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
-                onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }}
-              />
+            <div style={{ width: 80, height: 80, borderRadius: 20, overflow: 'hidden', border: '2px solid oklch(0.66 0.22 25 / .5)', boxShadow: '0 0 32px oklch(0.66 0.22 25 / .35)', marginBottom: 16 }}>
+              <img src="/logo.jpg" alt="Urban Fitness Club" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }} />
               <div style={{ display: 'none', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', background: 'oklch(0.20 0.02 250)' }}>
                 <Dumbbell size={36} color="oklch(0.66 0.22 25)" />
               </div>
             </div>
-
-            <h1 className="silver" style={{
-              fontSize: 20,
-              fontFamily: 'Oxanium, sans-serif',
-              letterSpacing: '.18em',
-              fontWeight: 700,
-              margin: 0,
-              textAlign: 'center',
-            }}>
+            <h1 className="silver" style={{ fontSize: 20, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.18em', fontWeight: 700, margin: 0, textAlign: 'center' }}>
               URBAN FITNESS CLUB
             </h1>
-            <p style={{
-              color: 'oklch(0.78 0.02 250 / .55)',
-              fontSize: 12,
-              letterSpacing: '.1em',
-              textTransform: 'uppercase',
-              margin: '6px 0 0',
-            }}>
-              Sistema de Gestión
+            <p style={{ color: 'oklch(0.78 0.02 250 / .55)', fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', margin: '6px 0 0' }}>
+              {titulos[vista]}
             </p>
           </div>
 
-          {/* Formulario */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Usuario */}
-            <div style={{ position: 'relative' }}>
-              <label className="gym-label" style={{ display: 'block', marginBottom: 6 }}>
-                Usuario
-              </label>
-              <div style={{ position: 'relative' }}>
-                <User
-                  size={15}
-                  style={{
-                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-                    color: 'oklch(0.78 0.02 250 / .35)',
-                    pointerEvents: 'none',
-                  }}
-                />
-                <input
-                  className="gym-input"
-                  type="text"
-                  placeholder="nombre de usuario"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  autoComplete="username"
-                  autoFocus
-                  style={{ paddingLeft: 38, width: '100%' }}
-                />
-              </div>
-            </div>
+          <AnimatePresence mode="wait">
+            <motion.div key={vista} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+              {vista === 'login' && <FormLogin onRegistrar={() => setVista('registrar')} onRecuperar={() => setVista('recuperar')} />}
+              {vista === 'registrar' && <FormRegistrar onVolver={() => setVista('login')} />}
+              {vista === 'recuperar' && <FormRecuperar onVolver={() => setVista('login')} />}
+            </motion.div>
+          </AnimatePresence>
 
-            {/* Contraseña */}
-            <div>
-              <label className="gym-label" style={{ display: 'block', marginBottom: 6 }}>
-                Contraseña
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock
-                  size={15}
-                  style={{
-                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
-                    color: 'oklch(0.78 0.02 250 / .35)',
-                    pointerEvents: 'none',
-                  }}
-                />
-                <input
-                  className="gym-input"
-                  type={showPass ? 'text' : 'password'}
-                  placeholder="contraseña"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  style={{ paddingLeft: 38, paddingRight: 42, width: '100%' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(v => !v)}
-                  style={{
-                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'oklch(0.78 0.02 250 / .4)',
-                    padding: 4, borderRadius: 4,
-                    display: 'flex', alignItems: 'center',
-                  }}
-                  tabIndex={-1}
-                >
-                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Botón */}
-            <motion.button
-              type="submit"
-              className="btn-primary"
-              disabled={cargando}
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.98 }}
-              style={{
-                marginTop: 8,
-                height: 48,
-                fontSize: 13,
-                fontFamily: 'Oxanium, sans-serif',
-                letterSpacing: '.12em',
-                fontWeight: 700,
-              }}
-            >
-              {cargando ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                  <motion.span
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                    style={{ width: 16, height: 16, border: '2px solid oklch(1 0 0 / .3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }}
-                  />
-                  Verificando...
-                </span>
-              ) : 'INICIAR SESIÓN'}
-            </motion.button>
-          </form>
-
-          {/* Footer */}
-          <p style={{
-            textAlign: 'center',
-            marginTop: 24,
-            fontSize: 11,
-            color: 'oklch(0.78 0.02 250 / .28)',
-            letterSpacing: '.06em',
-          }}>
+          <p style={{ textAlign: 'center', marginTop: 24, fontSize: 11, color: 'oklch(0.78 0.02 250 / .28)', letterSpacing: '.06em' }}>
             Sesión segura · v1.0.0
           </p>
         </motion.div>

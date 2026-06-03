@@ -1,10 +1,67 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Users, Shield, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Key, Search, ChevronRight, Check } from 'lucide-react'
+import { Users, Shield, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Key, Search, ChevronRight, Check, Camera } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
 import { auditoriaService, ACCIONES } from '../../services/auditoriaService'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function resizarBase64(dataUrl, maxPx = 300) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      let { width, height } = img
+      if (width > maxPx || height > maxPx) {
+        const ratio = Math.min(maxPx / width, maxPx / height)
+        width = Math.floor(width * ratio)
+        height = Math.floor(height * ratio)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', 0.82))
+    }
+    img.onerror = () => resolve(dataUrl)
+    img.src = dataUrl
+  })
+}
+
+function avatarColor(nombre = '') {
+  const COLORS = [
+    'oklch(0.60 0.18 25)', 'oklch(0.55 0.20 250)', 'oklch(0.58 0.17 155)',
+    'oklch(0.62 0.15 75)', 'oklch(0.57 0.19 300)', 'oklch(0.60 0.16 200)',
+  ]
+  let h = 0
+  for (let i = 0; i < nombre.length; i++) h = (h * 31 + nombre.charCodeAt(i)) & 0xffffffff
+  return COLORS[Math.abs(h) % COLORS.length]
+}
+
+function UserAvatar({ foto, nombre, size = 32 }) {
+  const iniciales = (nombre || '?').trim().split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+  if (foto) {
+    return (
+      <img
+        src={foto}
+        alt={nombre}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid oklch(1 0 0 / .15)', flexShrink: 0 }}
+      />
+    )
+  }
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: avatarColor(nombre),
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: size * 0.38, fontWeight: 700, color: 'white',
+      fontFamily: 'Oxanium, sans-serif', letterSpacing: '.04em',
+    }}>
+      {iniciales}
+    </div>
+  )
+}
 
 // ─── Componentes auxiliares ───────────────────────────────────────────────────
 
@@ -61,18 +118,34 @@ function Badge({ children, color = 'muted' }) {
 
 function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
   const esEdicion = !!usuario?.id
+  const esAdmin = usuario?.username === 'admin'
   const [form, setForm] = useState({
     username: usuario?.username || '',
     nombre_completo: usuario?.nombre_completo || '',
     email: usuario?.email || '',
     telefono: usuario?.telefono || '',
+    carnet: usuario?.carnet || '',
+    foto: usuario?.foto || null,
     rol_id: usuario?.rol_id || (roles[0]?.id || ''),
     password: '',
     confirmar: '',
     activo: usuario?.activo ?? 1,
   })
+  const [cambiandoImg, setCambiandoImg] = useState(false)
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  async function seleccionarFoto() {
+    setCambiandoImg(true)
+    try {
+      const r = await window.api.inventario.pickImage()
+      if (r?.dataUrl) {
+        const resized = await resizarBase64(r.dataUrl, 300)
+        set('foto', resized)
+      }
+    } catch { toast.error('No se pudo cargar la imagen') }
+    finally { setCambiandoImg(false) }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -88,11 +161,46 @@ function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'oklch(0 0 0 / .7)', backdropFilter: 'blur(4px)' }}>
       <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }}
-        style={{ width: '100%', maxWidth: 440, background: 'oklch(0.14 0.01 250 / .97)', backdropFilter: 'blur(32px)', border: '1px solid oklch(1 0 0 / .1)', borderRadius: 16, padding: '28px 28px 24px', boxShadow: '0 24px 60px oklch(0 0 0 / .5)', margin: 16, maxHeight: '90vh', overflowY: 'auto' }}>
+        style={{ width: '100%', maxWidth: 480, background: 'oklch(0.14 0.01 250 / .97)', backdropFilter: 'blur(32px)', border: '1px solid oklch(1 0 0 / .1)', borderRadius: 16, padding: '28px 28px 24px', boxShadow: '0 24px 60px oklch(0 0 0 / .5)', margin: 16, maxHeight: '90vh', overflowY: 'auto' }}>
         <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: 'oklch(0.98 0.01 250)' }}>
           {esEdicion ? 'Editar Usuario' : 'Nuevo Usuario'}
         </h3>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+          {/* Foto de perfil */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 4 }}>
+            <div style={{ position: 'relative' }}>
+              <UserAvatar foto={form.foto} nombre={form.nombre_completo || 'U'} size={64} />
+              <button
+                type="button"
+                onClick={seleccionarFoto}
+                disabled={cambiandoImg}
+                style={{
+                  position: 'absolute', bottom: -4, right: -4,
+                  width: 22, height: 22, borderRadius: '50%',
+                  background: 'oklch(0.66 0.22 25)', border: '2px solid oklch(0.14 0.01 250)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', padding: 0,
+                }}
+              >
+                <Camera size={11} color="white" />
+              </button>
+            </div>
+            <div>
+              <div style={{ fontSize: 13, color: 'oklch(0.78 0.02 250 / .8)', fontWeight: 500 }}>
+                {form.nombre_completo || 'Nuevo usuario'}
+              </div>
+              <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .4)', marginTop: 2 }}>
+                Haz clic en la foto para cambiarla
+              </div>
+              {form.foto && (
+                <button type="button" onClick={() => set('foto', null)} style={{ fontSize: 11, color: 'oklch(0.65 0.22 25)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}>
+                  Quitar foto
+                </button>
+              )}
+            </div>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Usuario *</label>
@@ -100,9 +208,15 @@ function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
             </div>
             <div>
               <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Rol *</label>
-              <select className="gym-select" value={form.rol_id} onChange={e => set('rol_id', Number(e.target.value))} style={{ width: '100%' }}>
-                {roles.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-              </select>
+              {esAdmin ? (
+                <div className="gym-input" style={{ width: '100%', color: 'oklch(0.78 0.02 250 / .5)', cursor: 'not-allowed' }}>
+                  Administrador <span style={{ fontSize: 10 }}>(fijo)</span>
+                </div>
+              ) : (
+                <select className="gym-select" value={form.rol_id} onChange={e => set('rol_id', Number(e.target.value))} style={{ width: '100%' }}>
+                  {roles.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                </select>
+              )}
             </div>
           </div>
           <div>
@@ -111,13 +225,17 @@ function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Email</label>
-              <input className="gym-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@ejemplo.com" style={{ width: '100%' }} />
+              <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Carnet / CI</label>
+              <input className="gym-input" value={form.carnet} onChange={e => set('carnet', e.target.value)} placeholder="CI del usuario" style={{ width: '100%' }} />
             </div>
             <div>
               <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Teléfono</label>
               <input className="gym-input" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="7XXXXXXX" style={{ width: '100%' }} />
             </div>
+          </div>
+          <div>
+            <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Email</label>
+            <input className="gym-input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="correo@ejemplo.com" style={{ width: '100%' }} />
           </div>
           {!esEdicion && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -131,10 +249,12 @@ function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
               </div>
             </div>
           )}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'oklch(0.78 0.02 250 / .8)' }}>
-            <input type="checkbox" checked={form.activo === 1} onChange={e => set('activo', e.target.checked ? 1 : 0)} />
-            Usuario activo
-          </label>
+          {!esAdmin && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'oklch(0.78 0.02 250 / .8)' }}>
+              <input type="checkbox" checked={form.activo === 1} onChange={e => set('activo', e.target.checked ? 1 : 0)} />
+              Usuario activo
+            </label>
+          )}
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
             <button type="button" className="btn-secondary" onClick={onCerrar} style={{ flex: 1 }}>Cancelar</button>
             <button type="submit" className="btn-primary" style={{ flex: 2, fontSize: 13 }}>
@@ -190,7 +310,8 @@ function TabUsuarios({ roles }) {
 
   async function toggleActivo(u) {
     const nuevoActivo = u.activo ? 0 : 1
-    await window.api.usuarios.setActivo(u.id, nuevoActivo)
+    const r = await window.api.usuarios.setActivo(u.id, nuevoActivo)
+    if (!r.ok) { toast.error(r.error || 'No se pudo cambiar el estado'); return }
     await auditoriaService.log(
       nuevoActivo ? ACCIONES.USUARIO_ACTIVADO : ACCIONES.USUARIO_DESACTIVADO,
       'usuarios', `Usuario ${u.username} ${nuevoActivo ? 'activado' : 'desactivado'}`, u.id, 'usuario'
@@ -247,7 +368,12 @@ function TabUsuarios({ roles }) {
             {filtrados.map(u => (
               <tr key={u.id}>
                 <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'oklch(0.78 0.02 250 / .7)' }}>@{u.username}</td>
-                <td style={{ fontWeight: 500 }}>{u.nombre_completo}</td>
+                <td style={{ fontWeight: 500 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <UserAvatar foto={u.foto} nombre={u.nombre_completo} size={30} />
+                    {u.nombre_completo}
+                  </div>
+                </td>
                 <td><Badge color={u.rol_nombre === 'Administrador' ? 'red' : u.rol_nombre === 'Empleado' ? 'blue' : 'muted'}>{u.rol_nombre}</Badge></td>
                 <td style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .55)' }}>{u.ultimo_login ? new Date(u.ultimo_login).toLocaleString('es-BO') : '—'}</td>
                 <td><Badge color={u.activo ? 'green' : 'red'}>{u.activo ? 'Activo' : 'Inactivo'}</Badge></td>

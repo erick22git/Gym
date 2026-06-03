@@ -674,6 +674,52 @@ async function initDB() {
   // ─── Migración FASE 6H — columnas nuevas primero, luego seeds ────────────
   try { db.run('ALTER TABLE clientes ADD COLUMN facturador_habitual TEXT') } catch (_) {}
   try { db.run('ALTER TABLE categorias_productos ADD COLUMN imagen TEXT') } catch (_) {}
+
+  // ─── Migración: columnas de usuarios (foto, carnet) ──────────────────────
+  try { db.run('ALTER TABLE usuarios ADD COLUMN foto TEXT') } catch (_) {}
+  try { db.run('ALTER TABLE usuarios ADD COLUMN carnet TEXT') } catch (_) {}
+  try { db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_carnet ON usuarios(carnet) WHERE carnet IS NOT NULL') } catch (_) {}
+
+  // ─── Migración v2: permisos correctos para Empleado y Cajero ─────────────
+  const permV2Done = queryOne("SELECT value FROM config WHERE key='permisos_roles_v2'")
+  if (!permV2Done) {
+    try {
+      const empleadoPermisos = [
+        'dashboard.ver',
+        'asistencia.registrar', 'asistencia.ver', 'asistencia.ver_historial',
+        'clientes.ver', 'clientes.crear', 'clientes.editar',
+        'membresias.ver', 'membresias.asignar', 'membresias.renovar', 'membresias.cobrar', 'membresias.aplicar_descuento',
+        'ventas.realizar', 'ventas.ver',
+        'inventario.ver', 'inventario.ajustar_stock',
+        'caja.abrir', 'caja.cerrar', 'caja.ver', 'caja.ver_historial',
+        'facturacion.ver', 'facturacion.emitir', 'facturacion.ver_historial', 'facturacion.descargar_pdf', 'facturacion.enviar_email',
+        'alertas.ver',
+      ]
+      const cajeroPermisos = [
+        'dashboard.ver',
+        'asistencia.registrar',
+        'clientes.ver',
+        'membresias.ver',
+        'ventas.realizar', 'ventas.ver',
+        'caja.abrir', 'caja.cerrar', 'caja.ver',
+        'facturacion.emitir',
+      ]
+      db.run('DELETE FROM rol_permisos WHERE rol_id=2')
+      for (const c of empleadoPermisos) {
+        const p = queryOne('SELECT id FROM permisos WHERE codigo=?', [c])
+        if (p) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (2, ?)', [p.id])
+      }
+      db.run('DELETE FROM rol_permisos WHERE rol_id=3')
+      for (const c of cajeroPermisos) {
+        const p = queryOne('SELECT id FROM permisos WHERE codigo=?', [c])
+        if (p) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (3, ?)', [p.id])
+      }
+      db.run("INSERT OR IGNORE INTO config (key, value) VALUES ('permisos_roles_v2', '1')")
+    } catch (_) {}
+  }
+
+  // Asegurar que el admin siempre esté activo
+  try { db.run("UPDATE usuarios SET activo=1 WHERE username='admin'") } catch (_) {}
   try { db.run("ALTER TABLE planes_catalogo ADD COLUMN tipo_plan TEXT DEFAULT 'individual'") } catch (_) {}
   try { db.run('ALTER TABLE planes_catalogo ADD COLUMN capacidad INTEGER DEFAULT 1') } catch (_) {}
   // Seeds de planes grupales (solo si no existen — DEBE ir DESPUÉS de los ALTER TABLE)
@@ -1118,7 +1164,7 @@ const usuarios = {
     return queryAll(`
       SELECT u.id, u.username, u.nombre_completo, u.email, u.telefono,
         u.activo, u.primer_login, u.ultimo_login, u.created_at, u.rol_id,
-        r.nombre as rol_nombre
+        u.foto, u.carnet, r.nombre as rol_nombre
       FROM usuarios u
       JOIN roles r ON u.rol_id = r.id
       ORDER BY u.nombre_completo
@@ -1128,28 +1174,56 @@ const usuarios = {
     return queryOne(`
       SELECT u.id, u.username, u.nombre_completo, u.email, u.telefono,
         u.activo, u.primer_login, u.ultimo_login, u.created_at, u.rol_id,
-        r.nombre as rol_nombre
+        u.foto, u.carnet, r.nombre as rol_nombre
       FROM usuarios u JOIN roles r ON u.rol_id = r.id WHERE u.id=?
     `, [id])
   },
   create(data) {
     const hash = bcrypt.hashSync(data.password, 10)
     const r = run(
-      "INSERT INTO usuarios (username, nombre_completo, password_hash, rol_id, email, telefono, activo, primer_login) VALUES (?,?,?,?,?,?,?,1)",
-      [data.username, data.nombre_completo, hash, data.rol_id, data.email || null, data.telefono || null, data.activo ?? 1]
+      "INSERT INTO usuarios (username, nombre_completo, password_hash, rol_id, email, telefono, activo, primer_login, foto, carnet) VALUES (?,?,?,?,?,?,?,1,?,?)",
+      [data.username, data.nombre_completo, hash, data.rol_id, data.email || null, data.telefono || null, data.activo ?? 1, data.foto || null, data.carnet || null]
     )
     return usuarios.getById(r.lastInsertRowid)
   },
   update(id, data) {
+    // No se puede desactivar al admin
+    if (data.activo === 0) {
+      const u = queryOne("SELECT username FROM usuarios WHERE id=?", [id])
+      if (u?.username === 'admin') data = { ...data, activo: 1 }
+    }
     run(
-      "UPDATE usuarios SET username=?, nombre_completo=?, rol_id=?, email=?, telefono=?, activo=?, updated_at=datetime('now','localtime') WHERE id=?",
-      [data.username, data.nombre_completo, data.rol_id, data.email || null, data.telefono || null, data.activo ?? 1, id]
+      "UPDATE usuarios SET username=?, nombre_completo=?, rol_id=?, email=?, telefono=?, activo=?, foto=?, carnet=?, updated_at=datetime('now','localtime') WHERE id=?",
+      [data.username, data.nombre_completo, data.rol_id, data.email || null, data.telefono || null, data.activo ?? 1, data.foto || null, data.carnet || null, id]
     )
     return usuarios.getById(id)
   },
   setActivo(id, activo) {
+    // Admin siempre debe permanecer activo
+    const u = queryOne("SELECT username FROM usuarios WHERE id=?", [id])
+    if (u?.username === 'admin') return { ok: false, error: 'El administrador no puede desactivarse' }
     run("UPDATE usuarios SET activo=?, updated_at=datetime('now','localtime') WHERE id=?", [activo ? 1 : 0, id])
     return { ok: true }
+  },
+  registrar(data) {
+    // Verifica carnet único
+    if (data.carnet) {
+      const existe = queryOne("SELECT id FROM usuarios WHERE carnet=?", [data.carnet])
+      if (existe) return { ok: false, error: 'Ya existe un usuario con ese carnet' }
+    }
+    const hash = bcrypt.hashSync(data.password, 10)
+    const r = run(
+      "INSERT INTO usuarios (username, nombre_completo, password_hash, rol_id, telefono, activo, primer_login, carnet) VALUES (?,?,?,3,?,1,0,?)",
+      [data.carnet || data.username, data.nombre_completo, hash, data.telefono || null, data.carnet || null]
+    )
+    return { ok: true, id: r.lastInsertRowid }
+  },
+  cambiarPasswordPorCarnet(carnet, nuevaPassword) {
+    const u = queryOne("SELECT id, nombre_completo FROM usuarios WHERE carnet=?", [carnet])
+    if (!u) return { ok: false, error: 'No se encontró ningún usuario con ese carnet' }
+    const hash = bcrypt.hashSync(nuevaPassword, 10)
+    run("UPDATE usuarios SET password_hash=?, primer_login=0, updated_at=datetime('now','localtime') WHERE id=?", [hash, u.id])
+    return { ok: true, nombre: u.nombre_completo }
   },
   cambiarPassword(id, nuevaPassword) {
     const hash = bcrypt.hashSync(nuevaPassword, 10)
@@ -1380,9 +1454,9 @@ const auditoria = {
     if (filtros.desde) { where += ' AND date(a.fecha)>=?'; params.push(filtros.desde) }
     if (filtros.hasta) { where += ' AND date(a.fecha)<=?'; params.push(filtros.hasta) }
     if (filtros.busqueda) {
-      where += ' AND (a.usuario_nombre LIKE ? OR a.detalle LIKE ?)'
+      where += ' AND (a.usuario_nombre LIKE ? OR a.detalle LIKE ? OR a.accion LIKE ?)'
       const b = `%${filtros.busqueda}%`
-      params.push(b, b)
+      params.push(b, b, b)
     }
     const total = (queryOne(`SELECT COUNT(*) as n FROM auditoria a${where}`, params) || {}).n || 0
     const data = queryAll(`SELECT a.*, u.username FROM auditoria a LEFT JOIN usuarios u ON a.usuario_id=u.id${where} ORDER BY a.fecha DESC LIMIT ? OFFSET ?`, [...params, pageSize, offset])

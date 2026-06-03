@@ -152,6 +152,8 @@ ipcMain.handle('usuarios:create', (_, data) => require('./database.cjs').usuario
 ipcMain.handle('usuarios:update', (_, id, data) => require('./database.cjs').usuarios.update(id, data))
 ipcMain.handle('usuarios:setActivo', (_, id, activo) => require('./database.cjs').usuarios.setActivo(id, activo))
 ipcMain.handle('usuarios:delete', (_, id) => require('./database.cjs').usuarios.delete(id))
+ipcMain.handle('usuarios:registrar', (_, data) => require('./database.cjs').usuarios.registrar(data))
+ipcMain.handle('usuarios:cambiarPasswordPorCarnet', (_, carnet, pass) => require('./database.cjs').usuarios.cambiarPasswordPorCarnet(carnet, pass))
 
 // Roles
 ipcMain.handle('roles:getAll', () => require('./database.cjs').roles.getAll())

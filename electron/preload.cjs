@@ -88,6 +88,8 @@ contextBridge.exposeInMainWorld('api', {
     update: (id, data) => ipcRenderer.invoke('usuarios:update', id, data),
     setActivo: (id, activo) => ipcRenderer.invoke('usuarios:setActivo', id, activo),
     delete: (id) => ipcRenderer.invoke('usuarios:delete', id),
+    registrar: (data) => ipcRenderer.invoke('usuarios:registrar', data),
+    cambiarPasswordPorCarnet: (carnet, pass) => ipcRenderer.invoke('usuarios:cambiarPasswordPorCarnet', carnet, pass),
   },
 
   // Roles
