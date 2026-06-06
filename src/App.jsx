@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppProvider, useApp } from './context/AppContext'
@@ -8,6 +9,7 @@ import Login from './pages/Login'
 import CambiarPasswordModal from './pages/CambiarPassword'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import ErrorBoundary from './components/ui/ErrorBoundary'
+import { Minus, Maximize2, Minimize2, X } from 'lucide-react'
 
 import Attendance from './pages/Attendance'
 import ControlAcceso from './pages/ControlAcceso'
@@ -138,11 +140,44 @@ function LoadingScreen() {
   )
 }
 
+// ─── Barra de ventana mínima (para login/loading) ────────────────────────────
+
+function MinimalWindowBar() {
+  const [isMax, setIsMax] = useState(false)
+  return (
+    <div style={{
+      position: 'fixed', top: 0, right: 0, zIndex: 99999,
+      display: 'flex', WebkitAppRegion: 'no-drag',
+    }}>
+      <button className="winbtn11" title="Minimizar" onClick={() => window.api?.minimize?.()}>
+        <Minus size={13} strokeWidth={1.8} />
+      </button>
+      <button className="winbtn11" title={isMax ? 'Restaurar' : 'Maximizar'} onClick={() => { window.api?.maximize?.(); setIsMax(v => !v) }}>
+        {isMax ? <Minimize2 size={12} strokeWidth={1.8} /> : <Maximize2 size={12} strokeWidth={1.8} />}
+      </button>
+      <button className="winbtn11 winbtn11-close" title="Cerrar" onClick={() => window.api?.close?.()}>
+        <X size={13} strokeWidth={1.8} />
+      </button>
+    </div>
+  )
+}
+
 function AppRoot() {
   const { usuario, cargando } = useAuth()
 
-  if (cargando) return <LoadingScreen />
-  if (!usuario) return <Login />
+  if (cargando) return (
+    <>
+      <MinimalWindowBar />
+      <LoadingScreen />
+    </>
+  )
+
+  if (!usuario) return (
+    <>
+      <MinimalWindowBar />
+      <Login />
+    </>
+  )
 
   return (
     <AppProvider>

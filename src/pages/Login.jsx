@@ -191,7 +191,7 @@ function FormRegistrar({ onVolver }) {
         <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Nombre completo *</label>
         <input className="gym-input" value={form.nombre_completo} onChange={e => set('nombre_completo', e.target.value)} placeholder="Nombre Apellido" autoFocus style={{ width: '100%' }} />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div className="login-grid-2">
         <div>
           <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Carnet / CI *</label>
           <input className="gym-input" value={form.carnet} onChange={e => set('carnet', e.target.value)} placeholder="Carnet de identidad" style={{ width: '100%' }} />
@@ -201,7 +201,7 @@ function FormRegistrar({ onVolver }) {
           <input className="gym-input" value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="7XXXXXXX" style={{ width: '100%' }} />
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div className="login-grid-2">
         <div>
           <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Contraseña *</label>
           <div style={{ position: 'relative' }}>

@@ -1206,17 +1206,32 @@ const usuarios = {
     return { ok: true }
   },
   registrar(data) {
-    // Verifica carnet único
-    if (data.carnet) {
-      const existe = queryOne("SELECT id FROM usuarios WHERE carnet=?", [data.carnet])
-      if (existe) return { ok: false, error: 'Ya existe un usuario con ese carnet' }
-    }
+    if (!data.carnet) return { ok: false, error: 'El carnet es obligatorio para registrarse' }
+    if (!data.password) return { ok: false, error: 'La contraseña es obligatoria' }
+
+    // Carnet único
+    const existe = queryOne("SELECT id FROM usuarios WHERE TRIM(carnet)=TRIM(?)", [data.carnet])
+    if (existe) return { ok: false, error: 'Ya existe un usuario con ese carnet' }
+
+    // Username único (el carnet se usa como username)
+    const existeUser = queryOne("SELECT id FROM usuarios WHERE username=?", [data.carnet.trim()])
+    if (existeUser) return { ok: false, error: 'Ya existe un usuario con ese carnet' }
+
+    // Obtener rol Cajero dinámicamente (fallback a 3 si no se encuentra)
+    const rolCajero = queryOne("SELECT id FROM roles WHERE LOWER(nombre)='cajero' LIMIT 1")
+    const rolId = rolCajero?.id || 3
+
     const hash = bcrypt.hashSync(data.password, 10)
     const r = run(
-      "INSERT INTO usuarios (username, nombre_completo, password_hash, rol_id, telefono, activo, primer_login, carnet) VALUES (?,?,?,3,?,1,0,?)",
-      [data.carnet || data.username, data.nombre_completo, hash, data.telefono || null, data.carnet || null]
+      "INSERT INTO usuarios (username, nombre_completo, password_hash, rol_id, telefono, activo, primer_login, carnet) VALUES (?,?,?,?,?,1,0,?)",
+      [data.carnet.trim(), data.nombre_completo.trim(), hash, rolId, data.telefono || null, data.carnet.trim()]
     )
-    return { ok: true, id: r.lastInsertRowid }
+
+    // Guardado explícito a disco (run() ya lo hace, pero lo repetimos por seguridad)
+    saveDB()
+
+    const nuevo = usuarios.getById(r.lastInsertRowid)
+    return { ok: true, id: r.lastInsertRowid, usuario: nuevo }
   },
   cambiarPasswordPorCarnet(carnet, nuevaPassword) {
     const u = queryOne("SELECT id, nombre_completo FROM usuarios WHERE TRIM(carnet)=TRIM(?)", [carnet])

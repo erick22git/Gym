@@ -835,3 +835,21 @@ body {
 @media (max-width: 768px) {
   .table-scroll .gym-table { min-width: 580px; }
 }
+
+/* Login grid 2 columnas → 1 columna en mobile */
+.login-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) {
+  .login-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ── Responsive 380px (celular pequeño) ── */
+@media (max-width: 380px) {
+  .app-layout { padding: 4px; gap: 4px; }
+  .page-content { gap: 10px; }
+  .titulo-metalico { font-size: 15px; letter-spacing: .06em; }
+  .gym-card { border-radius: 12px; }
+  .btn-primary, .btn-secondary { font-size: 11px; padding: 7px 12px; }
+  .stat-value { font-size: 22px; }
+  .sidebar { padding: 8px; }
+  .gym-input { font-size: 12px; padding: 8px 12px; }
+}
