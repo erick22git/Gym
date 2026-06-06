@@ -57,7 +57,7 @@ function FormLogin({ onRegistrar, onRecuperar, onError }) {
           <input
             className={`gym-input${errores.username ? ' input-error' : ''}`}
             type="text"
-            placeholder="nombre de usuario o carnet"
+            placeholder="usuario o carnet"
             value={username}
             onChange={e => { setUsername(e.target.value); limpiarError('username') }}
             autoComplete="username"
