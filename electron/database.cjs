@@ -1272,8 +1272,10 @@ const usuarios = {
         u.activo, u.primer_login, u.rol_id, u.foto,
         COALESCE(r.nombre, 'Sin rol') as rol_nombre
       FROM usuarios u LEFT JOIN roles r ON u.rol_id = r.id
-      WHERE TRIM(LOWER(u.username))=? OR (u.carnet IS NOT NULL AND TRIM(CAST(u.carnet AS TEXT))=TRIM(CAST(? AS TEXT)))
-    `, [busqueda, busqueda])
+      WHERE TRIM(LOWER(u.username))=?
+         OR TRIM(LOWER(u.nombre_completo))=?
+         OR (u.carnet IS NOT NULL AND TRIM(CAST(u.carnet AS TEXT))=TRIM(CAST(? AS TEXT)))
+    `, [busqueda, busqueda, busqueda])
 
     if (!u) return { ok: false, error: 'Usuario no encontrado' }
     if (!u.activo) return { ok: false, error: 'Usuario desactivado' }
