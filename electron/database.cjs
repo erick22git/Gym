@@ -417,6 +417,11 @@ async function initDB() {
     )
   }
 
+  // Garantizar los 3 roles base siempre existan (INSERT OR IGNORE es seguro si ya están)
+  db.run("INSERT OR IGNORE INTO roles (id, nombre, descripcion, es_sistema) VALUES (1, 'Administrador', 'Acceso total al sistema', 1)")
+  db.run("INSERT OR IGNORE INTO roles (id, nombre, descripcion, es_sistema) VALUES (2, 'Empleado', 'Recepcionista con acceso operativo', 1)")
+  db.run("INSERT OR IGNORE INTO roles (id, nombre, descripcion, es_sistema) VALUES (3, 'Cajero', 'Acceso a caja y ventas', 1)")
+
   // ─── Migraciones de columnas extendidas en clientes ──────────────────────
   const colsExtra = ['direccion', 'genero', 'contacto_emergencia', 'telefono_emergencia', 'tipo_sangre', 'alergias', 'condiciones_medicas', 'notas']
   for (const col of colsExtra) {
@@ -1164,9 +1169,9 @@ const usuarios = {
     return queryAll(`
       SELECT u.id, u.username, u.nombre_completo, u.email, u.telefono,
         u.activo, u.primer_login, u.ultimo_login, u.created_at, u.rol_id,
-        u.foto, u.carnet, r.nombre as rol_nombre
+        u.foto, u.carnet, COALESCE(r.nombre, 'Sin rol') as rol_nombre
       FROM usuarios u
-      JOIN roles r ON u.rol_id = r.id
+      LEFT JOIN roles r ON u.rol_id = r.id
       ORDER BY u.nombre_completo
     `)
   },
@@ -1174,8 +1179,8 @@ const usuarios = {
     return queryOne(`
       SELECT u.id, u.username, u.nombre_completo, u.email, u.telefono,
         u.activo, u.primer_login, u.ultimo_login, u.created_at, u.rol_id,
-        u.foto, u.carnet, r.nombre as rol_nombre
-      FROM usuarios u JOIN roles r ON u.rol_id = r.id WHERE u.id=?
+        u.foto, u.carnet, COALESCE(r.nombre, 'Sin rol') as rol_nombre
+      FROM usuarios u LEFT JOIN roles r ON u.rol_id = r.id WHERE u.id=?
     `, [id])
   },
   create(data) {
@@ -1261,12 +1266,14 @@ const usuarios = {
     return { ok: true }
   },
   login(username, password) {
+    const busqueda = String(username || '').trim()
     const u = queryOne(`
       SELECT u.id, u.username, u.nombre_completo, u.password_hash,
-        u.activo, u.primer_login, u.rol_id, u.foto, r.nombre as rol_nombre
-      FROM usuarios u JOIN roles r ON u.rol_id = r.id
-      WHERE u.username=? OR (u.carnet IS NOT NULL AND TRIM(u.carnet)=TRIM(?))
-    `, [username, username])
+        u.activo, u.primer_login, u.rol_id, u.foto,
+        COALESCE(r.nombre, 'Sin rol') as rol_nombre
+      FROM usuarios u LEFT JOIN roles r ON u.rol_id = r.id
+      WHERE TRIM(u.username)=? OR (u.carnet IS NOT NULL AND TRIM(CAST(u.carnet AS TEXT))=TRIM(CAST(? AS TEXT)))
+    `, [busqueda, busqueda])
 
     if (!u) return { ok: false, error: 'Usuario no encontrado' }
     if (!u.activo) return { ok: false, error: 'Usuario desactivado' }
@@ -1317,10 +1324,10 @@ const sesiones = {
     const sesion = queryOne(`
       SELECT s.usuario_id, s.token, s.fin,
         u.username, u.nombre_completo, u.activo, u.primer_login, u.rol_id, u.foto,
-        r.nombre as rol_nombre
+        COALESCE(r.nombre, 'Sin rol') as rol_nombre
       FROM sesiones s
       JOIN usuarios u ON s.usuario_id = u.id
-      JOIN roles r ON u.rol_id = r.id
+      LEFT JOIN roles r ON u.rol_id = r.id
       WHERE s.token=? AND s.fin IS NULL
     `, [token])
 
