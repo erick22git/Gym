@@ -142,7 +142,7 @@ export default function VistaRecibo({ venta, onClose }) {
               {/* Contenido del recibo */}
               {show('mostrar_logo') && (
                 <div style={{ textAlign: 'center', marginBottom: 6 }}>
-                  <img src="/logo.jpg" alt="logo" style={{ height: isTicket ? 28 : 44, objectFit: 'contain', maxWidth: '80%' }} onError={e => e.target.style.display = 'none'} />
+                  <img src="/logo-icon.png" alt="logo" style={{ height: isTicket ? 48 : 72, objectFit: 'contain', maxWidth: '90%' }} onError={e => e.target.style.display = 'none'} />
                 </div>
               )}
               <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: isTicket ? 11 : 15, marginBottom: 2 }}>
