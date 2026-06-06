@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Scan, Users, CreditCard, LayoutDashboard,
@@ -154,8 +154,17 @@ export default function Sidebar() {
   const { usuario, tienePermiso, esModuloActivo } = useAuth()
 
   const [colapsado, setColapsado] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return true
     try { return localStorage.getItem('sidebarCollapsed') === 'true' } catch { return false }
   })
+
+  useEffect(() => {
+    function onResize() {
+      if (window.innerWidth < 768) setColapsado(true)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   function toggleColapso() {
     const nuevo = !colapsado

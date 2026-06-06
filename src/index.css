@@ -786,3 +786,52 @@ body {
   50%       { box-shadow: 0 0 0 6px oklch(0.66 0.22 25 / 0); }
 }
 .badge-pulse { animation: pulse-red 2s ease-in-out infinite; }
+
+/* ── Login error glow ── */
+@keyframes loginErrorGlow {
+  0%   { box-shadow: 0 0 0 0 oklch(0.66 0.22 25 / 0),   0 0 0 0 oklch(0.66 0.22 25 / 0); }
+  25%  { box-shadow: 0 0 28px 8px oklch(0.66 0.22 25 / .45), 0 0 0 3px oklch(0.66 0.22 25 / .35); }
+  65%  { box-shadow: 0 0 20px 5px oklch(0.66 0.22 25 / .3),  0 0 0 2px oklch(0.66 0.22 25 / .2); }
+  100% { box-shadow: 0 0 0 0 oklch(0.66 0.22 25 / 0),   0 0 0 0 oklch(0.66 0.22 25 / 0); }
+}
+.login-error-glow { animation: loginErrorGlow 0.6s ease-out forwards; }
+
+/* ── Input con error ── */
+.gym-input.input-error {
+  border-color: oklch(0.66 0.22 25 / .7) !important;
+  background: oklch(0.66 0.22 25 / .05) !important;
+}
+.input-error-msg {
+  font-size: 11px;
+  color: oklch(0.72 0.20 25);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .app-layout { padding: 8px; gap: 8px; }
+  .main-layout { gap: 8px; }
+  .titulo-metalico { font-size: 20px; letter-spacing: .08em; }
+  .sidebar { padding: 12px; gap: 8px; }
+  .sidebar-logo { height: 80px; }
+  .titlebar-brand span { display: none; }
+  .gym-card { border-radius: 14px; }
+  .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .app-layout { padding: 6px; gap: 6px; }
+  .page-content { gap: 12px; }
+  .titulo-metalico { font-size: 17px; }
+  .stat-value { font-size: 24px; }
+  .btn-primary, .btn-secondary { font-size: 12px; padding: 8px 14px; }
+}
+
+/* Tablas scrolleables en mobile */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 768px) {
+  .table-scroll .gym-table { min-width: 580px; }
+}
