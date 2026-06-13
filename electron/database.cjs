@@ -2137,12 +2137,12 @@ const inventario = {
   buscarPOS(query) {
     const q = `%${query}%`
     return queryAll(`
-      SELECT p.*, c.nombre as categoria_nombre
+      SELECT p.id, p.nombre, p.codigo, p.precio_venta, p.stock, p.stock_minimo, p.unidad, p.imagen, c.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos c ON p.categoria_id=c.id
-      WHERE p.activo=1 AND p.eliminado=0 AND p.stock > 0
+      WHERE p.activo=1 AND p.eliminado=0
         AND (p.nombre LIKE ? OR p.codigo LIKE ? OR c.nombre LIKE ?)
-      ORDER BY p.nombre LIMIT 20
+      ORDER BY p.stock DESC, p.nombre LIMIT 20
     `, [q, q, q])
   },
   ajustarStock(data) {
@@ -2849,9 +2849,11 @@ const promociones = {
     const hoy = new Date().toISOString().slice(0, 10)
     const promos = queryAll(`
       SELECT p.*,
-        GROUP_CONCAT(CASE WHEN pp.tipo_item='producto' THEN CAST(pp.item_id AS TEXT) END) as productos_ids_str
+        GROUP_CONCAT(CASE WHEN pp.tipo_item='producto' THEN CAST(pp.item_id AS TEXT) END) as productos_ids_str,
+        GROUP_CONCAT(CASE WHEN pp.tipo_item='producto' THEN prod.nombre END) as productos_nombres_str
       FROM promociones p
       LEFT JOIN promocion_productos pp ON pp.promocion_id=p.id
+      LEFT JOIN productos prod ON prod.id=pp.item_id AND pp.tipo_item='producto'
       WHERE p.activo=1
         AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= ?)
         AND (p.fecha_fin IS NULL OR p.fecha_fin >= ?)
@@ -2861,6 +2863,7 @@ const promociones = {
     return promos.map(p => ({
       ...p,
       productos_ids: p.productos_ids_str ? p.productos_ids_str.split(',').map(Number) : [],
+      productos_nombres: p.productos_nombres_str ? p.productos_nombres_str.split(',') : [],
     }))
   },
   getProductos(promocionId) {

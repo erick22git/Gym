@@ -1,11 +1,10 @@
 /**
  * Genera build/icon.ico desde src/assets/logo.jpg
- * con recorte central (zoom ~80%) para que el logo se vea más grande.
+ * Zoom 92% del centro: logo completo sin recortar, más grande que el anterior.
  * Uso: node scripts/gen-icon.cjs
  */
 
 const sharp = require('sharp')
-// png-to-ico es ESM — se importa dinámicamente
 let pngToIco
 const path = require('path')
 const fs = require('fs')
@@ -15,30 +14,28 @@ const OUT   = path.join(__dirname, '../build/icon.ico')
 const TMP   = path.join(__dirname, '../build/_tmp_icon')
 const SIZES = [256, 128, 64, 48, 32, 16]
 
-// Zoom: recortamos el centro al 80% del área original.
-// Con fit:'cover' y un tamaño cuadrado, sharp centra y recorta automáticamente.
-const ZOOM = 0.80
+const PCT = 0.92
 
 async function main() {
   pngToIco = (await import('png-to-ico')).default
   fs.mkdirSync(TMP, { recursive: true })
 
   const meta = await sharp(SRC).metadata()
-  const side  = Math.min(meta.width, meta.height)
-  const crop  = Math.round(side * ZOOM)
+  const w    = Math.floor(meta.width  * PCT)
+  const h    = Math.floor(meta.height * PCT)
+  const left = Math.floor((meta.width  - w) / 2)
+  const top  = Math.floor((meta.height - h) / 2)
 
   const pngFiles = []
 
   for (const size of SIZES) {
     const out = path.join(TMP, `icon_${size}.png`)
     await sharp(SRC)
-      .extract({
-        left:   Math.round((meta.width  - crop) / 2),
-        top:    Math.round((meta.height - crop) / 2),
-        width:  crop,
-        height: crop,
+      .extract({ left, top, width: w, height: h })
+      .resize(size, size, {
+        fit: 'contain',
+        background: { r: 255, g: 255, b: 255, alpha: 0 },
       })
-      .resize(size, size, { fit: 'cover' })
       .png()
       .toFile(out)
     pngFiles.push(out)
@@ -47,9 +44,8 @@ async function main() {
 
   const icoBuffer = await pngToIco(pngFiles)
   fs.writeFileSync(OUT, icoBuffer)
-  console.log(`\n✅ build/icon.ico generado (${(icoBuffer.length / 1024).toFixed(1)} KB)`)
+  console.log(`\n✅ build/icon.ico generado al 92% — zoom suave (${(icoBuffer.length / 1024).toFixed(1)} KB)`)
 
-  // Limpia temporales
   for (const f of pngFiles) try { fs.unlinkSync(f) } catch (_) {}
   try { fs.rmdirSync(TMP) } catch (_) {}
 }
