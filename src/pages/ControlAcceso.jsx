@@ -11,7 +11,7 @@ import NuevoClienteWizard from '../components/pos/NuevoClienteWizard'
 import VistaRecibo from '../modules/recibos/VistaRecibo'
 
 // ─── Formulario de datos para recibo (venta rápida) ──────────────────────────
-function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar }) {
+function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar, confirmLabel = 'Confirmar e imprimir' }) {
   const [sugerencias, setSugerencias] = useState([])
   const [errores, setErrores] = useState({})
   const blurRef = useRef(null)
@@ -125,7 +125,7 @@ function FormDatosRecibo({ datos, onDatos, onConfirmar, onCancelar }) {
 
         <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
           <button className="btn-secondary" style={{ flex: 1 }} onClick={onCancelar}>Cancelar</button>
-          <button className="btn-primary" style={{ flex: 2 }} onClick={handleConfirmar}>Confirmar e imprimir</button>
+          <button className="btn-primary" style={{ flex: 2 }} onClick={handleConfirmar}>{confirmLabel}</button>
         </div>
       </div>
     </div>
@@ -154,6 +154,7 @@ function ModalVentaRapida({ usuario, onClose }) {
   const [emitiendo, setEmitiendo] = useState(false)
   const [reciboPrevia, setReciboPrevia] = useState(null)
   const [formRecibo, setFormRecibo] = useState(null)
+  const [formFactura, setFormFactura] = useState(null)
   const [cajaCerradaPrompt, setCajaCerradaPrompt] = useState(false)
   const [montoInicialCaja, setMontoInicialCaja] = useState('0')
   const [notasCaja, setNotasCaja] = useState('')
@@ -305,14 +306,15 @@ function ModalVentaRapida({ usuario, onClose }) {
     setFormRecibo(null)
   }
 
-  async function emitirFacturaVenta() {
+  async function emitirFacturaConDatos(datosForm) {
+    setFormFactura(null)
     setEmitiendo(true)
     try {
       const concepto = carrito.map(i => `${i.nombre_producto} x${i.cantidad}`).join(', ')
       const res = await window.api.facturacion.emitirFactura({
         cliente_tipo_doc: 'CI',
-        cliente_documento: '0',
-        cliente_nombre: 'S/N',
+        cliente_documento: datosForm.doc,
+        cliente_nombre: datosForm.nombre,
         cliente_correo: '',
         concepto: concepto.slice(0, 100) || 'Venta productos',
         cantidad: 1,
@@ -370,7 +372,7 @@ function ModalVentaRapida({ usuario, onClose }) {
                       </button>
                     )}
                     {facturacionActiva && (
-                      <button onClick={emitirFacturaVenta} disabled={emitiendo}
+                      <button onClick={() => setFormFactura({ doc: '', nombre: '' })} disabled={emitiendo}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 9, fontSize: 12, fontWeight: 600,
                           background: 'oklch(0.82 0.14 75 / .15)', border: '1px solid oklch(0.82 0.14 75 / .4)', color: 'oklch(0.88 0.10 75)',
                           cursor: emitiendo ? 'not-allowed' : 'pointer', opacity: emitiendo ? 0.6 : 1 }}>
@@ -630,6 +632,7 @@ function ModalVentaRapida({ usuario, onClose }) {
       </motion.div>
     </div>
     {formRecibo && <FormDatosRecibo datos={formRecibo} onDatos={setFormRecibo} onConfirmar={confirmarRecibo} onCancelar={() => setFormRecibo(null)} />}
+    {formFactura && <FormDatosRecibo datos={formFactura} onDatos={setFormFactura} onConfirmar={emitirFacturaConDatos} onCancelar={() => setFormFactura(null)} confirmLabel="Emitir Factura" />}
     {reciboPrevia && <VistaRecibo venta={reciboPrevia} onClose={() => setReciboPrevia(null)} />}
     </>
   )
