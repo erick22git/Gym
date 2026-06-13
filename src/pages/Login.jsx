@@ -230,14 +230,29 @@ function FormRegistrar({ onVolver }) {
 
 function FormRecuperar({ onVolver }) {
   const [carnet, setCarnet] = useState('')
+  const [errorCarnet, setErrorCarnet] = useState('')
   const [password, setPassword] = useState('')
   const [confirmar, setConfirmar] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [cargando, setCargando] = useState(false)
 
+  function handleCarnetChange(e) {
+    const valor = e.target.value
+    setCarnet(valor)
+    if (valor.trim().length > 0 && !/^[0-9]*$/.test(valor.trim())) {
+      setErrorCarnet('Ingresa tu número de carnet, no tu nombre de usuario')
+    } else {
+      setErrorCarnet('')
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (!carnet.trim()) { toast.error('Ingresa tu carnet'); return }
+    if (!/^[0-9]+$/.test(carnet.trim())) {
+      setErrorCarnet('Ingresa tu número de carnet, no tu nombre de usuario')
+      return
+    }
     if (!password) { toast.error('Ingresa la nueva contraseña'); return }
     if (password.length < 6) { toast.error('Mínimo 6 caracteres'); return }
     if (password !== confirmar) { toast.error('Las contraseñas no coinciden'); return }
@@ -260,7 +275,12 @@ function FormRecuperar({ onVolver }) {
       <BtnVolver onClick={onVolver} />
       <div>
         <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Carnet / CI *</label>
-        <input className="gym-input" value={carnet} onChange={e => setCarnet(e.target.value)} placeholder="Tu carnet de identidad" autoFocus style={{ width: '100%' }} />
+        <input className="gym-input" value={carnet} onChange={handleCarnetChange} placeholder="Tu número de carnet (solo números)" autoFocus style={{ width: '100%', borderColor: errorCarnet ? 'oklch(0.65 0.18 25 / .6)' : undefined }} />
+        {errorCarnet && (
+          <p style={{ color: 'oklch(0.65 0.18 25)', fontSize: 11, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <AlertCircle size={11} /> {errorCarnet}
+          </p>
+        )}
       </div>
       <div>
         <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Nueva contraseña *</label>
