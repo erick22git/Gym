@@ -4,6 +4,8 @@ import { Search, UserPlus, CheckCircle, XCircle, AlertTriangle, Clock, PauseCirc
 import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
+import { useApp } from '../context/AppContext'
+import { PAGES } from '../constants'
 import ClienteCard from '../components/pos/ClienteCard'
 import NuevoClienteWizard from '../components/pos/NuevoClienteWizard'
 import VistaRecibo from '../modules/recibos/VistaRecibo'
@@ -644,6 +646,7 @@ function getEstadoMembresia(cliente) {
 
 export default function ControlAcceso() {
   const { tienePermiso, usuario, esModuloActivo } = useAuth()
+  const { navigate } = useApp()
   const [query, setQuery] = useState('')
   const [resultados, setResultados] = useState([])
   const [clienteActual, setClienteActual] = useState(null)
@@ -890,7 +893,7 @@ export default function ControlAcceso() {
               ingresoRegistrado={ingresoRegistrado}
               ingresoHora={ingresoHora}
               onRenovar={() => abrirWizardRenovar(clienteActual.id)}
-              onVerPerfil={() => {}}
+              onVerPerfil={() => navigate(PAGES.PERFIL_CLIENTE, { clienteId: clienteActual.id })}
             />
           </motion.div>
         )}

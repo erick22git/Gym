@@ -134,7 +134,7 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
           <div style={{ flex: 1 }}>{inp('CI / Carnet', 'carnet', { required: true, placeholder: '8234567' })}</div>
           <div style={{ flexShrink: 0, width: 84 }}>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.05em', display: 'block', marginBottom: 5 }}>Ext. *</label>
-            <Select value={datos.extension_ci || 'LP'} onChange={v => set('extension_ci', v)} options={EXT_OPTIONS} />
+            <Select value={datos.extension_ci || 'CH'} onChange={v => set('extension_ci', v)} options={EXT_OPTIONS} />
           </div>
         </div>
 

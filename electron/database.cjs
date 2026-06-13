@@ -1228,7 +1228,7 @@ const usuarios = {
 
     const hash = bcrypt.hashSync(data.password, 10)
     const r = run(
-      "INSERT INTO usuarios (username, nombre_completo, password_hash, rol_id, telefono, activo, primer_login, carnet) VALUES (?,?,?,?,?,1,0,?)",
+      "INSERT INTO usuarios (username, nombre_completo, password_hash, rol_id, telefono, activo, primer_login, carnet) VALUES (?,?,?,?,?,1,1,?)",
       [data.carnet.trim(), data.nombre_completo.trim(), hash, rolId, data.telefono || null, data.carnet.trim()]
     )
 
@@ -1267,6 +1267,7 @@ const usuarios = {
   },
   login(username, password) {
     const busqueda = String(username || '').trim().toLowerCase()
+    // ORDER BY garantiza prioridad: username exacto → nombre_completo → carnet
     const u = queryOne(`
       SELECT u.id, u.username, u.nombre_completo, u.password_hash,
         u.activo, u.primer_login, u.rol_id, u.foto,
@@ -1275,7 +1276,13 @@ const usuarios = {
       WHERE TRIM(LOWER(u.username))=?
          OR TRIM(LOWER(u.nombre_completo))=?
          OR (u.carnet IS NOT NULL AND TRIM(CAST(u.carnet AS TEXT))=TRIM(CAST(? AS TEXT)))
-    `, [busqueda, busqueda, busqueda])
+      ORDER BY
+        CASE WHEN TRIM(LOWER(u.username))=? THEN 0
+             WHEN TRIM(LOWER(u.nombre_completo))=? THEN 1
+             ELSE 2
+        END
+      LIMIT 1
+    `, [busqueda, busqueda, busqueda, busqueda, busqueda])
 
     if (!u) return { ok: false, error: 'Usuario no encontrado' }
     if (!u.activo) return { ok: false, error: 'Usuario desactivado' }

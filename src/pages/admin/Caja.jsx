@@ -197,6 +197,7 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
           background: 'oklch(0.14 0.015 250)', border: '1px solid oklch(0.66 0.22 25 / .4)',
           borderRadius: 16, padding: '24px 28px',
           boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+          maxHeight: '92vh', overflowY: 'auto',
         }}
       >
         {/* Header */}
