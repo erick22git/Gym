@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, UserPlus, CheckCircle, XCircle, AlertTriangle, Clock, PauseCircle, ShoppingCart, Plus, Minus, X, Trash2, QrCode, Maximize2, CreditCard, ArrowLeftRight, Banknote, Receipt } from 'lucide-react'
+import { Search, UserPlus, CheckCircle, XCircle, AlertTriangle, Clock, PauseCircle, ShoppingCart, Plus, Minus, X, Trash2, QrCode, Maximize2, CreditCard, ArrowLeftRight, Banknote, Receipt, Tag } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
@@ -142,6 +142,7 @@ function ModalVentaRapida({ usuario, onClose }) {
   const [busqueda, setBusqueda] = useState('')
   const [productos, setProductos] = useState([])
   const [carrito, setCarrito] = useState([])
+  const [promosActivas, setPromosActivas] = useState([])
   const [metodoPago, setMetodoPago] = useState('efectivo')
   const [recibido, setRecibido] = useState('')
   const [qrConfirmado, setQrConfirmado] = useState(false)
@@ -165,6 +166,7 @@ function ModalVentaRapida({ usuario, onClose }) {
 
   useEffect(() => {
     window.api.pos.getConfig().then(cfg => setPosConfig(cfg || {}))
+    window.api.promociones.getActive().then(p => setPromosActivas(p || [])).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -192,7 +194,14 @@ function ModalVentaRapida({ usuario, onClose }) {
     return () => window.removeEventListener('keydown', fn)
   }, [onClose])
 
+  function getPromoParaProducto(productoId) {
+    return promosActivas.find(p =>
+      p.productos_ids.length === 0 || p.productos_ids.includes(productoId)
+    )
+  }
+
   function agregarItem(prod) {
+    const promo = getPromoParaProducto(prod.id)
     setCarrito(prev => {
       const idx = prev.findIndex(i => i.producto_id === prod.id)
       if (idx >= 0) {
@@ -200,7 +209,27 @@ function ModalVentaRapida({ usuario, onClose }) {
         next[idx] = { ...next[idx], cantidad: next[idx].cantidad + 1 }
         return next
       }
-      return [...prev, { producto_id: prod.id, nombre_producto: prod.nombre, precio_unitario: prod.precio_venta, cantidad: 1, stock: prod.stock }]
+      let precioEfectivo = prod.precio_venta
+      let cantidadInicial = 1
+      if (promo?.tipo === '2x1') {
+        cantidadInicial = 2
+        precioEfectivo = prod.precio_venta / 2
+      } else if (promo?.tipo === 'descuento_pct') {
+        precioEfectivo = prod.precio_venta * (1 - (promo.valor || 0) / 100)
+      } else if (promo?.tipo === 'descuento_fijo') {
+        precioEfectivo = Math.max(0, prod.precio_venta - (promo.valor || 0))
+      }
+      return [...prev, {
+        producto_id: prod.id,
+        nombre_producto: prod.nombre,
+        precio_unitario: precioEfectivo,
+        precio_original: promo ? prod.precio_venta : null,
+        cantidad: cantidadInicial,
+        stock: prod.stock,
+        promo_tipo: promo?.tipo || null,
+        promo_nombre: promo?.nombre || null,
+        promo_valor: promo?.valor || null,
+      }]
     })
     setBusqueda('')
     setProductos([])
@@ -218,8 +247,23 @@ function ModalVentaRapida({ usuario, onClose }) {
   }
 
   const total = carrito.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+  const ahorroTotal = carrito.reduce((s, i) => {
+    if (!i.precio_original) return s
+    return s + i.cantidad * (i.precio_original - i.precio_unitario)
+  }, 0)
   const montoRec = parseFloat(recibido) || 0
   const vuelto = metodoPago === 'efectivo' ? Math.max(0, montoRec - total) : 0
+
+  const TIPO_PROMO_COLOR = {
+    '2x1': 'oklch(0.74 0.13 250)',
+    'descuento_pct': 'oklch(0.78 0.16 155)',
+    'descuento_fijo': 'oklch(0.82 0.14 75)',
+  }
+  const TIPO_PROMO_LABEL = {
+    '2x1': '2×1',
+    'descuento_pct': (v) => `-${v}%`,
+    'descuento_fijo': (v) => `-Bs.${v}`,
+  }
 
   function puedeConfirmar() {
     if (metodoPago === 'efectivo') return montoRec >= total
@@ -390,6 +434,18 @@ function ModalVentaRapida({ usuario, onClose }) {
             </div>
           ) : (
             <>
+              {/* Banner de promociones activas */}
+              {promosActivas.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 8, background: 'oklch(0.74 0.13 250 / .08)', border: '1px solid oklch(0.74 0.13 250 / .25)' }}>
+                  <Tag size={12} color="oklch(0.80 0.12 250)" />
+                  <span style={{ fontSize: 11, color: 'oklch(0.80 0.12 250)', fontWeight: 600 }}>
+                    {promosActivas.length === 1
+                      ? `Promo activa: ${promosActivas[0].nombre}`
+                      : `${promosActivas.length} promociones activas hoy`}
+                  </span>
+                </div>
+              )}
+
               {/* Buscador de productos */}
               <div>
                 <div style={{ position: 'relative' }}>
@@ -412,32 +468,41 @@ function ModalVentaRapida({ usuario, onClose }) {
                       exit={{ opacity: 0, y: -6 }}
                       style={{ background: 'oklch(0.14 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 10, overflow: 'hidden', marginTop: 4 }}
                     >
-                      {productos.slice(0, 6).map((p, i) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => agregarItem(p)}
-                          style={{
-                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '9px 14px', background: 'transparent', border: 'none', cursor: p.stock <= 0 ? 'not-allowed' : 'pointer',
-                            borderBottom: i < productos.slice(0, 6).length - 1 ? '1px solid oklch(1 0 0 / .05)' : 'none',
-                            opacity: p.stock <= 0 ? 0.4 : 1,
-                            textAlign: 'left',
-                          }}
-                          disabled={p.stock <= 0}
-                          onMouseEnter={e => { if (p.stock > 0) e.currentTarget.style.background = 'oklch(1 0 0 / .05)' }}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        >
-                          <div>
-                            <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>{p.nombre}</div>
-                            <div style={{ fontSize: 11, color: 'var(--dim)' }}>Stock: {p.stock}</div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.78 0.18 200)' }}>Bs. {Number(p.precio_venta).toFixed(2)}</div>
-                            {p.stock <= 0 && <div style={{ fontSize: 10, color: 'var(--red-soft)' }}>Sin stock</div>}
-                          </div>
-                        </button>
-                      ))}
+                      {productos.slice(0, 6).map((p, i) => {
+                        const promo = getPromoParaProducto(p.id)
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => agregarItem(p)}
+                            style={{
+                              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '9px 14px', background: 'transparent', border: 'none', cursor: p.stock <= 0 ? 'not-allowed' : 'pointer',
+                              borderBottom: i < productos.slice(0, 6).length - 1 ? '1px solid oklch(1 0 0 / .05)' : 'none',
+                              opacity: p.stock <= 0 ? 0.4 : 1, textAlign: 'left',
+                            }}
+                            disabled={p.stock <= 0}
+                            onMouseEnter={e => { if (p.stock > 0) e.currentTarget.style.background = 'oklch(1 0 0 / .05)' }}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>{p.nombre}</span>
+                                {promo && (
+                                  <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: `${TIPO_PROMO_COLOR[promo.tipo] || 'oklch(0.74 0.13 250)'}20`, border: `1px solid ${TIPO_PROMO_COLOR[promo.tipo] || 'oklch(0.74 0.13 250)'}40`, color: TIPO_PROMO_COLOR[promo.tipo] || 'oklch(0.74 0.13 250)' }}>
+                                    {promo.tipo === '2x1' ? '2×1' : promo.tipo === 'descuento_pct' ? `-${promo.valor}%` : `-Bs.${promo.valor}`}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--dim)' }}>Stock: {p.stock}</div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.78 0.18 200)' }}>Bs. {Number(p.precio_venta).toFixed(2)}</div>
+                              {p.stock <= 0 && <div style={{ fontSize: 10, color: 'var(--red-soft)' }}>Sin stock</div>}
+                            </div>
+                          </button>
+                        )
+                      })}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -448,26 +513,54 @@ function ModalVentaRapida({ usuario, onClose }) {
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Carrito ({carrito.length} ítem{carrito.length !== 1 ? 's' : ''})</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {carrito.map((item, idx) => (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'oklch(1 0 0 / .03)', borderRadius: 8, padding: '8px 12px' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nombre_producto}</div>
-                          <div style={{ fontSize: 11, color: 'var(--dim)' }}>Bs. {item.precio_unitario.toFixed(2)} c/u</div>
+                    {carrito.map((item, idx) => {
+                      const promoColor = TIPO_PROMO_COLOR[item.promo_tipo] || 'oklch(0.74 0.13 250)'
+                      return (
+                        <div key={idx} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          background: item.promo_tipo ? `${promoColor}08` : 'oklch(1 0 0 / .03)',
+                          border: item.promo_tipo ? `1px solid ${promoColor}25` : '1px solid transparent',
+                          borderRadius: 8, padding: '8px 12px',
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{item.nombre_producto}</span>
+                              {item.promo_tipo && (
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: `${promoColor}20`, border: `1px solid ${promoColor}40`, color: promoColor, whiteSpace: 'nowrap' }}>
+                                  {item.promo_tipo === '2x1' ? '2×1' : item.promo_tipo === 'descuento_pct' ? `-${item.promo_valor}%` : `-Bs.${item.promo_valor}`}
+                                </span>
+                              )}
+                            </div>
+                            {item.precio_original ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ fontSize: 10, color: 'var(--dim)', textDecoration: 'line-through' }}>Bs. {item.precio_original.toFixed(2)}</span>
+                                <span style={{ fontSize: 11, color: promoColor, fontWeight: 600 }}>Bs. {item.precio_unitario.toFixed(2)} c/u</span>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 11, color: 'var(--dim)' }}>Bs. {item.precio_unitario.toFixed(2)} c/u</div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            <button onClick={() => cambiarCantidad(idx, -1)} style={{ width: 24, height: 24, borderRadius: 6, background: 'oklch(1 0 0 / .06)', border: '1px solid var(--line)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}><Minus size={11} /></button>
+                            <span style={{ minWidth: 20, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{item.cantidad}</span>
+                            <button onClick={() => cambiarCantidad(idx, 1)} style={{ width: 24, height: 24, borderRadius: 6, background: 'oklch(1 0 0 / .06)', border: '1px solid var(--line)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}><Plus size={11} /></button>
+                          </div>
+                          <div style={{ minWidth: 72, textAlign: 'right', fontSize: 13, fontWeight: 700, color: 'oklch(0.78 0.18 200)', flexShrink: 0 }}>
+                            Bs. {(item.cantidad * item.precio_unitario).toFixed(2)}
+                          </div>
+                          <button onClick={() => setCarrito(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', flexShrink: 0 }}>
+                            <Trash2 size={13} />
+                          </button>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                          <button onClick={() => cambiarCantidad(idx, -1)} style={{ width: 24, height: 24, borderRadius: 6, background: 'oklch(1 0 0 / .06)', border: '1px solid var(--line)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}><Minus size={11} /></button>
-                          <span style={{ minWidth: 20, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{item.cantidad}</span>
-                          <button onClick={() => cambiarCantidad(idx, 1)} style={{ width: 24, height: 24, borderRadius: 6, background: 'oklch(1 0 0 / .06)', border: '1px solid var(--line)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}><Plus size={11} /></button>
-                        </div>
-                        <div style={{ minWidth: 72, textAlign: 'right', fontSize: 13, fontWeight: 700, color: 'oklch(0.78 0.18 200)', flexShrink: 0 }}>
-                          Bs. {(item.cantidad * item.precio_unitario).toFixed(2)}
-                        </div>
-                        <button onClick={() => setCarrito(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', flexShrink: 0 }}>
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
+                  {ahorroTotal > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 6, padding: '5px 8px', borderRadius: 6, background: 'oklch(0.78 0.16 155 / .08)', border: '1px solid oklch(0.78 0.16 155 / .2)' }}>
+                      <Tag size={10} color="oklch(0.72 0.16 155)" />
+                      <span style={{ fontSize: 11, color: 'oklch(0.72 0.16 155)', fontWeight: 600 }}>Ahorro por promos: Bs. {ahorroTotal.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--dim)' }}>

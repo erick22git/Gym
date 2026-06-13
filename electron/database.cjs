@@ -2846,15 +2846,21 @@ const promociones = {
   },
   getActive() {
     const hoy = new Date().toISOString().slice(0, 10)
-    return queryAll(`
+    const promos = queryAll(`
       SELECT p.*,
-        (SELECT COUNT(*) FROM promocion_productos pp WHERE pp.promocion_id=p.id) as n_items
+        GROUP_CONCAT(CASE WHEN pp.tipo_item='producto' THEN CAST(pp.item_id AS TEXT) END) as productos_ids_str
       FROM promociones p
+      LEFT JOIN promocion_productos pp ON pp.promocion_id=p.id
       WHERE p.activo=1
         AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= ?)
         AND (p.fecha_fin IS NULL OR p.fecha_fin >= ?)
+      GROUP BY p.id
       ORDER BY p.created_at DESC
     `, [hoy, hoy])
+    return promos.map(p => ({
+      ...p,
+      productos_ids: p.productos_ids_str ? p.productos_ids_str.split(',').map(Number) : [],
+    }))
   },
   getProductos(promocionId) {
     return queryAll('SELECT * FROM promocion_productos WHERE promocion_id=?', [promocionId])

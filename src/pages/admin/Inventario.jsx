@@ -1006,29 +1006,59 @@ function ModalPromocion({ promo, onSave, onClose }) {
     nombre: '', tipo: '2x1', valor: 0, descripcion: '',
     fecha_inicio: '', fecha_fin: '', activo: 1,
   })
+  const [todosProductos, setTodosProductos] = useState([])
+  const [seleccionados, setSeleccionados] = useState([])
+  const [busqProd, setBusqProd] = useState('')
+  const [cargandoProd, setCargandoProd] = useState(true)
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  useEffect(() => {
+    async function cargarProductos() {
+      setCargandoProd(true)
+      try {
+        const res = await window.api.inventario.getPaginated({ page: 1, pageSize: 999 })
+        setTodosProductos(res?.data || [])
+        if (esEdicion && promo.id) {
+          const asignados = await window.api.promociones.getProductos(promo.id)
+          setSeleccionados(asignados.map(a => a.item_id))
+        }
+      } catch { }
+      setCargandoProd(false)
+    }
+    cargarProductos()
+  }, [])
+
+  function toggleProducto(id) {
+    setSeleccionados(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
 
   async function handleSave() {
     if (!form.nombre.trim()) { toast.error('El nombre es obligatorio'); return }
     try {
+      const data = {
+        ...form,
+        items: seleccionados.map(id => ({ tipo_item: 'producto', item_id: id })),
+      }
       if (esEdicion) {
-        await window.api.promociones.update(promo.id, form)
+        await window.api.promociones.update(promo.id, data)
         toast.success('Promoción actualizada')
       } else {
-        await window.api.promociones.create(form)
+        await window.api.promociones.create(data)
         toast.success('Promoción creada')
       }
       onSave()
     } catch { toast.error('Error al guardar') }
   }
 
-  const tipoInfo = TIPO_PROMO[form.tipo] || TIPO_PROMO['2x1']
+  const prodsFiltrados = todosProductos.filter(p =>
+    !busqProd || p.nombre.toLowerCase().includes(busqProd.toLowerCase())
+  )
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'oklch(0 0 0 / .7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        style={{ width: '100%', maxWidth: 480, maxHeight: '90vh', background: 'oklch(0.11 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        style={{ width: '100%', maxWidth: 580, maxHeight: '90vh', background: 'oklch(0.11 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 800, letterSpacing: '.06em', margin: 0 }}>
             {esEdicion ? 'Editar Promoción' : 'Nueva Promoción'}
@@ -1036,10 +1066,12 @@ function ModalPromocion({ promo, onSave, onClose }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={16} /></button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+          {/* Nombre */}
           <div>
             <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Nombre *</label>
             <input className="gym-input" value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Ej: 2×1 en proteínas" style={{ width: '100%' }} />
           </div>
+          {/* Tipo */}
           <div>
             <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Tipo de promoción</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1057,6 +1089,7 @@ function ModalPromocion({ promo, onSave, onClose }) {
               ))}
             </div>
           </div>
+          {/* Valor */}
           {form.tipo !== '2x1' && (
             <div>
               <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>
@@ -1067,10 +1100,12 @@ function ModalPromocion({ promo, onSave, onClose }) {
                 placeholder={form.tipo === 'descuento_pct' ? '15' : '20'} style={{ width: '100%' }} />
             </div>
           )}
+          {/* Descripción */}
           <div>
             <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Descripción (opcional)</label>
             <input className="gym-input" value={form.descripcion || ''} onChange={e => set('descripcion', e.target.value)} placeholder="Detalle de la promoción..." style={{ width: '100%' }} />
           </div>
+          {/* Fechas */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Fecha inicio</label>
@@ -1081,10 +1116,64 @@ function ModalPromocion({ promo, onSave, onClose }) {
               <input className="gym-input" type="date" value={form.fecha_fin || ''} onChange={e => set('fecha_fin', e.target.value)} style={{ width: '100%' }} />
             </div>
           </div>
+          {/* Activo */}
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--muted)', userSelect: 'none' }}>
             <input type="checkbox" checked={form.activo === 1} onChange={e => set('activo', e.target.checked ? 1 : 0)} />
             Promoción activa
           </label>
+          {/* Selección de productos */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label className="gym-label">Productos que aplica</label>
+              <span style={{ fontSize: 10, color: 'var(--dim)' }}>
+                {seleccionados.length === 0 ? 'Sin selección = aplica a todos' : `${seleccionados.length} seleccionado${seleccionados.length !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+            <div style={{ position: 'relative', marginBottom: 8 }}>
+              <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)', pointerEvents: 'none' }} />
+              <input className="gym-input" placeholder="Filtrar productos..." value={busqProd} onChange={e => setBusqProd(e.target.value)} style={{ paddingLeft: 28, fontSize: 12, height: 32 }} />
+            </div>
+            <div style={{ maxHeight: 190, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 10, padding: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 }}>
+              {cargandoProd ? (
+                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 20 }}>
+                  <div className="spinner" style={{ margin: '0 auto' }} />
+                </div>
+              ) : prodsFiltrados.length === 0 ? (
+                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 20, color: 'var(--dim)', fontSize: 12 }}>Sin productos</div>
+              ) : prodsFiltrados.map(p => {
+                const sel = seleccionados.includes(p.id)
+                const catColor = p.categoria_color || 'oklch(0.74 0.13 250)'
+                return (
+                  <button key={p.id} type="button" onClick={() => toggleProducto(p.id)} style={{
+                    background: sel ? `${catColor}18` : 'oklch(1 0 0 / .03)',
+                    border: `2px solid ${sel ? catColor : 'var(--line)'}`,
+                    borderRadius: 8, padding: '5px 3px', cursor: 'pointer', textAlign: 'center',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                    transition: 'all .12s', position: 'relative',
+                  }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden' }}>
+                      <img src={p.imagen ? toFileUrl(p.imagen) : getCategoryImg(p.categoria_nombre, p.categoria_imagen)}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={e => { e.target.src = getCategoryImg(p.categoria_nombre, p.categoria_imagen) }}
+                        alt={p.nombre} />
+                    </div>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: sel ? catColor : 'var(--muted)', lineHeight: 1.2, wordBreak: 'break-word', maxWidth: '100%' }}>{p.nombre}</div>
+                    <div style={{ fontSize: 9, color: 'var(--dim)' }}>Bs.{Number(p.precio_venta).toFixed(0)}</div>
+                    {sel && (
+                      <div style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: catColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Check size={8} color="#fff" />
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {seleccionados.length > 0 && (
+              <button type="button" onClick={() => setSeleccionados([])} style={{ marginTop: 5, fontSize: 11, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                Quitar selección (aplica a todos)
+              </button>
+            )}
+          </div>
         </div>
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--line)', display: 'flex', gap: 10 }}>
           <button className="btn-secondary" onClick={onClose} style={{ flex: 1 }}>Cancelar</button>

@@ -602,7 +602,8 @@ ipcMain.handle('promociones:getActive', () => require('./database.cjs').promocio
 ipcMain.handle('promociones:create',    (_, data) => require('./database.cjs').promociones.create(data))
 ipcMain.handle('promociones:update',    (_, id, data) => require('./database.cjs').promociones.update(id, data))
 ipcMain.handle('promociones:delete',    (_, id) => require('./database.cjs').promociones.delete(id))
-ipcMain.handle('promociones:setActivo', (_, id, activo) => require('./database.cjs').promociones.setActivo(id, activo))
+ipcMain.handle('promociones:setActivo',    (_, id, activo) => require('./database.cjs').promociones.setActivo(id, activo))
+ipcMain.handle('promociones:getProductos', (_, id) => require('./database.cjs').promociones.getProductos(id))
 
 // Open file dialog for photo
 ipcMain.handle('dialog:openImage', async () => {

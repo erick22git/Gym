@@ -325,6 +325,7 @@ contextBridge.exposeInMainWorld('api', {
     create:    (data) => ipcRenderer.invoke('promociones:create', data),
     update:    (id, data) => ipcRenderer.invoke('promociones:update', id, data),
     delete:    (id) => ipcRenderer.invoke('promociones:delete', id),
-    setActivo: (id, activo) => ipcRenderer.invoke('promociones:setActivo', id, activo),
+    setActivo:    (id, activo) => ipcRenderer.invoke('promociones:setActivo', id, activo),
+    getProductos: (id) => ipcRenderer.invoke('promociones:getProductos', id),
   },
 })
