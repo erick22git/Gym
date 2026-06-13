@@ -9,12 +9,12 @@ let pngToIco
 const path = require('path')
 const fs = require('fs')
 
-const SRC   = path.join(__dirname, '../src/assets/logo.jpg')
+const SRC   = path.join(__dirname, '../src/assets/logo-icon.png')
 const OUT   = path.join(__dirname, '../build/icon.ico')
 const TMP   = path.join(__dirname, '../build/_tmp_icon')
 const SIZES = [256, 128, 64, 48, 32, 16]
 
-const PCT = 0.92
+const PCT = 0.99
 
 async function main() {
   pngToIco = (await import('png-to-ico')).default
@@ -44,7 +44,7 @@ async function main() {
 
   const icoBuffer = await pngToIco(pngFiles)
   fs.writeFileSync(OUT, icoBuffer)
-  console.log(`\n✅ build/icon.ico generado al 92% — zoom suave (${(icoBuffer.length / 1024).toFixed(1)} KB)`)
+  console.log(`\n✅ build/icon.ico generado al 99% — escudo centrado con fondo (${(icoBuffer.length / 1024).toFixed(1)} KB)`)
 
   for (const f of pngFiles) try { fs.unlinkSync(f) } catch (_) {}
   try { fs.rmdirSync(TMP) } catch (_) {}
