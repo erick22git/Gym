@@ -317,4 +317,14 @@ contextBridge.exposeInMainWorld('api', {
     generarPDF: (data) => ipcRenderer.invoke('recibos:generarPDF', data),
     guardarPDF: (data) => ipcRenderer.invoke('recibos:guardarPDF', data),
   },
+
+  // ─── Promociones ─────────────────────────────────────────────────────────
+  promociones: {
+    getAll:    () => ipcRenderer.invoke('promociones:getAll'),
+    getActive: () => ipcRenderer.invoke('promociones:getActive'),
+    create:    (data) => ipcRenderer.invoke('promociones:create', data),
+    update:    (id, data) => ipcRenderer.invoke('promociones:update', id, data),
+    delete:    (id) => ipcRenderer.invoke('promociones:delete', id),
+    setActivo: (id, activo) => ipcRenderer.invoke('promociones:setActivo', id, activo),
+  },
 })

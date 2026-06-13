@@ -745,6 +745,30 @@ async function initDB() {
     );
   `)
 
+  // ─── Migración: accesos_maximos en planes (Plan Ejecutivo / por visitas) ────
+  try { db.run('ALTER TABLE planes_catalogo ADD COLUMN accesos_maximos INTEGER DEFAULT 0') } catch (_) {}
+
+  // ─── Migración: tablas de promociones ────────────────────────────────────────
+  db.run(`
+    CREATE TABLE IF NOT EXISTS promociones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      valor REAL DEFAULT 0,
+      descripcion TEXT,
+      fecha_inicio TEXT,
+      fecha_fin TEXT,
+      activo INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+    CREATE TABLE IF NOT EXISTS promocion_productos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      promocion_id INTEGER NOT NULL REFERENCES promociones(id) ON DELETE CASCADE,
+      tipo_item TEXT NOT NULL,
+      item_id INTEGER NOT NULL
+    );
+  `)
+
   saveDB()
   console.log('[DB] Initialized at', DB_PATH)
 }
@@ -916,14 +940,15 @@ const planes = {
   create(data) {
     const caract = Array.isArray(data.caracteristicas) ? JSON.stringify(data.caracteristicas) : (data.caracteristicas || null)
     const r = run(
-      `INSERT INTO planes_catalogo (nombre, duracion_dias, precio, descripcion, color, icono, caracteristicas, tag, orden, acceso_sauna, acceso_piscina, acceso_clases, acceso_pt, visible_cliente, activo, tipo_plan, capacidad)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)`,
+      `INSERT INTO planes_catalogo (nombre, duracion_dias, precio, descripcion, color, icono, caracteristicas, tag, orden, acceso_sauna, acceso_piscina, acceso_clases, acceso_pt, visible_cliente, activo, tipo_plan, capacidad, accesos_maximos)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?)`,
       [data.nombre, data.duracion_dias, data.precio, data.descripcion || null,
        data.color || null, data.icono || null, caract, data.tag || null,
        data.orden || 0, data.acceso_sauna ? 1 : 0, data.acceso_piscina ? 1 : 0,
        data.acceso_clases ? 1 : 0, data.acceso_pt ? 1 : 0,
        data.visible_cliente !== false ? 1 : 0,
-       data.tipo_plan || 'individual', data.capacidad || 1]
+       data.tipo_plan || 'individual', data.capacidad || 1,
+       data.accesos_maximos || 0]
     )
     return { id: r.lastInsertRowid, ...data }
   },
@@ -933,7 +958,7 @@ const planes = {
       `UPDATE planes_catalogo SET nombre=?, duracion_dias=?, precio=?, descripcion=?, activo=?,
        color=?, icono=?, caracteristicas=?, tag=?, orden=?,
        acceso_sauna=?, acceso_piscina=?, acceso_clases=?, acceso_pt=?, visible_cliente=?,
-       tipo_plan=?, capacidad=?,
+       tipo_plan=?, capacidad=?, accesos_maximos=?,
        updated_at=datetime('now','localtime') WHERE id=?`,
       [data.nombre, data.duracion_dias, data.precio, data.descripcion || null, data.activo ?? 1,
        data.color || null, data.icono || null, caract, data.tag || null, data.orden || 0,
@@ -941,6 +966,7 @@ const planes = {
        data.acceso_clases ? 1 : 0, data.acceso_pt ? 1 : 0,
        data.visible_cliente !== false ? 1 : 0,
        data.tipo_plan || 'individual', data.capacidad || 1,
+       data.accesos_maximos || 0,
        id]
     )
     return { ok: true }
@@ -2784,6 +2810,75 @@ const datosPrueba = {
   },
 }
 
+// ─── Promociones ─────────────────────────────────────────────────────────────
+
+const promociones = {
+  getAll() {
+    return queryAll(`
+      SELECT p.*,
+        (SELECT COUNT(*) FROM promocion_productos pp WHERE pp.promocion_id=p.id) as n_items
+      FROM promociones p ORDER BY p.activo DESC, p.created_at DESC
+    `)
+  },
+  getActive() {
+    const hoy = new Date().toISOString().slice(0, 10)
+    return queryAll(`
+      SELECT p.*,
+        (SELECT COUNT(*) FROM promocion_productos pp WHERE pp.promocion_id=p.id) as n_items
+      FROM promociones p
+      WHERE p.activo=1
+        AND (p.fecha_inicio IS NULL OR p.fecha_inicio <= ?)
+        AND (p.fecha_fin IS NULL OR p.fecha_fin >= ?)
+      ORDER BY p.created_at DESC
+    `, [hoy, hoy])
+  },
+  getProductos(promocionId) {
+    return queryAll('SELECT * FROM promocion_productos WHERE promocion_id=?', [promocionId])
+  },
+  create(data) {
+    const r = run(
+      `INSERT INTO promociones (nombre, tipo, valor, descripcion, fecha_inicio, fecha_fin, activo)
+       VALUES (?,?,?,?,?,?,1)`,
+      [data.nombre, data.tipo, data.valor || 0, data.descripcion || null,
+       data.fecha_inicio || null, data.fecha_fin || null]
+    )
+    const id = r.lastInsertRowid
+    if (data.items?.length) {
+      for (const item of data.items) {
+        db.run('INSERT INTO promocion_productos (promocion_id, tipo_item, item_id) VALUES (?,?,?)',
+          [id, item.tipo_item, item.item_id])
+      }
+      saveDB()
+    }
+    return { ok: true, id }
+  },
+  update(id, data) {
+    run(
+      `UPDATE promociones SET nombre=?, tipo=?, valor=?, descripcion=?, fecha_inicio=?, fecha_fin=?, activo=? WHERE id=?`,
+      [data.nombre, data.tipo, data.valor || 0, data.descripcion || null,
+       data.fecha_inicio || null, data.fecha_fin || null, data.activo ?? 1, id]
+    )
+    if (data.items !== undefined) {
+      db.run('DELETE FROM promocion_productos WHERE promocion_id=?', [id])
+      for (const item of (data.items || [])) {
+        db.run('INSERT INTO promocion_productos (promocion_id, tipo_item, item_id) VALUES (?,?,?)',
+          [id, item.tipo_item, item.item_id])
+      }
+      saveDB()
+    }
+    return { ok: true }
+  },
+  delete(id) {
+    run('DELETE FROM promocion_productos WHERE promocion_id=?', [id])
+    run('DELETE FROM promociones WHERE id=?', [id])
+    return { ok: true }
+  },
+  setActivo(id, activo) {
+    run('UPDATE promociones SET activo=? WHERE id=?', [activo ? 1 : 0, id])
+    return { ok: true }
+  },
+}
+
 // Exponer helpers para el módulo de facturación
 function getQueryHelpers() { return { queryAll, queryOne, run } }
 
@@ -2796,5 +2891,6 @@ module.exports = {
   inventario, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
+  promociones,
   getQueryHelpers
 }

@@ -596,6 +596,14 @@ ipcMain.handle('recibos:guardarPDF', async (_, venta) => {
 // App control
 ipcMain.handle('app:reiniciar', () => { app.relaunch(); app.exit(0) })
 
+// Promociones
+ipcMain.handle('promociones:getAll',    () => require('./database.cjs').promociones.getAll())
+ipcMain.handle('promociones:getActive', () => require('./database.cjs').promociones.getActive())
+ipcMain.handle('promociones:create',    (_, data) => require('./database.cjs').promociones.create(data))
+ipcMain.handle('promociones:update',    (_, id, data) => require('./database.cjs').promociones.update(id, data))
+ipcMain.handle('promociones:delete',    (_, id) => require('./database.cjs').promociones.delete(id))
+ipcMain.handle('promociones:setActivo', (_, id, activo) => require('./database.cjs').promociones.setActivo(id, activo))
+
 // Open file dialog for photo
 ipcMain.handle('dialog:openImage', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {

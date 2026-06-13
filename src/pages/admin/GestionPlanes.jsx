@@ -37,7 +37,7 @@ function ModalPlan({ plan, onSave, onClose }) {
     color: 'oklch(0.66 0.22 25)', tag: '', orden: 0,
     acceso_sauna: false, acceso_piscina: false, acceso_clases: false, acceso_pt: false,
     visible_cliente: true, activo: true, caracteristicas: '',
-    tipo_plan: 'individual', capacidad: 1,
+    tipo_plan: 'individual', capacidad: 1, accesos_maximos: 0,
   })
   const [tagOtro, setTagOtro] = useState(esOtroTag)
   const [tagCustomText, setTagCustomText] = useState(esOtroTag ? (plan.tag.split('|')[0] || '') : '')
@@ -64,6 +64,7 @@ function ModalPlan({ plan, onSave, onClose }) {
       precio: parseFloat(form.precio),
       duracion_dias: parseInt(form.duracion_dias),
       orden: parseInt(form.orden) || 0,
+      accesos_maximos: parseInt(form.accesos_maximos) || 0,
       caracteristicas: caract,
       activo: form.activo ? 1 : 0,
       visible_cliente: form.visible_cliente ? 1 : 0,
@@ -116,6 +117,11 @@ function ModalPlan({ plan, onSave, onClose }) {
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Duración (días) *</label>
               <input className="gym-input" type="number" min="1" value={form.duracion_dias} onChange={e => set('duracion_dias', e.target.value)} placeholder="30" />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Accesos máximos</label>
+              <input className="gym-input" type="number" min="0" value={form.accesos_maximos || 0} onChange={e => set('accesos_maximos', e.target.value)} placeholder="0 = ilimitado" />
+              <p style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>0 = sin límite de accesos (ej: plan por visitas: 15)</p>
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Tipo de plan</label>

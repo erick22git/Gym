@@ -4,6 +4,7 @@ import {
   Package, Plus, Search, RefreshCw, Edit2, Trash2, AlertTriangle,
   BarChart2, Truck, Tag, ChevronDown, ChevronUp, X, Check, ArrowUp,
   ArrowDown, Sliders, Box, TrendingDown, LayoutGrid, List, Camera,
+  Percent, ToggleLeft, ToggleRight, Calendar,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
@@ -68,10 +69,11 @@ function getCategoryImg(nombre, dbImagen = null) {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'productos', label: 'Productos', icon: Package },
-  { id: 'categorias', label: 'Categorías', icon: Tag },
+  { id: 'productos',   label: 'Productos',   icon: Package },
+  { id: 'categorias',  label: 'Categorías',  icon: Tag },
   { id: 'proveedores', label: 'Proveedores', icon: Truck },
   { id: 'movimientos', label: 'Movimientos', icon: BarChart2 },
+  { id: 'promociones', label: 'Promociones', icon: Percent },
 ]
 
 const TIPO_MOV = {
@@ -990,6 +992,228 @@ function TabMovimientos() {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
+// ─── Tab Promociones ──────────────────────────────────────────────────────────
+
+const TIPO_PROMO = {
+  '2x1':            { label: '2×1',             color: 'oklch(0.74 0.13 250)', desc: 'El cliente paga 1 y lleva 2' },
+  'descuento_pct':  { label: 'Descuento %',      color: 'oklch(0.78 0.16 155)', desc: 'Porcentaje sobre el precio' },
+  'descuento_fijo': { label: 'Descuento Fijo Bs.', color: 'oklch(0.82 0.14 75)', desc: 'Monto fijo en bolivianos' },
+}
+
+function ModalPromocion({ promo, onSave, onClose }) {
+  const esEdicion = !!promo?.id
+  const [form, setForm] = useState(promo ? { ...promo } : {
+    nombre: '', tipo: '2x1', valor: 0, descripcion: '',
+    fecha_inicio: '', fecha_fin: '', activo: 1,
+  })
+
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  async function handleSave() {
+    if (!form.nombre.trim()) { toast.error('El nombre es obligatorio'); return }
+    try {
+      if (esEdicion) {
+        await window.api.promociones.update(promo.id, form)
+        toast.success('Promoción actualizada')
+      } else {
+        await window.api.promociones.create(form)
+        toast.success('Promoción creada')
+      }
+      onSave()
+    } catch { toast.error('Error al guardar') }
+  }
+
+  const tipoInfo = TIPO_PROMO[form.tipo] || TIPO_PROMO['2x1']
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'oklch(0 0 0 / .7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        style={{ width: '100%', maxWidth: 480, maxHeight: '90vh', background: 'oklch(0.11 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 800, letterSpacing: '.06em', margin: 0 }}>
+            {esEdicion ? 'Editar Promoción' : 'Nueva Promoción'}
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={16} /></button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+          <div>
+            <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Nombre *</label>
+            <input className="gym-input" value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Ej: 2×1 en proteínas" style={{ width: '100%' }} />
+          </div>
+          <div>
+            <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Tipo de promoción</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {Object.entries(TIPO_PROMO).map(([k, v]) => (
+                <button key={k} type="button" onClick={() => set('tipo', k)} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10,
+                  background: form.tipo === k ? `${v.color}18` : 'oklch(1 0 0 / .03)',
+                  border: `1px solid ${form.tipo === k ? `${v.color}50` : 'var(--line)'}`,
+                  cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: form.tipo === k ? v.color : 'var(--muted)', minWidth: 90 }}>{v.label}</span>
+                  <span style={{ fontSize: 11, color: 'var(--dim)' }}>{v.desc}</span>
+                  {form.tipo === k && <Check size={13} style={{ marginLeft: 'auto', flexShrink: 0, color: v.color }} />}
+                </button>
+              ))}
+            </div>
+          </div>
+          {form.tipo !== '2x1' && (
+            <div>
+              <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>
+                Valor {form.tipo === 'descuento_pct' ? '(%)' : '(Bs.)'}
+              </label>
+              <input className="gym-input" type="number" min="0" max={form.tipo === 'descuento_pct' ? 100 : undefined}
+                value={form.valor} onChange={e => set('valor', parseFloat(e.target.value) || 0)}
+                placeholder={form.tipo === 'descuento_pct' ? '15' : '20'} style={{ width: '100%' }} />
+            </div>
+          )}
+          <div>
+            <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Descripción (opcional)</label>
+            <input className="gym-input" value={form.descripcion || ''} onChange={e => set('descripcion', e.target.value)} placeholder="Detalle de la promoción..." style={{ width: '100%' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Fecha inicio</label>
+              <input className="gym-input" type="date" value={form.fecha_inicio || ''} onChange={e => set('fecha_inicio', e.target.value)} style={{ width: '100%' }} />
+            </div>
+            <div>
+              <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Fecha fin</label>
+              <input className="gym-input" type="date" value={form.fecha_fin || ''} onChange={e => set('fecha_fin', e.target.value)} style={{ width: '100%' }} />
+            </div>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--muted)', userSelect: 'none' }}>
+            <input type="checkbox" checked={form.activo === 1} onChange={e => set('activo', e.target.checked ? 1 : 0)} />
+            Promoción activa
+          </label>
+        </div>
+        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--line)', display: 'flex', gap: 10 }}>
+          <button className="btn-secondary" onClick={onClose} style={{ flex: 1 }}>Cancelar</button>
+          <button className="btn-primary" onClick={handleSave} style={{ flex: 2 }}>
+            {esEdicion ? 'Guardar cambios' : 'Crear promoción'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+function TabPromociones() {
+  const [lista, setLista] = useState([])
+  const [modal, setModal] = useState(null) // null | promo | {}
+  const [cargando, setCargando] = useState(true)
+  const confirmar = useConfirm()
+
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    try { setLista(await window.api.promociones.getAll() || []) }
+    catch { setLista([]) }
+    finally { setCargando(false) }
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  async function toggleActivo(p) {
+    await window.api.promociones.setActivo(p.id, p.activo ? 0 : 1)
+    toast.success(p.activo ? 'Promoción desactivada' : 'Promoción activada')
+    cargar()
+  }
+
+  async function handleDelete(p) {
+    const ok = await confirmar({ titulo: '¿Eliminar promoción?', mensaje: `"${p.nombre}" será eliminada permanentemente.`, tipo: 'peligro', textoConfirmar: 'Eliminar' })
+    if (!ok) return
+    await window.api.promociones.delete(p.id)
+    toast.success('Promoción eliminada')
+    cargar()
+  }
+
+  function esVigente(p) {
+    const hoy = new Date().toISOString().slice(0, 10)
+    if (!p.activo) return false
+    if (p.fecha_inicio && p.fecha_inicio > hoy) return false
+    if (p.fecha_fin && p.fecha_fin < hoy) return false
+    return true
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Gestión de Promociones</h3>
+          <p style={{ fontSize: 12, color: 'var(--dim)', marginTop: 3 }}>2×1, descuentos en porcentaje o monto fijo</p>
+        </div>
+        <button className="btn-primary btn-sm" onClick={() => setModal({})} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Plus size={14} /> Nueva Promoción
+        </button>
+      </div>
+
+      {cargando ? (
+        <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
+      ) : lista.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--dim)', fontSize: 13 }}>
+          <Percent size={40} style={{ margin: '0 auto 12px', opacity: .2, display: 'block' }} />
+          No hay promociones. Crea la primera.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {lista.map(p => {
+            const tipo = TIPO_PROMO[p.tipo] || { label: p.tipo, color: 'var(--dim)' }
+            const vigente = esVigente(p)
+            return (
+              <div key={p.id} style={{
+                background: 'var(--glass)', border: `1px solid ${vigente ? `${tipo.color}30` : 'var(--line)'}`,
+                borderLeft: `3px solid ${vigente ? tipo.color : 'oklch(1 0 0 / .1)'}`,
+                borderRadius: 12, padding: '12px 16px',
+                display: 'flex', alignItems: 'center', gap: 12,
+                opacity: p.activo ? 1 : 0.55,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', padding: '2px 8px', borderRadius: 20, background: `${tipo.color}15`, border: `1px solid ${tipo.color}40`, color: tipo.color }}>
+                      {tipo.label}{p.tipo !== '2x1' && p.valor > 0 ? ` ${p.valor}${p.tipo === 'descuento_pct' ? '%' : ' Bs.'}` : ''}
+                    </span>
+                    {vigente && <span style={{ fontSize: 10, fontWeight: 600, color: 'oklch(0.78 0.16 155)', background: 'oklch(0.78 0.16 155 / .1)', padding: '2px 7px', borderRadius: 20 }}>● ACTIVA</span>}
+                  </div>
+                  {p.descripcion && <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 3 }}>{p.descripcion}</div>}
+                  {(p.fecha_inicio || p.fecha_fin) && (
+                    <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Calendar size={10} />
+                      {p.fecha_inicio && `Desde ${p.fecha_inicio}`}
+                      {p.fecha_inicio && p.fecha_fin && ' · '}
+                      {p.fecha_fin && `Hasta ${p.fecha_fin}`}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  <button className="btn-ghost btn-sm" onClick={() => toggleActivo(p)} title={p.activo ? 'Desactivar' : 'Activar'} style={{ padding: '4px 8px' }}>
+                    {p.activo ? <ToggleRight size={16} color="oklch(0.78 0.16 155)" /> : <ToggleLeft size={16} />}
+                  </button>
+                  <button className="btn-ghost btn-sm" onClick={() => setModal(p)} title="Editar" style={{ padding: '4px 8px' }}>
+                    <Edit2 size={13} />
+                  </button>
+                  <button className="btn-ghost btn-sm" onClick={() => handleDelete(p)} title="Eliminar" style={{ padding: '4px 8px' }}>
+                    <Trash2 size={13} color="oklch(0.66 0.22 25)" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {modal !== null && (
+          <ModalPromocion
+            promo={modal?.id ? modal : null}
+            onSave={() => { setModal(null); cargar() }}
+            onClose={() => setModal(null)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 export default function Inventario() {
   const { usuario } = useAuth()
   const [tab, setTab] = useState('productos')
@@ -1038,10 +1262,11 @@ export default function Inventario() {
       {/* Contenido */}
       <AnimatePresence mode="wait">
         <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-          {tab === 'productos' && <TabProductos categorias={categorias} proveedores={proveedores} usuario={usuario} />}
-          {tab === 'categorias' && <TabCategorias categorias={categorias} onRefresh={refresh} />}
+          {tab === 'productos'   && <TabProductos categorias={categorias} proveedores={proveedores} usuario={usuario} />}
+          {tab === 'categorias'  && <TabCategorias categorias={categorias} onRefresh={refresh} />}
           {tab === 'proveedores' && <TabProveedores proveedores={proveedores} onRefresh={refresh} />}
           {tab === 'movimientos' && <TabMovimientos />}
+          {tab === 'promociones' && <TabPromociones />}
         </motion.div>
       </AnimatePresence>
     </div>
