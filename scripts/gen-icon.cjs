@@ -33,8 +33,8 @@ async function main() {
     await sharp(SRC)
       .extract({ left, top, width: w, height: h })
       .resize(size, size, {
-        fit: 'contain',
-        background: { r: 255, g: 255, b: 255, alpha: 0 },
+        fit: 'cover',
+        position: 'centre',
       })
       .png()
       .toFile(out)
