@@ -443,7 +443,7 @@ function TabRecibos({ clienteId }) {
               </span>
             </div>
             {VistaRecibo && v.estado !== 'anulada' && (
-              <button onClick={() => setReciboVenta({ ...v, cliente_nombre: v.cliente_nombre, numero: v.id, cajero: v.usuario_nombre, items: [] })}
+              <button onClick={() => setReciboVenta({ ...v, cliente_nombre: v.cliente_nombre, cliente_doc: v.cliente_carnet || v.cliente_doc, numero: v.id, cajero: v.usuario_nombre, items: [] })}
                 style={{ background: 'none', border: '1px solid oklch(1 0 0 / .12)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
                 <Receipt size={12} /> Ver
               </button>

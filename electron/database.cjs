@@ -748,6 +748,10 @@ async function initDB() {
   // ─── Migración: accesos_maximos en planes (Plan Ejecutivo / por visitas) ────
   try { db.run('ALTER TABLE planes_catalogo ADD COLUMN accesos_maximos INTEGER DEFAULT 0') } catch (_) {}
 
+  // ─── Migración: datos del cliente al momento de la venta (snapshots) ─────
+  try { db.run('ALTER TABLE ventas ADD COLUMN cliente_nombre TEXT') } catch (_) {}
+  try { db.run('ALTER TABLE ventas ADD COLUMN cliente_carnet TEXT') } catch (_) {}
+
   // ─── Migración: tablas de promociones ────────────────────────────────────────
   db.run(`
     CREATE TABLE IF NOT EXISTS promociones (
@@ -1821,7 +1825,8 @@ const ventas = {
     const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''
     return queryAll(`
       SELECT v.*,
-        c.nombre||' '||c.apellido as cliente_nombre, c.carnet as cliente_carnet,
+        COALESCE(v.cliente_nombre, c.nombre||' '||c.apellido) as cliente_nombre,
+        COALESCE(v.cliente_carnet, c.carnet) as cliente_carnet,
         u.nombre_completo as usuario_nombre
       FROM ventas v
       LEFT JOIN clientes c ON v.cliente_id=c.id
@@ -1834,7 +1839,8 @@ const ventas = {
   getById(id) {
     const venta = queryOne(`
       SELECT v.*,
-        c.nombre||' '||c.apellido as cliente_nombre, c.carnet as cliente_carnet,
+        COALESCE(v.cliente_nombre, c.nombre||' '||c.apellido) as cliente_nombre,
+        COALESCE(v.cliente_carnet, c.carnet) as cliente_carnet,
         u.nombre_completo as usuario_nombre
       FROM ventas v
       LEFT JOIN clientes c ON v.cliente_id=c.id
@@ -1881,13 +1887,19 @@ const ventas = {
       'INSERT INTO pagos (cliente_id, membresia_id, monto, metodo, concepto) VALUES (?,?,?,?,?)',
       [data.cliente_id, memId, data.total, data.metodo_pago, `Membresía - ${data.plan_nombre || 'Plan'}`]
     )
+    // Snapshot del cliente al momento de la venta
+    const _cliSnap = data.cliente_id ? queryOne('SELECT nombre, apellido, carnet FROM clientes WHERE id=?', [data.cliente_id]) : null
+    const _cliNombre = _cliSnap ? `${_cliSnap.nombre || ''} ${_cliSnap.apellido || ''}`.trim() : null
+    const _cliCarnet = _cliSnap?.carnet || null
+
     const ventaR = run(
-      `INSERT INTO ventas (cliente_id, usuario_id, tipo, subtotal, descuento_id, descuento_valor, total, metodo_pago, metodo_pago_detalle, monto_recibido, vuelto, sesion_caja_id, estado)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'completada')`,
+      `INSERT INTO ventas (cliente_id, usuario_id, tipo, subtotal, descuento_id, descuento_valor, total, metodo_pago, metodo_pago_detalle, monto_recibido, vuelto, sesion_caja_id, estado, cliente_nombre, cliente_carnet)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'completada',?,?)`,
       [data.cliente_id, data.usuario_id || null, 'membresia',
        data.subtotal, data.descuento_id || null, data.descuento_valor || 0,
        data.total, data.metodo_pago, JSON.stringify(data.metodo_pago_detalle || {}),
-       data.monto_recibido || data.total, data.vuelto || 0, data.sesion_caja_id || null]
+       data.monto_recibido || data.total, data.vuelto || 0, data.sesion_caja_id || null,
+       _cliNombre, _cliCarnet]
     )
     const ventaId = ventaR.lastInsertRowid
     if (data.sesion_caja_id) {
@@ -1921,7 +1933,10 @@ const ventas = {
     const countSql = `SELECT COUNT(*) as n FROM ventas v LEFT JOIN clientes c ON v.cliente_id=c.id ${where}`
     const total = (queryOne(countSql, params) || {}).n || 0
     const data = queryAll(`
-      SELECT v.*, c.nombre||' '||c.apellido as cliente_nombre, c.carnet as cliente_carnet, u.nombre_completo as usuario_nombre
+      SELECT v.*,
+        COALESCE(v.cliente_nombre, c.nombre||' '||c.apellido) as cliente_nombre,
+        COALESCE(v.cliente_carnet, c.carnet) as cliente_carnet,
+        u.nombre_completo as usuario_nombre
       FROM ventas v LEFT JOIN clientes c ON v.cliente_id=c.id LEFT JOIN usuarios u ON v.usuario_id=u.id
       ${where} ORDER BY v.fecha DESC LIMIT ? OFFSET ?
     `, [...params, pageSize, offset])
@@ -1930,7 +1945,10 @@ const ventas = {
 
   getBySesion(sesionId) {
     return queryAll(`
-      SELECT v.*, c.nombre||' '||c.apellido as cliente_nombre, u.nombre_completo as usuario_nombre
+      SELECT v.*,
+        COALESCE(v.cliente_nombre, c.nombre||' '||c.apellido) as cliente_nombre,
+        COALESCE(v.cliente_carnet, c.carnet) as cliente_carnet,
+        u.nombre_completo as usuario_nombre
       FROM ventas v
       LEFT JOIN clientes c ON v.cliente_id=c.id
       LEFT JOIN usuarios u ON v.usuario_id=u.id
@@ -2156,10 +2174,16 @@ const inventario = {
   },
   venderProductos(items, meta) {
     const subtotal = items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+    // Snapshot del cliente al momento de la venta
+    const _cliSnap2 = meta.cliente_id ? queryOne('SELECT nombre, apellido, carnet FROM clientes WHERE id=?', [meta.cliente_id]) : null
+    const _cliNombre2 = _cliSnap2 ? `${_cliSnap2.nombre || ''} ${_cliSnap2.apellido || ''}`.trim() : null
+    const _cliCarnet2 = _cliSnap2?.carnet || null
+
     const ventaR = run(
-      `INSERT INTO ventas (cliente_id, usuario_id, tipo, subtotal, total, metodo_pago, estado)
-       VALUES (?,?,?,?,?,?,'completada')`,
-      [meta.cliente_id || null, meta.usuario_id || null, 'productos', subtotal, subtotal, meta.metodo_pago || 'efectivo']
+      `INSERT INTO ventas (cliente_id, usuario_id, tipo, subtotal, total, metodo_pago, estado, cliente_nombre, cliente_carnet)
+       VALUES (?,?,?,?,?,?,'completada',?,?)`,
+      [meta.cliente_id || null, meta.usuario_id || null, 'productos', subtotal, subtotal, meta.metodo_pago || 'efectivo',
+       _cliNombre2, _cliCarnet2]
     )
     const ventaId = ventaR.lastInsertRowid
     for (const item of items) {
