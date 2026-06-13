@@ -863,16 +863,17 @@ function registrarHandlers(mainWindow) {
     const estadoInicial = esSimulacion ? 'SIMULADA' : 'PENDIENTE_ENVIO'
 
     // Insertar factura
+    const itemsJSON = datos.items ? JSON.stringify(datos.items) : null
     const r = run(`INSERT INTO facturas
       (numero_factura,cuf,cufd_uso,fecha_emision,cliente_nombre,cliente_documento,
        cliente_tipo_doc,cliente_correo,concepto,cantidad,precio_unitario,descuento,
-       monto_total,metodo_pago,estado,es_simulacion,xml_generado,created_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))`,
+       monto_total,metodo_pago,estado,es_simulacion,xml_generado,items,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))`,
       [numeroFactura, cuf, cufd, fechaEmision,
        datos.cliente_nombre, datos.cliente_documento, datos.cliente_tipo_doc || 'CI',
        datos.cliente_correo || '', datos.concepto,
        datos.cantidad || 1, datos.precio_unitario, datos.descuento || 0, datos.monto_total,
-       datos.metodo_pago || 'efectivo', estadoInicial, esSimulacion ? 1 : 0, ''])
+       datos.metodo_pago || 'efectivo', estadoInicial, esSimulacion ? 1 : 0, '', itemsJSON])
 
     const facturaId = r.lastInsertRowid
     logFacturacion(facturaId, 'EMISION_INICIADA', 'OK', esSimulacion ? 'Factura SIMULADA creada' : 'Factura creada localmente')

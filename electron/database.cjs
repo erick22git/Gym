@@ -133,6 +133,7 @@ async function initDB() {
   // Migraciones para columnas opcionales (por si la DB ya existe)
   try { db.run("ALTER TABLE facturas ADD COLUMN es_simulacion INTEGER DEFAULT 0") } catch {}
   try { db.run("ALTER TABLE facturas ADD COLUMN es_prueba INTEGER DEFAULT 0") } catch {}
+  try { db.run("ALTER TABLE facturas ADD COLUMN items TEXT") } catch (_) {}
 
   db.run(`
     CREATE TABLE IF NOT EXISTS config (

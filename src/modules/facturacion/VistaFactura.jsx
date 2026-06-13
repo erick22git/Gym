@@ -46,8 +46,11 @@ export default function VistaFactura({ factura, empresa, onClose, onNueva, onEdi
 
   const emp = empresa || {}
   const total = parseFloat(factura?.monto_total || 0)
-  const subtotal = parseFloat(factura?.precio_unitario || total) * (parseInt(factura?.cantidad) || 1)
   const descuento = parseFloat(factura?.descuento || 0)
+  const itemsDetalle = (() => { try { return factura?.items ? JSON.parse(factura.items) : null } catch { return null } })()
+  const subtotal = itemsDetalle?.length
+    ? itemsDetalle.reduce((s, i) => s + parseFloat(i.subtotal || 0), 0)
+    : parseFloat(factura?.precio_unitario || total) * (parseInt(factura?.cantidad) || 1)
   const qrUrl = `https://pilotosiatservicios.impuestos.gob.bo/verificadorFacturas?cuf=${factura?.cuf || 'SIMULADO'}`
   const cuf = factura?.cuf || ''
 
@@ -192,13 +195,23 @@ export default function VistaFactura({ factura, empresa, onClose, onNueva, onEdi
             </tr>
           </thead>
           <tbody>
-            <tr style={{ background:'#f8f8f8' }}>
-              <td style={{ padding:'6px', textAlign:'center' }}>{factura.cantidad || 1}</td>
-              <td style={{ padding:'6px', fontWeight:600 }}>{factura.concepto || 'Servicio'}</td>
-              <td style={{ padding:'6px', textAlign:'right' }}>Bs. {parseFloat(factura.precio_unitario || total).toFixed(2)}</td>
-              <td style={{ padding:'6px', textAlign:'right' }}>Bs. {descuento.toFixed(2)}</td>
-              <td style={{ padding:'6px', textAlign:'right', fontWeight:700 }}>Bs. {subtotal.toFixed(2)}</td>
-            </tr>
+            {itemsDetalle?.length ? itemsDetalle.map((item, idx) => (
+              <tr key={idx} style={{ background: idx % 2 === 0 ? '#f8f8f8' : 'white' }}>
+                <td style={{ padding:'6px', textAlign:'center' }}>{item.cantidad}</td>
+                <td style={{ padding:'6px', fontWeight:600 }}>{item.nombre}</td>
+                <td style={{ padding:'6px', textAlign:'right' }}>Bs. {parseFloat(item.precio_unitario || 0).toFixed(2)}</td>
+                <td style={{ padding:'6px', textAlign:'right' }}>Bs. {parseFloat(item.descuento_promo || 0).toFixed(2)}</td>
+                <td style={{ padding:'6px', textAlign:'right', fontWeight:700 }}>Bs. {parseFloat(item.subtotal || 0).toFixed(2)}</td>
+              </tr>
+            )) : (
+              <tr style={{ background:'#f8f8f8' }}>
+                <td style={{ padding:'6px', textAlign:'center' }}>{factura.cantidad || 1}</td>
+                <td style={{ padding:'6px', fontWeight:600 }}>{factura.concepto || 'Servicio'}</td>
+                <td style={{ padding:'6px', textAlign:'right' }}>Bs. {parseFloat(factura.precio_unitario || total).toFixed(2)}</td>
+                <td style={{ padding:'6px', textAlign:'right' }}>Bs. {descuento.toFixed(2)}</td>
+                <td style={{ padding:'6px', textAlign:'right', fontWeight:700 }}>Bs. {subtotal.toFixed(2)}</td>
+              </tr>
+            )}
           </tbody>
         </table>
 

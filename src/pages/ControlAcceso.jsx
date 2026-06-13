@@ -367,6 +367,13 @@ function ModalVentaRapida({ usuario, onClose }) {
         monto_total: total,
         metodo_pago: metodoPago,
         enviar_correo: false,
+        items: carrito.map(i => ({
+          nombre: i.nombre_producto,
+          cantidad: i.cantidad,
+          precio_unitario: i.precio_original || i.precio_unitario,
+          subtotal: i.cantidad * i.precio_unitario,
+          descuento_promo: i.precio_original ? i.cantidad * (i.precio_original - i.precio_unitario) : 0,
+        })),
       })
       if (res.ok) toast.success('Factura emitida — ver Historial de Facturas')
       else toast.error(res.error || 'Error al emitir factura')

@@ -157,13 +157,21 @@ export default function EmitirFactura() {
       const nombreParaFactura = form.facturar_tercero ? form.tercero_nombre : form.cliente_nombre
       const tipoDocParaFactura = form.facturar_tercero ? form.tercero_tipo_doc : form.cliente_tipo_doc
 
+      const precioUnit = parseFloat(form.precio_unitario)
+      const cant = parseInt(form.cantidad) || 1
       const datos = {
         ...form,
         cliente_documento: docParaFactura,
         cliente_nombre: nombreParaFactura,
         cliente_tipo_doc: tipoDocParaFactura,
         monto_total: total,
-        precio_unitario: parseFloat(form.precio_unitario),
+        precio_unitario: precioUnit,
+        items: [{
+          nombre: form.concepto,
+          cantidad: cant,
+          precio_unitario: precioUnit,
+          subtotal: total,
+        }],
       }
       const res = await window.api.facturacion.emitirFactura(datos)
       if (res.ok) {
