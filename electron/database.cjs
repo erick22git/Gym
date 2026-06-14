@@ -597,6 +597,21 @@ async function initDB() {
     );
   `)
   db.run(`
+    CREATE TABLE IF NOT EXISTS recibos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      numero TEXT,
+      venta_id INTEGER,
+      cliente_id INTEGER,
+      cliente_nombre TEXT,
+      cliente_doc TEXT,
+      items TEXT,
+      total REAL DEFAULT 0,
+      metodo_pago TEXT,
+      cajero TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+  `)
+  db.run(`
     CREATE TABLE IF NOT EXISTS caja_sesiones (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       usuario_id INTEGER NOT NULL,
@@ -2913,6 +2928,40 @@ const promociones = {
   },
 }
 
+// ─── Recibos ─────────────────────────────────────────────────────────────────
+
+const recibosDB = {
+  guardar(data) {
+    let clienteId = data.cliente_id || null
+    if (!clienteId && data.cliente_doc) {
+      const cl = queryOne('SELECT id FROM clientes WHERE carnet=? AND activo=1', [data.cliente_doc])
+      if (cl) clienteId = cl.id
+    }
+    const itemsJSON = Array.isArray(data.items) ? JSON.stringify(data.items) : (data.items || '[]')
+    const r = run(
+      `INSERT INTO recibos (numero, venta_id, cliente_id, cliente_nombre, cliente_doc, items, total, metodo_pago, cajero)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [data.numero?.toString() || null, data.venta_id || null, clienteId,
+       data.cliente_nombre || null, data.cliente_doc || null,
+       itemsJSON, data.total || 0, data.metodo_pago || null, data.cajero || null]
+    )
+    saveDB()
+    return { ok: true, id: r.lastInsertRowid }
+  },
+  getByClientePaginado(clienteId, page = 1, pageSize = 10) {
+    const offset = (page - 1) * pageSize
+    const totalRow = queryOne('SELECT COUNT(*) as n FROM recibos WHERE cliente_id=?', [clienteId])
+    const data = queryAll(
+      'SELECT * FROM recibos WHERE cliente_id=? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      [clienteId, pageSize, offset]
+    )
+    return { data, total: totalRow?.n || 0, page, pageSize }
+  },
+  getById(id) {
+    return queryOne('SELECT * FROM recibos WHERE id=?', [id])
+  },
+}
+
 // Exponer helpers para el módulo de facturación
 function getQueryHelpers() { return { queryAll, queryOne, run } }
 
@@ -2926,5 +2975,6 @@ module.exports = {
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,
+  recibosDB,
   getQueryHelpers
 }

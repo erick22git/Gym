@@ -393,19 +393,45 @@ function ModalVentaRapida({ usuario, onClose }) {
   }
 
   function confirmarRecibo(datos) {
-    setReciboPrevia({
+    const itemsRecibo = carrito
+      .filter(i => !i._es_gratis)
+      .map(i => ({
+        nombre: i.nombre_producto,
+        cantidad: i.cantidad,
+        precio_unitario: i._precio_base || i.precio_unitario,
+        total: i.cantidad * i.precio_unitario,
+        descuento: i.precio_original ? i.cantidad * (i.precio_original - i.precio_unitario) : 0,
+        promo: i.promo_nombre || null,
+      }))
+    const itemsGratis = carrito
+      .filter(i => i._es_gratis)
+      .map(i => ({ nombre: `${i.nombre_producto} (GRATIS)`, cantidad: i.cantidad, precio_unitario: 0, total: 0, descuento: 0, promo: i.promo_nombre || null }))
+    const todosItems = [...itemsRecibo, ...itemsGratis]
+
+    const reciboData = {
       numero: ventaId || Date.now(),
       fecha: new Date().toLocaleString('es-BO'),
       cliente_nombre: datos.nombre || 'Venta Directa',
       cliente_doc: datos.doc || '',
-      items: carrito.map(i => ({ nombre: i.nombre_producto, cantidad: i.cantidad, total: i.cantidad * i.precio_unitario })),
+      items: todosItems,
       total,
       metodo_pago: metodoPago,
       recibido: metodoPago === 'efectivo' ? montoRec : total,
       vuelto,
       cajero: usuario?.nombre_completo || '',
-    })
+    }
+    setReciboPrevia(reciboData)
     setFormRecibo(null)
+    window.api.recibos.guardar({
+      numero: reciboData.numero,
+      venta_id: ventaId || null,
+      cliente_nombre: reciboData.cliente_nombre,
+      cliente_doc: reciboData.cliente_doc,
+      items: todosItems,
+      total,
+      metodo_pago: metodoPago,
+      cajero: reciboData.cajero,
+    }).catch(() => {})
   }
 
   async function emitirFacturaConDatos(datosForm) {

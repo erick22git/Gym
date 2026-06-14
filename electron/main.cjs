@@ -593,6 +593,11 @@ ipcMain.handle('recibos:guardarPDF', async (_, venta) => {
   } catch (err) { return { ok: false, error: err.message } }
 })
 
+// Recibos persistidos
+ipcMain.handle('recibos:guardar',        (_, data) => require('./database.cjs').recibosDB.guardar(data))
+ipcMain.handle('recibos:getByCliente',   (_, clienteId, page, pageSize) => require('./database.cjs').recibosDB.getByClientePaginado(clienteId, page, pageSize))
+ipcMain.handle('recibos:getById',        (_, id) => require('./database.cjs').recibosDB.getById(id))
+
 // App control
 ipcMain.handle('app:reiniciar', () => { app.relaunch(); app.exit(0) })
 

@@ -316,6 +316,9 @@ contextBridge.exposeInMainWorld('api', {
     saveConfig: (data) => ipcRenderer.invoke('recibos:saveConfig', data),
     generarPDF: (data) => ipcRenderer.invoke('recibos:generarPDF', data),
     guardarPDF: (data) => ipcRenderer.invoke('recibos:guardarPDF', data),
+    guardar: (data) => ipcRenderer.invoke('recibos:guardar', data),
+    getByCliente: (clienteId, page, pageSize) => ipcRenderer.invoke('recibos:getByCliente', clienteId, page, pageSize),
+    getById: (id) => ipcRenderer.invoke('recibos:getById', id),
   },
 
   // ─── Promociones ─────────────────────────────────────────────────────────

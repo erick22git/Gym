@@ -398,61 +398,121 @@ function TabPagos({ clienteId }) {
 
 // ─── Tab: Recibos ─────────────────────────────────────────────────────────────
 function TabRecibos({ clienteId }) {
-  const [ventas, setVentas] = useState([])
+  const [recibos, setRecibos] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const pageSize = 10
   const [cargando, setCargando] = useState(true)
-  const [reciboVenta, setReciboVenta] = useState(null)
+  const [reciboVer, setReciboVer] = useState(null)
   const [VistaRecibo, setVistaRecibo] = useState(null)
 
   useEffect(() => {
-    window.api.ventas.getByCliente(clienteId)
-      .then(data => { setVentas(data || []); setCargando(false) })
-      .catch(() => setCargando(false))
-    // Importar VistaRecibo dinámicamente
     import('../../modules/recibos/VistaRecibo.jsx').then(m => setVistaRecibo(() => m.default)).catch(() => {})
+  }, [])
+
+  const cargar = useCallback(async (p) => {
+    setCargando(true)
+    try {
+      const res = await window.api.recibos.getByCliente(clienteId, p, pageSize)
+      setRecibos(res?.data || [])
+      setTotal(res?.total || 0)
+    } catch {
+      setRecibos([])
+    } finally {
+      setCargando(false)
+    }
   }, [clienteId])
+
+  useEffect(() => { cargar(1) }, [cargar])
+
+  function verRecibo(r) {
+    let items = []
+    try { items = r.items ? JSON.parse(r.items) : [] } catch { items = [] }
+    setReciboVer({
+      numero: r.numero,
+      fecha: r.created_at,
+      cliente_nombre: r.cliente_nombre || 'Cliente',
+      cliente_doc: r.cliente_doc || '',
+      items,
+      total: r.total,
+      metodo_pago: r.metodo_pago,
+      recibido: r.total,
+      vuelto: 0,
+      cajero: r.cajero || '',
+    })
+  }
+
+  function fmtFecha(f) {
+    if (!f) return '—'
+    return new Date(f).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+
+  const totalPages = Math.ceil(total / pageSize)
 
   if (cargando) return <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
 
   return (
     <div>
-      {ventas.length === 0 && (
+      {recibos.length === 0 && !cargando && (
         <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .35)', paddingTop: 40, fontSize: 13 }}>Sin recibos registrados</div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {ventas.map(v => (
-          <Card key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Receipt size={16} color="oklch(0.82 0.14 75)" />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.92 0.01 250)' }}>
-                Venta #{v.id} — {v.tipo === 'membresia' ? 'Membresía' : 'Productos'}
+        {recibos.map(r => {
+          let items = []
+          try { items = r.items ? JSON.parse(r.items) : [] } catch {}
+          return (
+            <Card key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Receipt size={16} color="oklch(0.82 0.14 75)" style={{ flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.92 0.01 250)' }}>
+                  Recibo #{r.numero || r.id}
+                </div>
+                <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .5)', marginTop: 1 }}>
+                  {fmtFecha(r.created_at)} · {r.metodo_pago || 'Efectivo'}
+                </div>
+                {items.length > 0 && (
+                  <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {items.map(i => `${i.nombre} x${i.cantidad}`).join(', ')}
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .4)' }}>
-                {new Date(v.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' })} ·
-                {' '}{v.metodo_pago || 'Efectivo'}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', color: 'oklch(0.95 0.01 250)' }}>
+                  Bs. {Number(r.total || 0).toFixed(2)}
+                </div>
               </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', color: v.estado === 'anulada' ? 'oklch(0.78 0.02 250 / .35)' : 'oklch(0.95 0.01 250)', textDecoration: v.estado === 'anulada' ? 'line-through' : 'none' }}>
-                Bs. {Number(v.total || 0).toFixed(2)}
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
-                background: v.estado === 'anulada' ? 'oklch(0.75 0.18 25 / .15)' : 'oklch(0.72 0.17 155 / .15)',
-                color: v.estado === 'anulada' ? 'oklch(0.75 0.18 25)' : 'oklch(0.72 0.17 155)',
-              }}>
-                {v.estado || 'Completada'}
-              </span>
-            </div>
-            {VistaRecibo && v.estado !== 'anulada' && (
-              <button onClick={() => setReciboVenta({ ...v, cliente_nombre: v.cliente_nombre, cliente_doc: v.cliente_carnet || v.cliente_doc, numero: v.id, cajero: v.usuario_nombre, items: [] })}
-                style={{ background: 'none', border: '1px solid oklch(1 0 0 / .12)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
-                <Receipt size={12} /> Ver
-              </button>
-            )}
-          </Card>
-        ))}
+              {VistaRecibo && (
+                <button onClick={() => verRecibo(r)}
+                  style={{ background: 'none', border: '1px solid oklch(1 0 0 / .12)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, flexShrink: 0 }}>
+                  <Receipt size={12} /> Ver
+                </button>
+              )}
+            </Card>
+          )
+        })}
       </div>
-      {reciboVenta && VistaRecibo && (
-        <VistaRecibo venta={reciboVenta} onClose={() => setReciboVenta(null)} />
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 }}>
+          <button
+            onClick={() => { const p = page - 1; setPage(p); cargar(p) }}
+            disabled={page <= 1}
+            style={{ padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, background: 'var(--glass)', border: '1px solid var(--line)', color: page <= 1 ? 'var(--dim)' : 'var(--ink)', cursor: page <= 1 ? 'default' : 'pointer', opacity: page <= 1 ? 0.4 : 1 }}
+          >← Anterior</button>
+          <span style={{ fontSize: 12, color: 'var(--dim)', padding: '0 6px' }}>
+            Pág. {page} de {totalPages} · {total} recibo{total !== 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={() => { const p = page + 1; setPage(p); cargar(p) }}
+            disabled={page >= totalPages}
+            style={{ padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600, background: 'var(--glass)', border: '1px solid var(--line)', color: page >= totalPages ? 'var(--dim)' : 'var(--ink)', cursor: page >= totalPages ? 'default' : 'pointer', opacity: page >= totalPages ? 0.4 : 1 }}
+          >Siguiente →</button>
+        </div>
+      )}
+
+      {reciboVer && VistaRecibo && (
+        <VistaRecibo venta={reciboVer} onClose={() => setReciboVer(null)} />
       )}
     </div>
   )
