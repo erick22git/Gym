@@ -34,7 +34,20 @@ export const PAGES = {
   CONFIGURACION: 'Configuracion',
 }
 
-// Páginas que requieren autenticación de administrador (sistema legacy)
+// ─── SISTEMA LEGACY: modal de contraseña admin ────────────────────────────────
+// ADMIN_PAGES controla el modal de PIN de administrador (AppContext → unlockAdmin).
+// Solo las páginas de esta lista disparan ese modal cuando !isAdmin.
+//
+// Las demás páginas admin (Caja, Inventario, Ventas, Reportes, Auditoria,
+// Papelera, Respaldos, Configuracion, GestionPlanes, ConfiguracionPOS,
+// Descuentos, GestionModulos, PerfilCliente) NO están aquí porque usan el
+// sistema de login de usuarios con permisos por rol (auth:login / sesiones /
+// roles / permisos en DB). Son accesibles para cualquier usuario logueado
+// con el rol/permiso correspondiente, independientemente del modal admin.
+//
+// NO mezclar ambos sistemas: agregar una página aquí NO la protege con roles,
+// y quitarla de aquí NO la hace pública si el usuario no tiene sesión activa.
+// ──────────────────────────────────────────────────────────────────────────────
 export const ADMIN_PAGES = [
   PAGES.CLIENTS,
   PAGES.MEMBERSHIPS,
