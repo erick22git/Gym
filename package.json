@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "description": "Sistema de gestión Urban Fitness Club con Facturación Electrónica SFE Bolivia",
   "type": "module",
-  "main": "electron/main.cjs",
+  "main": "electron/main-loader.cjs",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "prebuild": "node scripts/run-bytecode-compile.cjs",
     "build": "vite build && electron-builder",
     "build:vite": "vite build",
     "preview": "vite preview"
@@ -69,6 +70,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "!electron/main.cjs",
       "node_modules/**/*",
       "public/**/*"
     ],
