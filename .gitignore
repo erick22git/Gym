@@ -7,3 +7,4 @@ dev_data/
 .env
 .env.local
 *.db
+electron/*.jsc
