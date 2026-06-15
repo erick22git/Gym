@@ -16,11 +16,117 @@ if (!app.isPackaged) {
 
 let db = null
 
+// ─── Encriptación DB (AES-256-GCM · clave derivada de machine-id) ────────────
+// Formato cifrado: MAGIC(4) | IV(16) | AuthTag(16) | Ciphertext(N)
+// MAGIC = 55 46 43 31 ('UFC1') — detecta si el archivo está cifrado
+const _MAGIC = Buffer.from([0x55, 0x46, 0x43, 0x31])
+let _claveCache = null
+
+function _derivarClave() {
+  if (_claveCache) return _claveCache
+  let seed
+  try {
+    const { machineIdSync } = require('node-machine-id')
+    seed = machineIdSync()   // SHA256 del UUID de la máquina
+  } catch (_) {
+    seed = 'ufc-local-dev-fallback-2026'
+  }
+  // PBKDF2: 60k iter para equilibrio velocidad/seguridad en startup
+  const salt = Buffer.from('5546435f4c4f43414c5f323032365f336137623965316600', 'hex')
+  _claveCache = crypto.pbkdf2Sync(seed, salt, 60000, 32, 'sha256')
+  return _claveCache
+}
+
+function _encriptarDB(plainBuf) {
+  const key = _derivarClave()
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+  const enc = Buffer.concat([cipher.update(plainBuf), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return Buffer.concat([_MAGIC, iv, tag, enc])
+}
+
+function _desencriptarDB(fileBuf) {
+  // Sin MAGIC = BD antigua sin cifrar (migración automática)
+  if (fileBuf.length < 36 || !fileBuf.subarray(0, 4).equals(_MAGIC)) {
+    return fileBuf
+  }
+  const key = _derivarClave()
+  const iv  = fileBuf.subarray(4, 20)
+  const tag = fileBuf.subarray(20, 36)
+  const ct  = fileBuf.subarray(36)
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(tag)
+  // Si el archivo fue alterado, decipher.final() lanza → app rechaza BD corrupta
+  return Buffer.concat([decipher.update(ct), decipher.final()])
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Backup encryption (clave portable — igual en todas las instalaciones) ────
+// Los respaldos .enc se pueden restaurar en CUALQUIER PC con la misma app.
+// DISTINTA de la clave operativa (que está atada al machine-id de esta PC).
+const _MAGIC_BACKUP = Buffer.from([0x55, 0x46, 0x43, 0x42]) // 'UFCB'
+let _claveBackupCache = null
+
+function _derivarClaveBackup() {
+  if (_claveBackupCache) return _claveBackupCache
+  const pass = 'UFC_BACKUP_PORTABLE_2026_SECRET_KEY'
+  const salt = Buffer.from('5546435f4241434b55505f53414c543236', 'hex')
+  _claveBackupCache = crypto.pbkdf2Sync(pass, salt, 60000, 32, 'sha256')
+  return _claveBackupCache
+}
+
+function _encriptarBackup(jsonStr) {
+  const key = _derivarClaveBackup()
+  const iv = crypto.randomBytes(16)
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv)
+  const enc = Buffer.concat([cipher.update(Buffer.from(jsonStr, 'utf8')), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return Buffer.concat([_MAGIC_BACKUP, iv, tag, enc])
+}
+
+function _desencriptarBackup(fileBuf) {
+  if (fileBuf.length < 36 || !fileBuf.subarray(0, 4).equals(_MAGIC_BACKUP)) {
+    // Compatibilidad hacia atrás: respaldo JSON sin cifrar
+    return fileBuf.toString('utf8')
+  }
+  const key = _derivarClaveBackup()
+  const iv = fileBuf.subarray(4, 20)
+  const tag = fileBuf.subarray(20, 36)
+  const ct = fileBuf.subarray(36)
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(tag)
+  return Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8')
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Integrity hash (SHA-256 del archivo cifrado en disco) ───────────────────
+const DB_HASH_PATH = DB_PATH + '.hash'
+
+function _guardarHashDB() {
+  try {
+    if (!fs.existsSync(DB_PATH)) return
+    const data = fs.readFileSync(DB_PATH)
+    fs.writeFileSync(DB_HASH_PATH, crypto.createHash('sha256').update(data).digest('hex'), 'utf8')
+  } catch (_) {}
+}
+
+function _verificarHashDB() {
+  try {
+    if (!fs.existsSync(DB_HASH_PATH) || !fs.existsSync(DB_PATH)) return null
+    const guardado = fs.readFileSync(DB_HASH_PATH, 'utf8').trim()
+    const actual = crypto.createHash('sha256').update(fs.readFileSync(DB_PATH)).digest('hex')
+    return guardado === actual ? { ok: true } : { ok: false }
+  } catch (_) { return null }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function saveDB() {
   const data = db.export()
-  fs.writeFileSync(DB_PATH, Buffer.from(data))
+  fs.writeFileSync(DB_PATH, _encriptarDB(Buffer.from(data)))
+  _guardarHashDB()
 }
 
 function queryAll(sql, params = []) {
@@ -57,9 +163,20 @@ async function initDB() {
     locateFile: () => path.join(__dirname, '../node_modules/sql.js/dist/sql-wasm.wasm')
   })
 
+  let _integridad_sospechosa = false
+
   if (fs.existsSync(DB_PATH)) {
-    const fileBuffer = fs.readFileSync(DB_PATH)
-    db = new SQL.Database(fileBuffer)
+    const checkHash = _verificarHashDB()
+    if (checkHash && !checkHash.ok) {
+      _integridad_sospechosa = true
+      console.warn('[SECURITY] DB integrity check FAILED — posible modificación externa del archivo de datos')
+    }
+    const fileBuf = fs.readFileSync(DB_PATH)
+    const esMigracion = fileBuf.length < 36 || !fileBuf.subarray(0, 4).equals(_MAGIC)
+    const plainBuf = _desencriptarDB(fileBuf)
+    db = new SQL.Database(plainBuf)
+    // Migración: BD sin cifrar → re-guardar cifrada inmediatamente
+    if (esMigracion) saveDB()
   } else {
     db = new SQL.Database()
   }
@@ -788,6 +905,14 @@ async function initDB() {
       item_id INTEGER NOT NULL
     );
   `)
+
+  if (_integridad_sospechosa) {
+    try {
+      db.run(
+        "INSERT INTO auditoria (usuario_nombre, accion, modulo, detalle) VALUES ('SISTEMA','INTEGRIDAD_SOSPECHOSA','seguridad','Hash SHA-256 del archivo de BD no coincide con el hash previo — posible modificación externa del archivo de datos')"
+      )
+    } catch (_) {}
+  }
 
   saveDB()
   console.log('[DB] Initialized at', DB_PATH)
@@ -2480,6 +2605,15 @@ const respaldosDB = {
     }
     saveDB()
     return { ok: true }
+  },
+  exportarTodoCifrado() {
+    const data = this.exportarTodo()
+    return _encriptarBackup(JSON.stringify(data))
+  },
+  restaurarDesdeArchivo(fileBuf) {
+    const json = _desencriptarBackup(fileBuf)
+    const data = JSON.parse(json)
+    return this.restaurarDesdeDatos(data)
   },
   info() {
     return { tamaño: fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0, ruta: DB_PATH }

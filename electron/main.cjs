@@ -344,17 +344,16 @@ ipcMain.handle('respaldos:listar', () => {
 ipcMain.handle('respaldos:exportar', async () => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Guardar respaldo',
-    defaultPath: `urbanfitness_respaldo_${new Date().toISOString().slice(0, 10)}.json`,
-    filters: [{ name: 'Respaldo JSON', extensions: ['json'] }],
+    defaultPath: `urbanfitness_respaldo_${new Date().toISOString().slice(0, 10)}.enc`,
+    filters: [{ name: 'Respaldo UFC', extensions: ['enc'] }],
   })
   if (result.canceled) return { cancelado: true }
   const db = require('./database.cjs')
-  const data = db.respaldosDB.exportarTodo()
-  const json = JSON.stringify(data, null, 2)
+  const encBuf = db.respaldosDB.exportarTodoCifrado()
   const fs = require('fs')
-  fs.writeFileSync(result.filePath, json, 'utf8')
+  fs.writeFileSync(result.filePath, encBuf)
   const nombre = require('path').basename(result.filePath)
-  const tamaño = Buffer.byteLength(json, 'utf8')
+  const tamaño = encBuf.length
   db.auditoria.log({
     accion: 'RESPALDO_CREADO',
     modulo: 'sistema',
@@ -366,7 +365,7 @@ ipcMain.handle('respaldos:exportar', async () => {
 ipcMain.handle('respaldos:seleccionarArchivo', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Seleccionar respaldo',
-    filters: [{ name: 'Respaldo JSON', extensions: ['json'] }],
+    filters: [{ name: 'Respaldo UFC', extensions: ['enc', 'json'] }],
     properties: ['openFile'],
   })
   if (result.canceled) return null
@@ -376,9 +375,8 @@ ipcMain.handle('respaldos:seleccionarArchivo', async () => {
 ipcMain.handle('respaldos:restaurar', async (_, ruta) => {
   try {
     const fs = require('fs')
-    const json = fs.readFileSync(ruta, 'utf8')
-    const data = JSON.parse(json)
-    const resultado = require('./database.cjs').respaldosDB.restaurarDesdeDatos(data)
+    const fileBuf = fs.readFileSync(ruta)
+    const resultado = require('./database.cjs').respaldosDB.restaurarDesdeArchivo(fileBuf)
     return resultado
   } catch (e) {
     return { ok: false, error: e.message }
