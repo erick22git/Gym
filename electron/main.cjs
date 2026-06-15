@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, session, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, session, shell, Menu } = require('electron')
 const { initFacturacion, registrarHandlers: registrarHandlersFacturacion } = require('./facturacion/handlers.cjs')
 const path = require('path')
 const fs = require('fs')
@@ -36,10 +36,28 @@ function createWindow() {
     mainWindow.webContents.openDevTools()
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+
+    // Bloquear atajos de teclado de devtools en producción (defensa en profundidad)
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const isDevKey = input.key === 'F12' ||
+        (input.control && input.shift && ['I', 'J', 'C'].includes(input.key.toUpperCase()))
+      if (isDevKey) event.preventDefault()
+    })
+
+    // Restringir navegación a URLs externas
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+      if (!url.startsWith('file://')) event.preventDefault()
+    })
+
+    // Bloquear apertura de ventanas nuevas externas
+    mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   }
 }
 
 app.whenReady().then(async () => {
+  // Eliminar menú por defecto de Electron (tiene "View > Toggle Developer Tools")
+  if (!isDev) Menu.setApplicationMenu(null)
+
   // CSP headers — only in production (Vite dev server needs unsafe-inline for HMR)
   if (!isDev) {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
