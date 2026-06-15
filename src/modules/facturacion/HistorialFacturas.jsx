@@ -5,6 +5,10 @@ import StatCard from '../../components/ui/StatCard'
 import Modal from '../../components/ui/Modal'
 import { useApp } from '../../context/AppContext'
 import { PAGES } from '../../constants'
+import { motion } from 'framer-motion'
+
+const tbodyV = { hidden: {}, show: { transition: { staggerChildren: 0.025 } } }
+const rowV   = { hidden: { opacity: 0, y: 5 }, show: { opacity: 1, y: 0, transition: { duration: 0.18 } } }
 
 const ESTADOS = ['TODAS', 'EMITIDA', 'SIMULADA', 'PENDIENTE_ENVIO', 'ANULADA']
 
@@ -119,12 +123,16 @@ export default function HistorialFacturas() {
 
       {/* Stats cards */}
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}
+        >
           <StatCard label="Facturado este mes" value={`Bs. ${(stats.totalFacturadoMes || 0).toLocaleString('es-BO', { minimumFractionDigits: 2 })}`} icon={Receipt} color="#4ade80" />
           <StatCard label="Facturas este mes" value={stats.cantidadFacturasMes} icon={History} color="#3b82f6" />
           <StatCard label="Pendientes de envío" value={stats.pendientesEnvio} icon={RefreshCw} color="#fbbf24" />
           <StatCard label="Anuladas este mes" value={stats.anuladasMes} icon={Ban} color="#f87171" />
-        </div>
+        </motion.div>
       )}
 
       {/* Filtros */}
@@ -172,9 +180,9 @@ export default function HistorialFacturas() {
                 <th>Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <motion.tbody variants={tbodyV} initial="hidden" animate="show">
               {facturas.map(f => (
-                <tr key={f.id}>
+                <motion.tr key={f.id} variants={rowV}>
                   <td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#e5e5e5' }}>{f.numero_factura}</td>
                   <td style={{ fontSize: 12, color: '#888' }}>
                     {f.fecha_emision ? new Date(f.fecha_emision).toLocaleDateString('es-BO') : '—'}
@@ -208,14 +216,16 @@ export default function HistorialFacturas() {
                       )}
                     </div>
                   </td>
-                </tr>
+                </motion.tr>
               ))}
               {facturas.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 60, color: '#555' }}>
-                  Sin facturas. <button className="btn-ghost" onClick={() => navigate(PAGES.FACTURACION_EMITIR)} style={{ color: '#e63946', textDecoration: 'underline' }}>Emitir primera factura</button>
-                </td></tr>
+                <motion.tr initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.2 }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: 60, color: '#555' }}>
+                    Sin facturas. <button className="btn-ghost" onClick={() => navigate(PAGES.FACTURACION_EMITIR)} style={{ color: '#e63946', textDecoration: 'underline' }}>Emitir primera factura</button>
+                  </td>
+                </motion.tr>
               )}
-            </tbody>
+            </motion.tbody>
           </table>
         )}
       </div>

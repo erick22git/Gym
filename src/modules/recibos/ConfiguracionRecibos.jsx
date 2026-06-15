@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Save, ToggleLeft, ToggleRight, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import VistaRecibo from './VistaRecibo'
+import { motion } from 'framer-motion'
 
 const DEFAULTS = {
   activo: true,
@@ -101,7 +102,8 @@ export default function ConfiguracionRecibos() {
       </div>
 
       {/* Activar módulo */}
-      <div className="gym-card" style={{ padding:'16px 20px', marginBottom:14 }}>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22 }}
+        className="gym-card" style={{ padding:'16px 20px', marginBottom:14 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
             <div style={{ fontSize:14, fontWeight:700, color:'var(--ink)' }}>Emisión de recibos</div>
@@ -109,10 +111,11 @@ export default function ConfiguracionRecibos() {
           </div>
           <Toggle k="activo" />
         </div>
-      </div>
+      </motion.div>
 
       {/* Formato */}
-      <div className="gym-card" style={{ padding:'16px 20px', marginBottom:14 }}>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, delay: 0.06 }}
+        className="gym-card" style={{ padding:'16px 20px', marginBottom:14 }}>
         <h3 style={{ fontSize:13, fontWeight:700, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:12 }}>Formato</h3>
         <div style={{ display:'flex', gap:10 }}>
           {[['carta','Carta (8.5×11)'],['media','Media carta (5.5×8.5)'],['ticket','Ticket 80mm']].map(([v,l]) => (
@@ -124,10 +127,11 @@ export default function ConfiguracionRecibos() {
             }}>{l}</button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* Elementos a mostrar */}
-      <div className="gym-card" style={{ padding:'16px 20px', marginBottom:14 }}>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, delay: 0.12 }}
+        className="gym-card" style={{ padding:'16px 20px', marginBottom:14 }}>
         <h3 style={{ fontSize:13, fontWeight:700, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.08em', marginBottom:8 }}>Mostrar en el recibo</h3>
         <Row label="Logo del gym" k="mostrar_logo" />
         <Row label="Datos del gym (dirección, teléfono)" k="mostrar_datos_gym" />
@@ -138,11 +142,12 @@ export default function ConfiguracionRecibos() {
         <Row label="Fecha y hora" k="mostrar_fecha" />
         <Row label="Cajero que atendió" k="mostrar_cajero" />
         <Row label="Mensaje personalizado al pie" k="mostrar_mensaje" />
-      </div>
+      </motion.div>
 
       {/* Mensaje pie */}
       {config.mostrar_mensaje && (
-        <div className="gym-card" style={{ padding:'16px 20px', marginBottom:14 }}>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+          className="gym-card" style={{ padding:'16px 20px', marginBottom:14 }}>
           <label style={{ fontSize:12, fontWeight:600, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'.06em', display:'block', marginBottom:6 }}>Mensaje al pie</label>
           <input
             className="gym-input"
@@ -151,7 +156,7 @@ export default function ConfiguracionRecibos() {
             placeholder="Ej: Gracias por tu preferencia"
             maxLength={120}
           />
-        </div>
+        </motion.div>
       )}
     </div>
     {ventaPrevia && <VistaRecibo venta={ventaPrevia} onClose={() => setVentaPrevia(null)} />}

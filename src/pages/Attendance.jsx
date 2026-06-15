@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { Scan, CheckCircle, XCircle, AlertCircle, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
+
+const itemV = { hidden: { opacity: 0, y: 5 }, show: { opacity: 1, y: 0, transition: { duration: 0.18 } } }
+const listV = { hidden: {}, show: { transition: { staggerChildren: 0.025 } } }
 
 export default function Attendance() {
   const [carnet, setCarnet] = useState('')
@@ -94,7 +98,11 @@ export default function Attendance() {
         )}
       </div>
 
-      <div className="gym-card">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, delay: 0.08 }}
+        className="gym-card"
+      >
         <div style={{ padding: '14px 20px', borderBottom: '1px solid oklch(1 0 0 / .08)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Clock size={15} color="var(--dim)" />
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>
@@ -103,21 +111,33 @@ export default function Attendance() {
         </div>
         <div style={{ maxHeight: 380, overflowY: 'auto' }}>
           {asistenciasHoy.length === 0
-            ? <p style={{ padding: 28, textAlign: 'center', color: 'var(--dim)' }}>Sin registros hoy</p>
-            : asistenciasHoy.map(a => (
-              <div key={a.id} style={{
-                padding: '10px 20px',
-                borderBottom: '1px solid oklch(1 0 0 / .05)',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              }}>
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>{a.nombre} {a.apellido}</span>
-                <span style={{ fontSize: 11, color: 'var(--dim)', fontFamily: 'monospace' }}>
-                  {new Date(a.fecha_hora).toLocaleTimeString('es-BO')}
-                </span>
-              </div>
-            ))}
+            ? (
+              <motion.p
+                initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+                style={{ padding: 28, textAlign: 'center', color: 'var(--dim)' }}
+              >
+                Sin registros hoy
+              </motion.p>
+            )
+            : (
+              <motion.div variants={listV} initial="hidden" animate="show">
+                {asistenciasHoy.map(a => (
+                  <motion.div key={a.id} variants={itemV} style={{
+                    padding: '10px 20px',
+                    borderBottom: '1px solid oklch(1 0 0 / .05)',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  }}>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{a.nombre} {a.apellido}</span>
+                    <span style={{ fontSize: 11, color: 'var(--dim)', fontFamily: 'monospace' }}>
+                      {new Date(a.fecha_hora).toLocaleTimeString('es-BO')}
+                    </span>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

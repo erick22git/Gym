@@ -3,6 +3,7 @@ import {
   Building2, Key, Shield, Mail, Wifi, CheckCircle, XCircle, Loader2,
   Eye, EyeOff, AlertTriangle, Upload, RefreshCw, Send, Play, BookOpen,
 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { sfeService } from '../../services/sfeService'
 import { certificadoService } from '../../services/certificadoService'
@@ -727,7 +728,17 @@ export default function ConfiguracionFacturacion() {
       </div>
 
       <div className="gym-card" style={{ padding: 24 }}>
-        {tabContent[tab]}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            {tabContent[tab]}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   )

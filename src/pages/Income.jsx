@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { DollarSign, Receipt } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { PAGES } from '../constants'
+import { motion } from 'framer-motion'
+
+const tbodyV = { hidden: {}, show: { transition: { staggerChildren: 0.03 } } }
+const rowV   = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.2 } } }
 
 export default function Income() {
   const { navigate } = useApp()
@@ -20,7 +24,11 @@ export default function Income() {
         </button>
       </div>
 
-      <div className="gym-card p-5 mb-4">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="gym-card p-5 mb-4"
+      >
         <div className="flex items-center justify-between">
           <div>
             <div className="gym-label">Total Registrado</div>
@@ -32,16 +40,20 @@ export default function Income() {
             <DollarSign size={28} color="oklch(0.82 0.14 75)" />
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="gym-card" style={{ overflow: 'hidden' }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, delay: 0.07 }}
+        className="gym-card" style={{ overflow: 'hidden' }}
+      >
         <table className="gym-table">
           <thead>
             <tr><th>Fecha</th><th>Cliente</th><th>Concepto</th><th>Método</th><th>Monto</th><th>Factura</th></tr>
           </thead>
-          <tbody>
+          <motion.tbody variants={tbodyV} initial="hidden" animate="show">
             {pagos.map(p => (
-              <tr key={p.id}>
+              <motion.tr key={p.id} variants={rowV}>
                 <td style={{ fontSize: 12 }}>{new Date(p.fecha).toLocaleDateString('es-BO')}</td>
                 <td style={{ color: 'var(--ink)' }}>{p.nombre} {p.apellido}</td>
                 <td>{p.concepto || '—'}</td>
@@ -52,14 +64,16 @@ export default function Income() {
                     <Receipt size={13} />
                   </button>
                 </td>
-              </tr>
+              </motion.tr>
             ))}
             {pagos.length === 0 && (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 48, color: 'var(--dim)' }}>Sin registros de ingresos</td></tr>
+              <motion.tr initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.2 }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: 48, color: 'var(--dim)' }}>Sin registros de ingresos</td>
+              </motion.tr>
             )}
-          </tbody>
+          </motion.tbody>
         </table>
-      </div>
+      </motion.div>
     </div>
   )
 }

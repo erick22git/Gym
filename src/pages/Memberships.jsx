@@ -5,6 +5,10 @@ import Modal from '../components/ui/Modal'
 import { useApp } from '../context/AppContext'
 import { useAuth } from '../context/AuthContext'
 import { PAGES } from '../constants'
+import { motion } from 'framer-motion'
+
+const tbodyV = { hidden: {}, show: { transition: { staggerChildren: 0.025 } } }
+const rowV   = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.18 } } }
 
 // Componente lazy para VistaRecibo
 let _VistaRecibo = null
@@ -421,14 +425,18 @@ export default function Memberships() {
           value={busqueda} onChange={e => setBusqueda(e.target.value)} />
       </div>
 
-      <div className="gym-card" style={{ overflow: 'hidden' }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="gym-card" style={{ overflow: 'hidden' }}
+      >
         <table className="gym-table">
           <thead><tr><th>Cliente</th><th>Carnet</th><th>Estado</th><th>Vencimiento</th><th>Acción</th></tr></thead>
-          <tbody>
+          <motion.tbody variants={tbodyV} initial="hidden" animate="show">
             {clientes.map(c => {
               const activa = c.mem_estado === 'activa' && c.vigencia && new Date(c.vigencia) >= new Date()
               return (
-                <tr key={c.id}>
+                <motion.tr key={c.id} variants={rowV}>
                   <td><strong style={{ color: 'var(--ink)' }}>{c.nombre} {c.apellido}</strong></td>
                   <td style={{ fontFamily: 'monospace' }}>{c.carnet}</td>
                   <td><span className={`badge ${activa ? 'badge-green' : 'badge-red'}`}>{activa ? 'Activa' : 'Vencida'}</span></td>
@@ -439,12 +447,12 @@ export default function Memberships() {
                       {activa ? 'Renovar' : 'Asignar'}
                     </button>
                   </td>
-                </tr>
+                </motion.tr>
               )
             })}
-          </tbody>
+          </motion.tbody>
         </table>
-      </div>
+      </motion.div>
 
       <Modal open={modal} onClose={paso === 'comprobante' ? cerrarModal : () => setModal(false)} title={TITULO_MODAL[paso] || ''}>
         {paso === 'form' && renderPasoForm()}

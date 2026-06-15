@@ -488,11 +488,14 @@ export default function Respaldos() {
 
       {/* Info de la BD */}
       {dbInfo && (
-        <div style={{
-          background: 'var(--glass)', border: '1px solid var(--line)',
-          borderRadius: 12, padding: '14px 18px',
-          display: 'flex', gap: 24, flexWrap: 'wrap',
-        }}>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          style={{
+            background: 'var(--glass)', border: '1px solid var(--line)',
+            borderRadius: 12, padding: '14px 18px',
+            display: 'flex', gap: 24, flexWrap: 'wrap',
+          }}>
           <div>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>Tamaño actual</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--display)' }}>{fmtBytes(dbInfo.tamaño)}</div>
@@ -507,11 +510,12 @@ export default function Respaldos() {
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>Total respaldos</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--display)' }}>{respaldos.length}</div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Acciones */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.07 }}>
         <ActionCard
           icon={Download}
           titulo="Crear Respaldo"
@@ -534,7 +538,9 @@ export default function Respaldos() {
             )}
           </button>
         </ActionCard>
+        </motion.div>
 
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.14 }}>
         <ActionCard
           icon={Upload}
           titulo="Restaurar Respaldo"
@@ -571,6 +577,7 @@ export default function Respaldos() {
             )}
           </button>
         </ActionCard>
+        </motion.div>
       </div>
 
       {/* Historial de respaldos */}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Save, Upload, QrCode, Settings2, ToggleLeft, ToggleRight, Printer, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
 
 const METODOS_DISPONIBLES = [
   { id: 'efectivo', label: 'Efectivo', emoji: '💵' },
@@ -10,14 +11,18 @@ const METODOS_DISPONIBLES = [
   { id: 'mixto', label: 'Pago Mixto', emoji: '🔀' },
 ]
 
-function Section({ title, children }) {
+function Section({ title, children, delay = 0 }) {
   return (
-    <div className="gym-card" style={{ padding: '20px 22px', marginBottom: 16 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay }}
+      className="gym-card" style={{ padding: '20px 22px', marginBottom: 16 }}
+    >
       <h3 style={{ fontFamily: 'var(--display)', fontSize: 13, fontWeight: 700, letterSpacing: '.1em', color: 'var(--muted)', marginBottom: 16, textTransform: 'uppercase' }}>
         {title}
       </h3>
       {children}
-    </div>
+    </motion.div>
   )
 }
 
@@ -156,7 +161,7 @@ export default function ConfiguracionPOS() {
         </button>
       </div>
 
-      <Section title="Datos del establecimiento">
+      <Section title="Datos del establecimiento" delay={0}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del gimnasio', 'gym_nombre', { placeholder: 'Urban Fitness Club' })}</div>
           {inp('Dirección', 'gym_direccion')}
@@ -165,7 +170,7 @@ export default function ConfiguracionPOS() {
         </div>
       </Section>
 
-      <Section title="QR de pago">
+      <Section title="QR de pago" delay={0.07}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {inp('Banco / Empresa', 'qr_banco', { placeholder: 'BNB, Mercantil...' })}
@@ -191,7 +196,7 @@ export default function ConfiguracionPOS() {
         </div>
       </Section>
 
-      <Section title="Métodos de pago activos">
+      <Section title="Métodos de pago activos" delay={0.14}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {METODOS_DISPONIBLES.map(m => {
             const activo = metodosActivos.includes(m.id)
@@ -218,7 +223,7 @@ export default function ConfiguracionPOS() {
         </div>
       </Section>
 
-      <Section title="Impresora fiscal / ticket">
+      <Section title="Impresora fiscal / ticket" delay={0.21}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
@@ -297,7 +302,7 @@ export default function ConfiguracionPOS() {
         </div>
       </Section>
 
-      <Section title="Opciones generales">
+      <Section title="Opciones generales" delay={0.28}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>

@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { Settings as SettingsIcon, Lock, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
+
+const cardV = (delay) => ({
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.25, delay },
+})
 
 export default function Settings() {
   const [currentPass, setCurrentPass] = useState('')
@@ -22,7 +29,7 @@ export default function Settings() {
     <div style={{ maxWidth: 500 }}>
       <h1 className="titulo-metalico mb-6">Configuración</h1>
 
-      <div className="gym-card p-6 mb-4">
+      <motion.div {...cardV(0)} className="gym-card p-6 mb-4">
         <div className="flex items-center gap-3 mb-4">
           <div style={{ background: 'oklch(0.66 0.22 25 / .14)', border: '1px solid oklch(0.66 0.22 25 / .3)', borderRadius: 9, padding: 8 }}>
             <Lock size={18} color="oklch(0.75 0.18 25)" />
@@ -46,9 +53,9 @@ export default function Settings() {
             <Save size={14} style={{ display: 'inline', marginRight: 6 }} />Cambiar Contraseña
           </button>
         </form>
-      </div>
+      </motion.div>
 
-      <div className="gym-card p-6">
+      <motion.div {...cardV(0.08)} className="gym-card p-6">
         <div className="flex items-center gap-3 mb-3">
           <div style={{ background: 'oklch(1 0 0 / .05)', border: '1px solid var(--line)', borderRadius: 9, padding: 8 }}>
             <SettingsIcon size={18} color="var(--muted)" />
@@ -57,7 +64,7 @@ export default function Settings() {
         </div>
         <p style={{ fontSize: 13, color: 'var(--muted)' }}>Urban Fitness Club — Sistema de Gestión v1.0</p>
         <p style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6 }}>Incluye módulo de Facturación Electrónica SFE Bolivia</p>
-      </div>
+      </motion.div>
     </div>
   )
 }
