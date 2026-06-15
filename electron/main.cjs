@@ -19,7 +19,11 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,                      // Electron 28 default; explícito para claridad
       webSecurity: true,
+      allowRunningInsecureContent: false,
+      devTools: isDev,                    // F12 deshabilitado en producción
+      spellcheck: false,
     },
     title: 'URBAN FITNESS CLUB',
     icon: fs.existsSync(path.join(__dirname, '../build/icon.ico'))
