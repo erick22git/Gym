@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Edit2, Trash2, Check, X, Users, ToggleLeft, ToggleRight, Percent } from 'lucide-react'
+import { Plus, Edit2, Trash2, Check, X, Users, ToggleLeft, ToggleRight, Percent, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
+import { auditoriaService } from '../../services/auditoriaService'
 import Descuentos from './Descuentos'
 
 const COLORS_PRESET = [
@@ -257,6 +258,7 @@ function PlanCard({ plan, onEdit, onToggle, onDelete }) {
   const { tienePermiso } = useAuth()
   const puedeEditar = tienePermiso('membresias.editar_plan')
   const puedeCrear = tienePermiso('membresias.crear_plan')
+  const puedeEliminar = tienePermiso('membresias.eliminar_plan')
   const caracteristicas = (() => { try { return JSON.parse(plan.caracteristicas || '[]') } catch { return [] } })()
   const color = plan.color || 'var(--red)'
   const tagParsed = parseTag(plan.tag)
@@ -311,8 +313,83 @@ function PlanCard({ plan, onEdit, onToggle, onDelete }) {
             {plan.activo ? <ToggleRight size={16} color="var(--green)" /> : <ToggleLeft size={16} color="var(--dim)" />}
           </button>
         )}
+        {puedeEliminar && plan.activo && (
+          <button
+            onClick={() => onDelete(plan)}
+            className="btn-secondary"
+            style={{ padding: '6px 10px', fontSize: 12 }}
+            title="Eliminar plan"
+          >
+            <Trash2 size={13} color="var(--red)" />
+          </button>
+        )}
       </div>
     </motion.div>
+  )
+}
+
+function ModalEliminarPlan({ plan, onConfirm, onClose }) {
+  const esGrupal = ['pareja', 'familiar', 'grupal'].includes(plan?.tipo_plan)
+  const tieneActivos = plan?.clientes_activos > 0
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .6)', backdropFilter: 'blur(4px)' }} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0 }}
+        style={{
+          position: 'relative', zIndex: 1, width: 420,
+          background: 'oklch(0.14 0.015 250)',
+          border: '1px solid oklch(0.65 0.22 25 / .4)',
+          borderRadius: 16, padding: '24px 28px',
+          boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <Trash2 size={18} color="oklch(0.65 0.22 25)" />
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, color: 'oklch(0.85 0.12 25)' }}>
+            Eliminar plan
+          </h2>
+        </div>
+
+        <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 14 }}>
+          ¿Enviar el plan <strong style={{ color: 'var(--ink)' }}>"{plan?.nombre}"</strong> (Bs. {plan?.precio}) a la Papelera?
+          Podrás restaurarlo desde <em>Papelera</em> si fue por error.
+        </p>
+
+        {esGrupal && tieneActivos && (
+          <div style={{
+            background: 'oklch(0.82 0.14 75 / .08)',
+            border: '1px solid oklch(0.82 0.14 75 / .3)',
+            borderRadius: 8, padding: '10px 14px', marginBottom: 14,
+            display: 'flex', gap: 8, alignItems: 'flex-start',
+          }}>
+            <AlertTriangle size={14} color="oklch(0.82 0.14 75)" style={{ flexShrink: 0, marginTop: 2 }} />
+            <p style={{ fontSize: 12, color: 'oklch(0.82 0.14 75)', margin: 0, lineHeight: 1.5 }}>
+              Este es un plan {plan.tipo_plan} con <strong>{plan.clientes_activos} membresía(s) activa(s)</strong>.
+              Sus miembros quedarán sin plan activo al confirmar.
+            </p>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button
+            onClick={onConfirm}
+            style={{
+              flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
+              background: 'oklch(0.65 0.22 25 / .2)', border: '1px solid oklch(0.65 0.22 25 / .5)',
+              color: 'oklch(0.85 0.12 25)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <Trash2 size={13} /> Enviar a Papelera
+          </button>
+        </div>
+      </motion.div>
+    </div>
   )
 }
 
@@ -323,6 +400,7 @@ export default function GestionPlanes() {
   const [modalPlan, setModalPlan] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [showDescuentos, setShowDescuentos] = useState(false)
+  const [planEliminar, setPlanEliminar] = useState(null)
   const puedeCrear = tienePermiso('membresias.crear_plan')
 
   async function cargar() {
@@ -341,6 +419,20 @@ export default function GestionPlanes() {
     await window.api.planes.update(plan.id, { ...plan, activo: plan.activo ? 0 : 1 })
     toast.success(plan.activo ? 'Plan desactivado' : 'Plan activado')
     cargar()
+  }
+
+  async function confirmarEliminarPlan() {
+    if (!planEliminar) return
+    try {
+      await window.api.planes.delete(planEliminar.id)
+      await auditoriaService.log('PLAN_ELIMINADO', 'planes', `Plan enviado a Papelera: ${planEliminar.nombre} (Bs.${planEliminar.precio})`)
+      toast.success(`Plan "${planEliminar.nombre}" enviado a Papelera`)
+    } catch {
+      toast.error('Error al eliminar el plan')
+    } finally {
+      setPlanEliminar(null)
+      cargar()
+    }
   }
 
   function abrirNuevo() { setModalPlan(null); setShowModal(true) }
@@ -376,7 +468,7 @@ export default function GestionPlanes() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
           {planes.map(plan => (
-            <PlanCard key={plan.id} plan={plan} onEdit={abrirEditar} onToggle={togglePlan} onDelete={() => {}} />
+            <PlanCard key={plan.id} plan={plan} onEdit={abrirEditar} onToggle={togglePlan} onDelete={setPlanEliminar} />
           ))}
           {puedeCrear && (
             <motion.button
@@ -399,6 +491,13 @@ export default function GestionPlanes() {
 
       <AnimatePresence>
         {showModal && <ModalPlan plan={modalPlan} onSave={onSave} onClose={cerrarModal} />}
+        {planEliminar && (
+          <ModalEliminarPlan
+            plan={planEliminar}
+            onClose={() => setPlanEliminar(null)}
+            onConfirm={confirmarEliminarPlan}
+          />
+        )}
       </AnimatePresence>
 
       {/* Modal Descuentos */}
