@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   HardDrive, Download, Upload, AlertTriangle,
-  Clock, RefreshCw, FolderOpen, FlaskConical, Trash2, ShieldAlert,
+  Clock, RefreshCw, FolderOpen, FlaskConical, Trash2, ShieldAlert, Zap,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { auditoriaService, ACCIONES } from '../../services/auditoriaService'
@@ -322,6 +322,7 @@ export default function Respaldos() {
   const [modalEliminarP, setModalEliminarP] = useState(false)
   const [reseteando, setReseteando] = useState(false)
   const [modalReset, setModalReset] = useState(false)
+  const [optimizando, setOptimizando] = useState(false)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -424,6 +425,24 @@ export default function Respaldos() {
     }
   }
 
+  async function handleMantenimiento() {
+    setOptimizando(true)
+    try {
+      const r = await window.api.respaldos.mantenimiento()
+      if (r?.ok) {
+        toast.success('Base de datos optimizada correctamente')
+        await auditoriaService.log('MANTENIMIENTO_BD_EJECUTADO', 'sistema', 'VACUUM + ANALYZE ejecutado manualmente')
+        await cargar()
+      } else {
+        toast.error(r?.error || 'Error al optimizar la base de datos')
+      }
+    } catch {
+      toast.error('Error al optimizar la base de datos')
+    } finally {
+      setOptimizando(false)
+    }
+  }
+
   async function handleExportar() {
     setExportando(true)
     try {
@@ -519,11 +538,11 @@ export default function Respaldos() {
         <ActionCard
           icon={Download}
           titulo="Crear Respaldo"
-          descripcion="Exporta todos los datos como archivo JSON"
+          descripcion="Exporta todos los datos como archivo cifrado .enc"
           color="oklch(0.74 0.13 250)"
         >
           <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
-            Se creará un archivo con todos los datos del sistema: clientes, membresías, planes, inventario, caja, reportes y configuración.
+            Se creará un archivo cifrado (.enc) con todos los datos del sistema: clientes, membresías, planes, inventario, caja, reportes y configuración. Puede restaurarse en cualquier PC con la misma app.
           </p>
           <button
             onClick={handleExportar}
@@ -536,6 +555,33 @@ export default function Respaldos() {
             ) : (
               <><Download size={14} /> Exportar base de datos</>
             )}
+          </button>
+        </ActionCard>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: 0.21 }}>
+        <ActionCard
+          icon={Zap}
+          titulo="Optimizar base de datos"
+          descripcion="VACUUM + ANALYZE — recomendado cada 3-6 meses"
+          color="oklch(0.74 0.16 155)"
+        >
+          <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
+            Compacta el archivo eliminando espacio libre y actualiza estadísticas para mejorar la velocidad de búsquedas.
+          </p>
+          <button
+            onClick={handleMantenimiento}
+            disabled={optimizando}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 600,
+              background: optimizando ? 'oklch(0.74 0.16 155 / .05)' : 'oklch(0.74 0.16 155 / .15)',
+              border: `1px solid oklch(0.74 0.16 155 / ${optimizando ? '.15' : '.4'})`,
+              color: optimizando ? 'var(--dim)' : 'oklch(0.85 0.12 155)',
+              cursor: optimizando ? 'default' : 'pointer', marginTop: 4,
+            }}
+          >
+            {optimizando ? <><RefreshCw size={14} className="spin" /> Optimizando...</> : <><Zap size={14} /> Optimizar ahora</>}
           </button>
         </ActionCard>
         </motion.div>

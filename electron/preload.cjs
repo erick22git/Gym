@@ -250,6 +250,7 @@ contextBridge.exposeInMainWorld('api', {
     exportar: () => ipcRenderer.invoke('respaldos:exportar'),
     seleccionarArchivo: () => ipcRenderer.invoke('respaldos:seleccionarArchivo'),
     restaurar: (ruta) => ipcRenderer.invoke('respaldos:restaurar', ruta),
+    mantenimiento: () => ipcRenderer.invoke('db:mantenimiento'),
   },
 
   // Datos de Prueba

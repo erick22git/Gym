@@ -344,6 +344,7 @@ ipcMain.handle('papelera:eliminarPermanenteProducto', (_, id) => require('./data
 
 // Respaldos
 ipcMain.handle('respaldos:info', () => require('./database.cjs').respaldosDB.info())
+ipcMain.handle('db:mantenimiento', () => require('./database.cjs').mantenimiento())
 
 ipcMain.handle('respaldos:listar', () => {
   const db = require('./database.cjs')

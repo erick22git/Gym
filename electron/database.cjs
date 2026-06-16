@@ -3128,11 +3128,25 @@ const recibosDB = {
   },
 }
 
+// ─── Mantenimiento BD ─────────────────────────────────────────────────────────
+
+function mantenimiento() {
+  try {
+    db.run('PRAGMA optimize')
+    db.run('ANALYZE')
+    db.run('VACUUM')
+    saveDB()
+    return { ok: true, fecha: new Date().toISOString() }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+}
+
 // Exponer helpers para el módulo de facturación
 function getQueryHelpers() { return { queryAll, queryOne, run } }
 
 module.exports = {
-  initDB, saveDB,
+  initDB, saveDB, mantenimiento,
   clientes, planes, membresias, asistencias, pagos, dashboard,
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
