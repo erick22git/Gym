@@ -2600,14 +2600,18 @@ const papelera = {
 const respaldosDB = {
   exportarTodo() {
     const tablas = [
-      'clientes', 'planes_catalogo', 'membresias', 'asistencias', 'pagos',
-      'usuarios', 'roles', 'permisos', 'roles_permisos',
+      'clientes', 'planes_catalogo', 'membresias', 'membresia_miembros',
+      'asistencias', 'pagos', 'notas_cliente',
+      'usuarios', 'roles', 'permisos', 'rol_permisos',
       'categorias_productos', 'proveedores', 'productos', 'movimientos_stock',
-      'caja_sesiones', 'caja_movimientos',
-      'descuentos', 'configuracion_modulos', 'configuracion_empresa',
-      'notas_cliente',
+      'configuracion_pos', 'descuentos', 'configuracion_modulos', 'configuracion_empresa',
+      'caja_sesiones', 'caja_movimientos', 'caja_notas',
+      'facturas', 'log_facturacion',
+      'ventas', 'detalle_ventas_productos', 'recibos',
+      'config_recibos', 'promociones', 'promocion_productos',
+      'config', 'certificado_digital', 'configuracion_correo', 'credenciales_sfe',
     ]
-    const data = { version: 1, fecha: new Date().toISOString(), tablas: {} }
+    const data = { version: 2, fecha: new Date().toISOString(), tablas: {} }
     for (const tabla of tablas) {
       try { data.tablas[tabla] = queryAll(`SELECT * FROM ${tabla}`) } catch { data.tablas[tabla] = [] }
     }
@@ -2616,11 +2620,16 @@ const respaldosDB = {
   restaurarDesdeDatos(data) {
     if (!data || !data.tablas) throw new Error('Formato de respaldo inválido')
     const orden = [
-      'roles', 'permisos', 'roles_permisos', 'usuarios',
-      'clientes', 'planes_catalogo', 'membresias', 'asistencias', 'pagos',
-      'notas_cliente', 'categorias_productos', 'proveedores', 'productos',
-      'movimientos_stock', 'caja_sesiones', 'caja_movimientos',
-      'descuentos', 'configuracion_modulos', 'configuracion_empresa',
+      'roles', 'permisos', 'rol_permisos', 'usuarios',
+      'clientes', 'planes_catalogo', 'membresias', 'membresia_miembros',
+      'asistencias', 'pagos', 'notas_cliente',
+      'categorias_productos', 'proveedores', 'productos', 'movimientos_stock',
+      'configuracion_pos', 'descuentos', 'configuracion_modulos', 'configuracion_empresa',
+      'caja_sesiones', 'caja_movimientos', 'caja_notas',
+      'facturas', 'log_facturacion',
+      'ventas', 'detalle_ventas_productos', 'recibos',
+      'config_recibos', 'promociones', 'promocion_productos',
+      'config', 'certificado_digital', 'configuracion_correo', 'credenciales_sfe',
     ]
     for (const tabla of orden) {
       const filas = data.tablas[tabla]
