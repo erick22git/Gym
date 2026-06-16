@@ -90,9 +90,29 @@ app.whenReady().then(async () => {
   })
 })
 
-// Save DB to disk before quitting
+// Save DB + auto-backup al cerrar
 app.on('before-quit', () => {
   try { require('./database.cjs').saveDB() } catch (_) {}
+  try {
+    const backupDir = path.join(app.getPath('userData'), 'backups_auto')
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true })
+    const now = new Date()
+    const fecha = now.toISOString().slice(0, 10)
+    const hora = now.toTimeString().slice(0, 8).replace(/:/g, '-')
+    const backupPath = path.join(backupDir, `auto-${fecha}-${hora}.enc`)
+    require('./database.cjs').respaldosDB.exportarBackupA(backupPath)
+    // Conservar solo los últimos 7
+    const archivos = fs.readdirSync(backupDir)
+      .filter(f => f.startsWith('auto-') && f.endsWith('.enc'))
+      .sort()
+    if (archivos.length > 7) {
+      archivos.slice(0, archivos.length - 7).forEach(f =>
+        fs.unlinkSync(path.join(backupDir, f))
+      )
+    }
+  } catch (e) {
+    console.error('[auto-backup]', e.message)
+  }
 })
 
 app.on('window-all-closed', () => {
@@ -400,6 +420,24 @@ ipcMain.handle('respaldos:restaurar', async (_, ruta) => {
   } catch (e) {
     return { ok: false, error: e.message }
   }
+})
+
+ipcMain.handle('respaldos:listarAuto', () => {
+  const backupDir = path.join(app.getPath('userData'), 'backups_auto')
+  if (!fs.existsSync(backupDir)) return []
+  return fs.readdirSync(backupDir)
+    .filter(f => f.startsWith('auto-') && f.endsWith('.enc'))
+    .sort().reverse()
+    .map(f => {
+      const ruta = path.join(backupDir, f)
+      const stat = fs.statSync(ruta)
+      // nombre: auto-YYYY-MM-DD-HH-MM-SS.enc
+      const p = f.replace('auto-', '').replace('.enc', '').split('-')
+      const fecha = p.length >= 6
+        ? `${p[0]}-${p[1]}-${p[2]}T${p[3]}:${p[4]}:${p[5]}`
+        : null
+      return { nombre: f, ruta, tamaño: stat.size, fecha }
+    })
 })
 
 // Datos de Prueba

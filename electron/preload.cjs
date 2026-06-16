@@ -251,6 +251,7 @@ contextBridge.exposeInMainWorld('api', {
     seleccionarArchivo: () => ipcRenderer.invoke('respaldos:seleccionarArchivo'),
     restaurar: (ruta) => ipcRenderer.invoke('respaldos:restaurar', ruta),
     mantenimiento: () => ipcRenderer.invoke('db:mantenimiento'),
+    listarAuto: () => ipcRenderer.invoke('respaldos:listarAuto'),
   },
 
   // Datos de Prueba

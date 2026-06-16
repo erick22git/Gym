@@ -305,6 +305,7 @@ const PASOS_PRUEBA = [
 
 export default function Respaldos() {
   const [respaldos, setRespaldos] = useState([])
+  const [backupsAuto, setBackupsAuto] = useState([])
   const [cargando, setCargando] = useState(true)
   const [exportando, setExportando] = useState(false)
   const [restaurando, setRestaurando] = useState(false)
@@ -327,14 +328,16 @@ export default function Respaldos() {
   const cargar = useCallback(async () => {
     setCargando(true)
     try {
-      const [lista, info, conteo] = await Promise.all([
+      const [lista, info, conteo, auto] = await Promise.all([
         window.api.respaldos.listar(),
         window.api.respaldos.info(),
         window.api.datosPrueba.contar(),
+        window.api.respaldos.listarAuto(),
       ])
       setRespaldos(lista || [])
       setDbInfo(info || null)
       setConteoP(conteo || null)
+      setBackupsAuto(auto || [])
     } catch {
       setRespaldos([])
     } finally {
@@ -678,6 +681,66 @@ export default function Respaldos() {
                   </div>
                 )}
               </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Backups Automáticos */}
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Zap size={14} color="oklch(0.74 0.16 155)" /> Backups automáticos
+          <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--dim)' }}>(se generan al cerrar la app · se conservan los últimos 7)</span>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 10 }}>
+          Cópialos a un pendrive periódicamente como capa extra de seguridad. Puedes restaurar cualquiera de ellos con el botón correspondiente.
+        </div>
+        {backupsAuto.length === 0 ? (
+          <div style={{
+            background: 'var(--glass)', border: '1px solid var(--line)',
+            borderRadius: 10, padding: '18px 20px', textAlign: 'center',
+            color: 'var(--dim)', fontSize: 12,
+          }}>
+            Aún no hay backups automáticos. Se crearán al cerrar la app.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {backupsAuto.map((b, i) => (
+              <div key={i} style={{
+                background: 'var(--glass)', border: '1px solid var(--line)',
+                borderRadius: 9, padding: '10px 14px',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <Zap size={14} color="oklch(0.74 0.16 155)" style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {b.nombre}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 1 }}>
+                    {b.fecha ? fmtFecha(b.fecha) : '—'} · {fmtBytes(b.tamaño)}
+                  </div>
+                </div>
+                {i === 0 && (
+                  <div style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                    background: 'oklch(0.74 0.16 155 / .12)', color: 'oklch(0.74 0.16 155)',
+                    border: '1px solid oklch(0.74 0.16 155 / .25)', flexShrink: 0,
+                  }}>
+                    Más reciente
+                  </div>
+                )}
+                <button
+                  onClick={() => { setArchivoRestaurar(b); setModalRestaurar(true) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '5px 11px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+                    background: 'oklch(0.82 0.14 75 / .12)', border: '1px solid oklch(0.82 0.14 75 / .3)',
+                    color: 'oklch(0.90 0.10 75)', cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  <Upload size={11} /> Restaurar
+                </button>
+              </div>
             ))}
           </div>
         )}

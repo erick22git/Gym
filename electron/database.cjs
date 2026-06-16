@@ -2642,6 +2642,11 @@ const respaldosDB = {
     const data = this.exportarTodo()
     return _encriptarBackup(JSON.stringify(data))
   },
+  exportarBackupA(ruta) {
+    const buf = this.exportarTodoCifrado()
+    fs.writeFileSync(ruta, buf)
+    return { ok: true, tamaño: buf.length }
+  },
   restaurarDesdeArchivo(fileBuf) {
     const json = _desencriptarBackup(fileBuf)
     const data = JSON.parse(json)
