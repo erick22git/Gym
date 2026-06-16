@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   HardDrive, Download, Upload, AlertTriangle,
-  Clock, RefreshCw, FolderOpen, FlaskConical, Trash2, ShieldAlert, Zap,
+  Clock, RefreshCw, FolderOpen, FlaskConical, Trash2, Zap,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { auditoriaService, ACCIONES } from '../../services/auditoriaService'
@@ -321,8 +321,6 @@ export default function Respaldos() {
   const progresoRef = useRef(null)
   const [eliminandoP, setEliminandoP] = useState(false)
   const [modalEliminarP, setModalEliminarP] = useState(false)
-  const [reseteando, setReseteando] = useState(false)
-  const [modalReset, setModalReset] = useState(false)
   const [optimizando, setOptimizando] = useState(false)
 
   const cargar = useCallback(async () => {
@@ -406,25 +404,6 @@ export default function Respaldos() {
       toast.error('Error al eliminar datos de prueba')
     } finally {
       setEliminandoP(false)
-    }
-  }
-
-  async function handleResetear() {
-    setModalReset(false)
-    setReseteando(true)
-    try {
-      const r = await window.api.datosPrueba.resetear()
-      if (r?.ok) {
-        toast.success('Sistema reseteado. Reiniciando...')
-        await auditoriaService.log(ACCIONES.SISTEMA_RESETEADO, 'configuracion', 'Sistema reseteado completamente')
-        setTimeout(() => window.api.app?.reiniciar?.(), 2500)
-      } else {
-        toast.error(r?.error || 'Error al resetear el sistema')
-      }
-    } catch {
-      toast.error('Error al resetear el sistema')
-    } finally {
-      setReseteando(false)
     }
   }
 
@@ -844,50 +823,6 @@ export default function Respaldos() {
         </div>
       </div>
 
-      {/* Zona Peligrosa */}
-      <div style={{
-        background: 'oklch(0.12 0.02 25)',
-        border: '1px solid oklch(0.55 0.20 25 / .3)',
-        borderTop: '3px solid oklch(0.55 0.20 25)',
-        borderRadius: 14, padding: '20px 24px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 9,
-            background: 'oklch(0.55 0.20 25 / .12)', border: '1px solid oklch(0.55 0.20 25 / .3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <ShieldAlert size={18} color="oklch(0.65 0.22 25)" />
-          </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'oklch(0.85 0.15 25)' }}>ZONA PELIGROSA</div>
-            <div style={{ fontSize: 12, color: 'var(--dim)' }}>Operaciones irreversibles — solo para administradores</div>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.85 0.12 25)', marginBottom: 4 }}>Resetear Sistema Completo</div>
-          <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: 0, marginBottom: 12 }}>
-            Elimina TODOS los datos operativos (clientes, membresías, ventas, inventario, cajas, facturas).
-            Conserva usuarios, roles y configuración. Se recomienda crear un respaldo antes.
-          </p>
-          <button
-            onClick={() => setModalReset(true)}
-            disabled={reseteando}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '9px 18px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-              background: reseteando ? 'oklch(0.55 0.20 25 / .05)' : 'oklch(0.55 0.20 25 / .18)',
-              border: `1px solid oklch(0.55 0.20 25 / ${reseteando ? '.15' : '.5'})`,
-              color: reseteando ? 'var(--dim)' : 'oklch(0.85 0.15 25)',
-              cursor: reseteando ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {reseteando ? <><RefreshCw size={14} className="spin" /> Reseteando...</> : <><ShieldAlert size={14} /> Resetear Sistema Completo</>}
-          </button>
-        </div>
-      </div>
-
       {/* Modales */}
       <AnimatePresence>
         {modalRestaurar && (
@@ -901,12 +836,6 @@ export default function Respaldos() {
             conteo={conteoP}
             onClose={() => setModalEliminarP(false)}
             onConfirm={handleEliminarPrueba}
-          />
-        )}
-        {modalReset && (
-          <ModalResetSistema
-            onClose={() => setModalReset(false)}
-            onConfirm={handleResetear}
           />
         )}
       </AnimatePresence>
