@@ -906,6 +906,38 @@ async function initDB() {
     );
   `)
 
+  // ─── Índices de rendimiento (idempotentes vía IF NOT EXISTS) ─────────────────
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_ventas_cliente ON ventas(cliente_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_ventas_sesion ON ventas(sesion_caja_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_asistencias_cliente ON asistencias(cliente_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_asistencias_fecha ON asistencias(fecha_hora)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_membresias_cliente ON membresias(cliente_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_membresias_estado ON membresias(estado)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_membresias_fecha_fin ON membresias(fecha_fin)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_membresia_miembros_mem ON membresia_miembros(membresia_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_membresia_miembros_cliente ON membresia_miembros(cliente_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_pagos_cliente ON pagos(cliente_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_pagos_membresia ON pagos(membresia_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_notas_cliente_id ON notas_cliente(cliente_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_sesiones_usuario ON sesiones(usuario_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria(fecha)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_auditoria_usuario ON auditoria(usuario_nombre)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_caja_mov_sesion ON caja_movimientos(sesion_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_caja_notas_sesion ON caja_notas(sesion_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_facturas_cliente ON facturas(cliente_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_facturas_fecha ON facturas(fecha_emision)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_log_facturacion_factura ON log_facturacion(factura_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_recibos_venta ON recibos(venta_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_recibos_cliente ON recibos(cliente_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_productos_categoria ON productos(categoria_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_productos_proveedor ON productos(proveedor_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_movimientos_stock_producto ON movimientos_stock(producto_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_movimientos_stock_venta ON movimientos_stock(venta_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_detalle_ventas_venta ON detalle_ventas_productos(venta_id)') } catch (_) {}
+  try { db.run('CREATE INDEX IF NOT EXISTS idx_promo_productos_promo ON promocion_productos(promocion_id)') } catch (_) {}
+  // ─────────────────────────────────────────────────────────────────────────────
+
   if (_integridad_sospechosa) {
     try {
       db.run(
