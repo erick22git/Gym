@@ -9,15 +9,15 @@ export default function KPICard({ icon: Icon, label, value, prefix = '', suffix 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay, ease: 'easeOut' }}
       style={{
-        background: 'var(--glass)',
-        backdropFilter: 'blur(28px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(28px) saturate(140%)',
+        background: 'transparent',
+        backdropFilter: 'url(#dropdown-glass)',
+        WebkitBackdropFilter: 'url(#dropdown-glass)',
         border: '1px solid var(--line)',
-        borderRadius: 16,
-        padding: '20px 22px',
+        borderRadius: 14,
+        padding: '16px 18px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 12,
+        gap: 10,
         position: 'relative',
         overflow: 'hidden',
         boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), 0 30px 60px oklch(0 0 0 / .4)',
@@ -33,13 +33,13 @@ export default function KPICard({ icon: Icon, label, value, prefix = '', suffix 
       {/* Cabecera */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{
-          width: 38, height: 38, borderRadius: 10,
+          width: 32, height: 32, borderRadius: 9,
           background: color.replace(')', ' / .12)'),
           border: `1px solid ${color.replace(')', ' / .25)')}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
         }}>
-          <Icon size={18} color={color} />
+          <Icon size={15} color={color} />
         </div>
 
         {trend !== null && (
@@ -57,7 +57,7 @@ export default function KPICard({ icon: Icon, label, value, prefix = '', suffix 
       {/* Valor */}
       <div>
         <div style={{
-          fontSize: 28,
+          fontSize: 23,
           fontWeight: 700,
           fontFamily: 'Oxanium, sans-serif',
           color: 'oklch(0.97 0.01 250)',
@@ -76,9 +76,9 @@ export default function KPICard({ icon: Icon, label, value, prefix = '', suffix 
           {suffix}
         </div>
         <div style={{
-          fontSize: 11,
+          fontSize: 10,
           color: 'oklch(0.78 0.02 250 / .45)',
-          marginTop: 5,
+          marginTop: 4,
           letterSpacing: '.07em',
           textTransform: 'uppercase',
         }}>

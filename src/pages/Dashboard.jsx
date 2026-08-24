@@ -34,9 +34,9 @@ function ChartTooltip({ active, payload, label, prefix = '', suffix = '' }) {
 function Card({ children, style }) {
   return (
     <div style={{
-      background: 'var(--glass)',
-      backdropFilter: 'blur(28px) saturate(140%)',
-      WebkitBackdropFilter: 'blur(28px) saturate(140%)',
+      background: 'transparent',
+      backdropFilter: 'url(#dropdown-glass)',
+      WebkitBackdropFilter: 'url(#dropdown-glass)',
       border: '1px solid var(--line)',
       borderRadius: 16,
       padding: '18px 20px',
@@ -158,6 +158,150 @@ export default function Dashboard() {
         {kpis.map((k, i) => (
           <KPICard key={k.label} {...k} delay={i * 0.07} />
         ))}
+      </div>
+
+      {/* Alertas críticas (si las hay) */}
+      {(stats?.vencidas > 0 || stats?.porVencer > 0) && (
+        <Card style={{ borderColor: 'oklch(0.66 0.22 25 / .25)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AlertTriangle size={16} color="oklch(0.66 0.22 25)" />
+            <div style={{ fontSize: 12, color: 'oklch(0.88 0.08 25)' }}>
+              {stats.vencidas > 0 && <span><strong>{stats.vencidas}</strong> membresías vencidas · </span>}
+              {stats.porVencer > 0 && <span><strong>{stats.porVencer}</strong> por vencer esta semana</span>}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Fila: resumen rápido */}
+      {resumen && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          {[
+            { label: 'Visitas esta semana', value: resumen.visitasSemana, icon: Activity, color: 'oklch(0.78 0.16 155)' },
+            { label: 'Promedio ingresos/mes', value: `Bs. ${Number(resumen.promedioIngreso || 0).toFixed(0)}`, icon: TrendingUp, color: 'oklch(0.75 0.18 60)' },
+            { label: 'Plan popular', value: resumen.planPopular, icon: Star, color: 'oklch(0.80 0.18 80)' },
+            { label: 'Top cliente (mes)', value: resumen.clienteMes, icon: Users, color: 'oklch(0.68 0.18 200)' },
+          ].map((item, i) => (
+            <motion.div
+              key={item.label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + i * 0.06 }}
+              style={{
+                background: 'transparent',
+                backdropFilter: 'url(#dropdown-glass)',
+                WebkitBackdropFilter: 'url(#dropdown-glass)',
+                border: '1px solid var(--line)',
+                borderRadius: 14, padding: '14px 16px',
+                display: 'flex', alignItems: 'center', gap: 12,
+                boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08)',
+              }}
+            >
+              <div style={{
+                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+                background: item.color.replace(')', ' / .12)'),
+                border: `1px solid ${item.color.replace(')', ' / .25)')}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <item.icon size={16} color={item.color} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.94 0.01 250)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.value}
+                </div>
+                <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)', marginTop: 2 }}>{item.label}</div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Fila: cumpleaños + inactivos + top clientes */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+
+        {/* Cumpleaños próximos */}
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <Cake size={14} color="oklch(0.80 0.18 80)" />
+            <SectionTitle>Cumpleaños próximos</SectionTitle>
+          </div>
+          {cumpleanios.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .3)', textAlign: 'center', paddingTop: 12 }}>Sin cumpleaños esta semana</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {cumpleanios.map(c => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 18 }}>🎂</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'oklch(0.92 0.01 250)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre} {c.apellido}</div>
+                    <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)' }}>{c.fecha_nacimiento?.slice(5, 10)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Clientes inactivos */}
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <UserX size={14} color="oklch(0.66 0.22 25)" />
+            <SectionTitle>Inactivos +14 días</SectionTitle>
+          </div>
+          {inactivos.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .3)', textAlign: 'center', paddingTop: 12 }}>Todos activos</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {inactivos.slice(0, 5).map(c => (
+                <div key={c.id}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 6, padding: '4px 6px', transition: 'background .15s' }}
+                  onClick={() => navigate(PAGES.PERFIL_CLIENTE, { clienteId: c.id })}
+                >
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'oklch(0.66 0.22 25)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre} {c.apellido}</div>
+                    <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)' }}>{c.dias_inactivo} días sin visita</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Top clientes */}
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <Star size={14} color="oklch(0.80 0.18 80)" />
+            <SectionTitle>Top clientes (mes)</SectionTitle>
+          </div>
+          {topClientes.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .3)', textAlign: 'center', paddingTop: 12 }}>Sin datos</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {topClientes.map((c, i) => (
+                <div key={c.id}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                  onClick={() => navigate(PAGES.PERFIL_CLIENTE, { clienteId: c.id })}
+                >
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                    background: i === 0 ? 'oklch(0.80 0.18 80 / .2)' : 'oklch(1 0 0 / .05)',
+                    border: `1px solid ${i === 0 ? 'oklch(0.80 0.18 80 / .4)' : 'oklch(1 0 0 / .08)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 700,
+                    color: i === 0 ? 'oklch(0.80 0.18 80)' : 'oklch(0.78 0.02 250 / .5)',
+                  }}>
+                    {i + 1}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'oklch(0.92 0.01 250)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre} {c.apellido}</div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'oklch(0.80 0.18 80)', fontFamily: 'Oxanium, sans-serif', flexShrink: 0 }}>{c.visitas}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* Fila: gráfico de ingresos + distribución de planes */}
@@ -314,150 +458,6 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
-
-      {/* Fila: resumen rápido */}
-      {resumen && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-          {[
-            { label: 'Visitas esta semana', value: resumen.visitasSemana, icon: Activity, color: 'oklch(0.78 0.16 155)' },
-            { label: 'Promedio ingresos/mes', value: `Bs. ${Number(resumen.promedioIngreso || 0).toFixed(0)}`, icon: TrendingUp, color: 'oklch(0.75 0.18 60)' },
-            { label: 'Plan popular', value: resumen.planPopular, icon: Star, color: 'oklch(0.80 0.18 80)' },
-            { label: 'Top cliente (mes)', value: resumen.clienteMes, icon: Users, color: 'oklch(0.68 0.18 200)' },
-          ].map((item, i) => (
-            <motion.div
-              key={item.label}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 + i * 0.06 }}
-              style={{
-                background: 'var(--glass)',
-                backdropFilter: 'blur(28px) saturate(140%)',
-                WebkitBackdropFilter: 'blur(28px) saturate(140%)',
-                border: '1px solid var(--line)',
-                borderRadius: 14, padding: '14px 16px',
-                display: 'flex', alignItems: 'center', gap: 12,
-                boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08)',
-              }}
-            >
-              <div style={{
-                width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-                background: item.color.replace(')', ' / .12)'),
-                border: `1px solid ${item.color.replace(')', ' / .25)')}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <item.icon size={16} color={item.color} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.94 0.01 250)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.value}
-                </div>
-                <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)', marginTop: 2 }}>{item.label}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* Fila: cumpleaños + inactivos + top clientes */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-
-        {/* Cumpleaños próximos */}
-        <Card>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <Cake size={14} color="oklch(0.80 0.18 80)" />
-            <SectionTitle>Cumpleaños próximos</SectionTitle>
-          </div>
-          {cumpleanios.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .3)', textAlign: 'center', paddingTop: 12 }}>Sin cumpleaños esta semana</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {cumpleanios.map(c => (
-                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ fontSize: 18 }}>🎂</div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'oklch(0.92 0.01 250)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre} {c.apellido}</div>
-                    <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)' }}>{c.fecha_nacimiento?.slice(5, 10)}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {/* Clientes inactivos */}
-        <Card>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <UserX size={14} color="oklch(0.66 0.22 25)" />
-            <SectionTitle>Inactivos +14 días</SectionTitle>
-          </div>
-          {inactivos.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .3)', textAlign: 'center', paddingTop: 12 }}>Todos activos</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {inactivos.slice(0, 5).map(c => (
-                <div key={c.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 6, padding: '4px 6px', transition: 'background .15s' }}
-                  onClick={() => navigate(PAGES.PERFIL_CLIENTE, { clienteId: c.id })}
-                >
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'oklch(0.66 0.22 25)', flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre} {c.apellido}</div>
-                    <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)' }}>{c.dias_inactivo} días sin visita</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {/* Top clientes */}
-        <Card>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <Star size={14} color="oklch(0.80 0.18 80)" />
-            <SectionTitle>Top clientes (mes)</SectionTitle>
-          </div>
-          {topClientes.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .3)', textAlign: 'center', paddingTop: 12 }}>Sin datos</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {topClientes.map((c, i) => (
-                <div key={c.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
-                  onClick={() => navigate(PAGES.PERFIL_CLIENTE, { clienteId: c.id })}
-                >
-                  <div style={{
-                    width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                    background: i === 0 ? 'oklch(0.80 0.18 80 / .2)' : 'oklch(1 0 0 / .05)',
-                    border: `1px solid ${i === 0 ? 'oklch(0.80 0.18 80 / .4)' : 'oklch(1 0 0 / .08)'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 10, fontWeight: 700,
-                    color: i === 0 ? 'oklch(0.80 0.18 80)' : 'oklch(0.78 0.02 250 / .5)',
-                  }}>
-                    {i + 1}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'oklch(0.92 0.01 250)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nombre} {c.apellido}</div>
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'oklch(0.80 0.18 80)', fontFamily: 'Oxanium, sans-serif', flexShrink: 0 }}>{c.visitas}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Alertas críticas (si las hay) */}
-      {(stats?.vencidas > 0 || stats?.porVencer > 0) && (
-        <Card style={{ borderColor: 'oklch(0.66 0.22 25 / .25)', background: 'oklch(0.66 0.22 25 / .06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <AlertTriangle size={16} color="oklch(0.66 0.22 25)" />
-            <div style={{ fontSize: 12, color: 'oklch(0.88 0.08 25)' }}>
-              {stats.vencidas > 0 && <span><strong>{stats.vencidas}</strong> membresías vencidas · </span>}
-              {stats.porVencer > 0 && <span><strong>{stats.porVencer}</strong> por vencer esta semana</span>}
-            </div>
-          </div>
-        </Card>
-      )}
     </div>
   )
 }
