@@ -1,0 +1,827 @@
+<svg color-interpolation-filters="sRGB">
+  <filter id="round">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="10"></feGaussianBlur>
+    <feComponentTransfer result="threshold">
+      <feFuncA type="gamma" amplitude="80" exponent="10" offset="-2"></feFuncA>
+    </feComponentTransfer>
+    <feComposite in="SourceGraphic" operator="atop"></feComposite>
+  </filter>
+</svg>
+
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter id="pack-lower">
+    <feColorMatrix type="matrix" id="pack-lower-matrix" values="
+              0.00392156862745098 0 0 0 0
+              0 0.00392156862745098 0 0 0
+              0 0 0.00392156862745098 0 0
+              0 0 0 1 0
+          "></feColorMatrix>
+  </filter>
+
+  <filter id="pack-upper">
+    <feColorMatrix type="matrix" id="pack-upper-quantize" result="quantized" values="
+              0.4980392156862745 0 0 0 0
+              0 0.4980392156862745 0 0 0
+              0 0 0.4980392156862745 0 0
+              0 0 0 1 0
+          "></feColorMatrix>
+    <feComposite in="quantized" operator="over" result="composited"></feComposite>
+    <feColorMatrix in="composited" type="matrix" id="pack-upper-shift" values="
+              2 0 0 0 0
+              0 2 0 0 0
+              0 0 2 0 0
+              0 0 0 1 0
+          "></feColorMatrix>
+  </filter>
+
+  <filter id="unpack-lower">
+    <feComponentTransfer>
+      <feFuncR type="discrete" id="unpack-lower-r" tableValues="0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000"></feFuncR>
+      <feFuncG type="discrete" id="unpack-lower-g" tableValues="0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000"></feFuncG>
+      <feFuncB type="discrete" id="unpack-lower-b" tableValues="0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000"></feFuncB>
+    </feComponentTransfer>
+  </filter>
+
+  <filter id="unpack-upper">
+      <feComponentTransfer>
+        <feFuncR type="discrete" id="unpack-upper-r" tableValues="0.000 0.008 0.016 0.024 0.031 0.039 0.047 0.055 0.063 0.071 0.079 0.087 0.094 0.102 0.110 0.118 0.126 0.134 0.142 0.150 0.157 0.165 0.173 0.181 0.189 0.197 0.205 0.213 0.220 0.228 0.236 0.244 0.252 0.260 0.268 0.276 0.283 0.291 0.299 0.307 0.315 0.323 0.331 0.339 0.346 0.354 0.362 0.370 0.378 0.386 0.394 0.402 0.409 0.417 0.425 0.433 0.441 0.449 0.457 0.465 0.472 0.480 0.488 0.496 0.504 0.512 0.520 0.528 0.535 0.543 0.551 0.559 0.567 0.575 0.583 0.591 0.598 0.606 0.614 0.622 0.630 0.638 0.646 0.654 0.661 0.669 0.677 0.685 0.693 0.701 0.709 0.717 0.724 0.732 0.740 0.748 0.756 0.764 0.772 0.780 0.787 0.795 0.803 0.811 0.819 0.827 0.835 0.843 0.850 0.858 0.866 0.874 0.882 0.890 0.898 0.906 0.913 0.921 0.929 0.937 0.945 0.953 0.961 0.969 0.976 0.984 0.992 1.000"></feFuncR>
+        <feFuncG type="discrete" id="unpack-upper-g" tableValues="0.000 0.008 0.016 0.024 0.031 0.039 0.047 0.055 0.063 0.071 0.079 0.087 0.094 0.102 0.110 0.118 0.126 0.134 0.142 0.150 0.157 0.165 0.173 0.181 0.189 0.197 0.205 0.213 0.220 0.228 0.236 0.244 0.252 0.260 0.268 0.276 0.283 0.291 0.299 0.307 0.315 0.323 0.331 0.339 0.346 0.354 0.362 0.370 0.378 0.386 0.394 0.402 0.409 0.417 0.425 0.433 0.441 0.449 0.457 0.465 0.472 0.480 0.488 0.496 0.504 0.512 0.520 0.528 0.535 0.543 0.551 0.559 0.567 0.575 0.583 0.591 0.598 0.606 0.614 0.622 0.630 0.638 0.646 0.654 0.661 0.669 0.677 0.685 0.693 0.701 0.709 0.717 0.724 0.732 0.740 0.748 0.756 0.764 0.772 0.780 0.787 0.795 0.803 0.811 0.819 0.827 0.835 0.843 0.850 0.858 0.866 0.874 0.882 0.890 0.898 0.906 0.913 0.921 0.929 0.937 0.945 0.953 0.961 0.969 0.976 0.984 0.992 1.000"></feFuncG>
+        <feFuncB type="discrete" id="unpack-upper-b" tableValues="0.000 0.008 0.016 0.024 0.031 0.039 0.047 0.055 0.063 0.071 0.079 0.087 0.094 0.102 0.110 0.118 0.126 0.134 0.142 0.150 0.157 0.165 0.173 0.181 0.189 0.197 0.205 0.213 0.220 0.228 0.236 0.244 0.252 0.260 0.268 0.276 0.283 0.291 0.299 0.307 0.315 0.323 0.331 0.339 0.346 0.354 0.362 0.370 0.378 0.386 0.394 0.402 0.409 0.417 0.425 0.433 0.441 0.449 0.457 0.465 0.472 0.480 0.488 0.496 0.504 0.512 0.520 0.528 0.535 0.543 0.551 0.559 0.567 0.575 0.583 0.591 0.598 0.606 0.614 0.622 0.630 0.638 0.646 0.654 0.661 0.669 0.677 0.685 0.693 0.701 0.709 0.717 0.724 0.732 0.740 0.748 0.756 0.764 0.772 0.780 0.787 0.795 0.803 0.811 0.819 0.827 0.835 0.843 0.850 0.858 0.866 0.874 0.882 0.890 0.898 0.906 0.913 0.921 0.929 0.937 0.945 0.953 0.961 0.969 0.976 0.984 0.992 1.000"></feFuncB>
+      </feComponentTransfer>
+    </filter>
+</svg>
+
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="liquid-glass-new"
+    x="-20%"
+    y="-20%"
+    width="140%"
+    height="140%"
+  >
+    <feComponentTransfer result="SourceBackground" in="SourceGraphic">
+      <feFuncR type="discrete" tableValues="0.000 0.008 0.016 0.024 0.031 0.039 0.047 0.055 0.063 0.071 0.079 0.087 0.094 0.102 0.110 0.118 0.126 0.134 0.142 0.150 0.157 0.165 0.173 0.181 0.189 0.197 0.205 0.213 0.220 0.228 0.236 0.244 0.252 0.260 0.268 0.276 0.283 0.291 0.299 0.307 0.315 0.323 0.331 0.339 0.346 0.354 0.362 0.370 0.378 0.386 0.394 0.402 0.409 0.417 0.425 0.433 0.441 0.449 0.457 0.465 0.472 0.480 0.488 0.496 0.504 0.512 0.520 0.528 0.535 0.543 0.551 0.559 0.567 0.575 0.583 0.591 0.598 0.606 0.614 0.622 0.630 0.638 0.646 0.654 0.661 0.669 0.677 0.685 0.693 0.701 0.709 0.717 0.724 0.732 0.740 0.748 0.756 0.764 0.772 0.780 0.787 0.795 0.803 0.811 0.819 0.827 0.835 0.843 0.850 0.858 0.866 0.874 0.882 0.890 0.898 0.906 0.913 0.921 0.929 0.937 0.945 0.953 0.961 0.969 0.976 0.984 0.992 1.000"></feFuncR>
+      <feFuncG type="discrete" tableValues="0.000 0.008 0.016 0.024 0.031 0.039 0.047 0.055 0.063 0.071 0.079 0.087 0.094 0.102 0.110 0.118 0.126 0.134 0.142 0.150 0.157 0.165 0.173 0.181 0.189 0.197 0.205 0.213 0.220 0.228 0.236 0.244 0.252 0.260 0.268 0.276 0.283 0.291 0.299 0.307 0.315 0.323 0.331 0.339 0.346 0.354 0.362 0.370 0.378 0.386 0.394 0.402 0.409 0.417 0.425 0.433 0.441 0.449 0.457 0.465 0.472 0.480 0.488 0.496 0.504 0.512 0.520 0.528 0.535 0.543 0.551 0.559 0.567 0.575 0.583 0.591 0.598 0.606 0.614 0.622 0.630 0.638 0.646 0.654 0.661 0.669 0.677 0.685 0.693 0.701 0.709 0.717 0.724 0.732 0.740 0.748 0.756 0.764 0.772 0.780 0.787 0.795 0.803 0.811 0.819 0.827 0.835 0.843 0.850 0.858 0.866 0.874 0.882 0.890 0.898 0.906 0.913 0.921 0.929 0.937 0.945 0.953 0.961 0.969 0.976 0.984 0.992 1.000"></feFuncG>
+      <feFuncB type="discrete" tableValues="0.000 0.008 0.016 0.024 0.031 0.039 0.047 0.055 0.063 0.071 0.079 0.087 0.094 0.102 0.110 0.118 0.126 0.134 0.142 0.150 0.157 0.165 0.173 0.181 0.189 0.197 0.205 0.213 0.220 0.228 0.236 0.244 0.252 0.260 0.268 0.276 0.283 0.291 0.299 0.307 0.315 0.323 0.331 0.339 0.346 0.354 0.362 0.370 0.378 0.386 0.394 0.402 0.409 0.417 0.425 0.433 0.441 0.449 0.457 0.465 0.472 0.480 0.488 0.496 0.504 0.512 0.520 0.528 0.535 0.543 0.551 0.559 0.567 0.575 0.583 0.591 0.598 0.606 0.614 0.622 0.630 0.638 0.646 0.654 0.661 0.669 0.677 0.685 0.693 0.701 0.709 0.717 0.724 0.732 0.740 0.748 0.756 0.764 0.772 0.780 0.787 0.795 0.803 0.811 0.819 0.827 0.835 0.843 0.850 0.858 0.866 0.874 0.882 0.890 0.898 0.906 0.913 0.921 0.929 0.937 0.945 0.953 0.961 0.969 0.976 0.984 0.992 1.000"></feFuncB>
+    </feComponentTransfer>
+
+    <feComponentTransfer in="SourceGraphic">
+      <feFuncR type="discrete" tableValues="0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000"></feFuncR>
+      <feFuncG type="discrete" tableValues="0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000"></feFuncG>
+      <feFuncB type="discrete" tableValues="0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000 0.000 1.000"></feFuncB>
+    </feComponentTransfer>
+
+    <feColorMatrix type="luminanceToAlpha" />
+    <feGaussianBlur stdDeviation="1" />
+    <feColorMatrix
+      values="
+        1 0 0 0 0
+        0 1 0 0 0
+        0 0 1 0 0
+        0 0 0 2 0"
+    />
+    <feComposite result="SourceMask" />
+
+    <feDiffuseLighting
+      in="SourceMask"
+      diffuseConstant="1"
+      surfaceScale="100"
+    >
+      <feDistantLight azimuth="225" elevation="180" />
+    </feDiffuseLighting>
+    <feColorMatrix
+      type="luminanceToAlpha"
+    />
+    <feColorMatrix
+      result="side-black"
+      values="
+        0 0 0 0.0 0
+        0 0 0 0.0 0
+        0 0 0 0.0 0
+        0 0 0 0.9 0"
+    />
+
+    <feDiffuseLighting
+      in="SourceMask"
+      diffuseConstant="0.52"
+      surfaceScale="100"
+    >
+      <feDistantLight azimuth="45" elevation="180" />
+    </feDiffuseLighting>
+    <feColorMatrix
+      type="luminanceToAlpha"
+    />
+    <feColorMatrix
+      result="side-yellow"
+      values="
+        0 0 0 0 1
+        0 0 0 0 1
+        0 0 0 0 0
+        0 0 0 1 0"
+    />
+
+    <feDiffuseLighting
+      in="SourceMask"
+      diffuseConstant="1"
+      surfaceScale="100"
+    >
+      <feDistantLight azimuth="315" elevation="180" />
+    </feDiffuseLighting>
+    <feColorMatrix
+      type="luminanceToAlpha"
+    />
+    <feColorMatrix
+      result="side-red"
+      values="
+        0 0 0 0 1
+        0 0 0 0 0
+        0 0 0 0 0
+        0 0 0 1 0"
+    />
+
+    <feDiffuseLighting
+      result="diffuse-lighting-0"
+      in="SourceMask"
+      diffuseConstant="1"
+      surfaceScale="100"
+      style=""
+    >
+      <feDistantLight azimuth="135" elevation="180" />
+    </feDiffuseLighting>
+    <feColorMatrix
+      result="color-matrix-0"
+      in="diffuse-lighting-0"
+      type="luminanceToAlpha"
+    />
+    <feColorMatrix
+      result="side-green"
+      in="color-matrix-0"
+      values="
+        0 0 0 0 0
+        0 0 0 0 1
+        0 0 0 0 0
+        0 0 0 1 0"
+    />
+
+    <feBlend
+      in="side-green"
+      mode="screen"
+    />
+    <feBlend
+      in="side-red"
+      mode="screen"
+    />
+    <feBlend
+      in="side-yellow"
+      mode="screen"
+    />
+    <feBlend
+      in="side-black"
+      mode="multiply"
+    />
+
+    <feMorphology
+      result="refraction-thickness"
+      radius="22"
+      operator="dilate"
+    />
+    <feGaussianBlur
+      result="refraction-smoothness"
+      in="refraction-thickness"
+      stdDeviation="18"
+    />
+
+    <feComposite
+      result="balls-map"
+      in2="SourceMask"
+      operator="in"
+    />
+    <feFlood result="normal-bg-color" flood-color="#808000" />
+    <feComposite
+      result="NormalMapFull"
+      in="balls-map"
+      in2="normal-bg-color"
+      operator="over"
+    />
+
+    <feDisplacementMap
+      result="displacement"
+      in="SourceBackground"
+      in2="NormalMapFull"
+      scale="140"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+
+    <feGaussianBlur
+      result="blur-out"
+      stdDeviation="1"
+      in="displacement"
+    />
+    <feColorMatrix
+      in="blur-out"
+      values="
+        1 0 0 0 0
+        0 1 0 0 0
+        0 0 1 0 0
+        0 0 0 1 0"
+    />
+    <feComponentTransfer result="backdrop-processed">
+      <feFuncR type="linear" slope=".9" intercept="0.05"></feFuncR>
+      <feFuncG type="linear" slope=".9" intercept="0.05"></feFuncG>
+      <feFuncB type="linear" slope=".9" intercept="0.05"></feFuncB>
+    </feComponentTransfer>
+    <feComposite
+      result="balls-final"
+      in2="SourceMask"
+      operator="in"
+    />
+  </filter>
+
+  <filter id="fresnel">
+    <feMorphology
+      in="SourceMask"
+      result="stroke-width"
+      radius="3"
+    />
+    <feGaussianBlur
+      result="outline-smoothness"
+      stdDeviation="2"
+    />
+    <feComposite
+      result="bg-stroke-raw"
+      in="SourceGraphic"
+      operator="out"
+      in2="outline-smoothness"
+    />
+    <feColorMatrix
+      result="bg-stroke"
+      values="
+        2 0 0 0 0.1
+        0 2 0 0 0.1
+        0 0 2 0 0.1
+        0 0 0 0.69 0"
+    />
+    <feBlend
+      result="outlined-balls"
+      in="SourceGraphic"
+      mode="overlay" />
+  </filter>
+</svg>
+
+<!-- [SOLO .user-dropdown-panel] Vidrio para fondos que a su vez usan
+     backdrop-filter (KPI cards de Dashboard) — liquid-glass-new (arriba)
+     depende de leer canales empaquetados (pack-upper/pack-lower) del
+     backdrop, y eso confirmado no funciona si ese backdrop ya tiene su
+     propio backdrop-filter (backdrop-filter anidado, límite real de
+     Chromium). Este filtro NO empaqueta nada: toma SourceGraphic tal
+     cual, lo desenfoca (feGaussianBlur) y deforma ese blur con un mapa
+     de desplazamiento generado localmente vía feTurbulence (ruido
+     procedural nativo del navegador) — sin fetch() a ninguna imagen
+     externa (la app es Electron offline). -->
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="dropdown-glass"
+    x="-50%"
+    y="-50%"
+    width="200%"
+    height="200%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.015" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.25"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+
+  <!-- [SOLO .ca-result-item/.ca-result-item--default] Copia de
+       #dropdown-glass con MÁS stdDeviation/scale — pedido para que la
+       distorsión de las filas de resultado se note más. Movido acá
+       DENTRO del mismo <svg> padre que #dropdown-glass (antes en un
+       <svg> separado) — se descartó primero la hipótesis de caché
+       (reinicio completo de npm run dev confirmado) y se prueba ahora
+       si un <svg> aparte tenía algún problema de referencia. El texto/
+       contenido de cada fila nunca se ve afectado: backdrop-filter
+       solo distorsiona lo que hay DETRÁS del elemento, nunca a sus
+       propios hijos. -->
+  <filter
+    id="dropdown-glass-strong"
+    x="-50%"
+    y="-50%"
+    width="200%"
+    height="200%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.02" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.4"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+
+  <!-- [SOLO la card "Inactivos +14 días" del Dashboard] Copia de
+       #dropdown-glass con más stdDeviation/scale — pedido explícito para
+       comparar visualmente contra el resto de cards del Dashboard, que se
+       quedan en el #dropdown-glass compartido normal. Mismo criterio de
+       "1 filtro por consumidor" que el resto de este archivo — no se
+       reusa -strong para no acoplar esta card a cambios futuros pensados
+       para .ca-result-item.
+       [FIX — se rompió/quedó transparente] Primer intento con
+       stdDeviation 0.028/scale 0.55 (por encima de -strong, 0.02/0.4)
+       dejó la card transparente: con primitiveUnits=objectBoundingBox el
+       desplazamiento se normaliza contra el tamaño de ESTE elemento (Card
+       grande del Dashboard, no una fila chica de dropdown), así que ese
+       scale desplazaba la muestra del backdrop afuera del margen del
+       filtro (x/y=-50%, width/height=200% = 50% de margen a cada lado) —
+       Chromium renderiza lo que cae fuera de ese margen como transparente.
+       [Recorrido completo de distorsión] 0.045/0.9 (techo) → 0.022/0.45
+       → 0.017/0.3 → 0.016/0.27 → 0.006/0.04 (mínimo) → 0.010/0.12.
+       [Ahora: efecto desenfoque] Pedido explícito: mantener la
+       distorsión (feDisplacementMap scale) donde estaba (0.12, la
+       compartida con #top-clientes-glass, ver abajo) pero sumarle blur
+       real — se sube SOLO el stdDeviation del feGaussianBlur (0.010→0.05),
+       sin tocar scale. Así queda un desenfoque notorio con desplazamiento/
+       warp mínimo, en vez de "más distorsión" en general — son 2 ejes
+       independientes del mismo filtro (blur vs. displacement) y este
+       pedido apunta solo al primero. -->
+  <filter
+    id="inactivos-glass"
+    x="-100%"
+    y="-100%"
+    width="300%"
+    height="300%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.05" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.12"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+
+  <!-- [AHORA: TODOS los bloques del Dashboard] Nació como filtro exclusivo
+       de "Top clientes (mes)" — recorrido: 0.010/0.12 (igualada a
+       Inactivos) → stdDeviation 0.03 (desenfoque suave) → scale 0.22
+       (distorsión subida) → stdDeviation 0.02 ("opacidad" interpretada
+       como blur) → scale 0.08 ("que sea baja"). Pedido explícito
+       después: que TODOS los bloques del Dashboard (los 4 KPICard, el
+       cuadro de alertas/vencidas, y las 5 Card de filas 2 y 3 — Cumpleaños,
+       Inactivos, este mismo, Planes activos, Asistencias recientes) usen
+       esta misma distorsión — así que el nombre quedó desactualizado
+       (ya no es solo de Top clientes) pero se dejó igual para no romper
+       la referencia; conceptualmente es ahora el filtro compartido del
+       Dashboard. #dropdown-glass (el filtro de TODA la app, fuera del
+       Dashboard) no se tocó. -->
+  <!-- id conservado como "top-clientes-glass" por compatibilidad con las
+       referencias ya existentes — si se retoca, considerar renombrarlo a
+       algo como "dashboard-glass" para que el nombre refleje su alcance
+       actual. También lo usa Caja.css (.caja-glass-block/.caja-glass-shell)
+       desde que se unificó esa página al mismo nivel.
+       [BAJADO — pedido explícito, "aún hay mucha distorsión en todo"]
+       0.02/0.08 → 0.012/0.05. Afecta a Dashboard Y Caja por igual, ya que
+       ambos comparten este filtro. -->
+  <filter
+    id="top-clientes-glass"
+    x="-100%"
+    y="-100%"
+    width="300%"
+    height="300%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.012" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.05"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+
+  <!-- [SOLO Historial de Caja — filas de sesión + panel expandido — y
+       reusado en "Solo el efectivo se cuenta" + "Abierta por..." de
+       CajaAbierta] Distorsión más baja que el #top-clientes-glass
+       compartido. Primer intento (0.006/0.02) se sintió como "sin
+       distorsión" — pedido explícito de volver a subirlo un poco pero
+       suave: 0.009/0.035 (a mitad de camino entre eso y el 0.012/0.05
+       compartido). Mismo margen agrandado (x/y=-100%, width/height=300%)
+       por seguridad. -->
+  <filter
+    id="historial-glass"
+    x="-100%"
+    y="-100%"
+    width="300%"
+    height="300%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.009" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.035"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+
+  <!-- [SOLO .ca-result-item/.ca-result-item--default — filas de
+       sugerencias del buscador en Control de Acceso] Usaban
+       #dropdown-glass-strong (más distorsión) → bajado a #dropdown-glass
+       normal → bajado más (0.010/0.15) — a ese nivel se percibió como
+       "se quitó la distorsión". Pedido explícito: "tiene que ser baja
+       pero debe haber" — subido a 0.012/0.18, apenas por debajo del
+       #dropdown-glass compartido (0.015/0.25) pero ya claramente
+       perceptible, no al borde de cero. Margen agrandado (x/y=-100%,
+       width/height=300%) sin cambios. -->
+  <filter
+    id="ca-result-glass"
+    x="-100%"
+    y="-100%"
+    width="300%"
+    height="300%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.012" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.18"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+
+  <!-- [SOLO la tabla de Clientes — .gym-card.clientes-glass-table,
+       src/pages/Clients.css] Recorrido: #historial-glass (0.009/0.035)
+       → 0.005/0.018 (imperceptible) → 0.007/0.026 → 0.009/0.032 →
+       pedido explícito de bajarla otra vez, sutil: 0.007/0.022. Margen
+       agrandado (x/y=-100%, width/height=300%) sin cambios. -->
+  <filter
+    id="clientes-table-glass"
+    x="-100%"
+    y="-100%"
+    width="300%"
+    height="300%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.007" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.022"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+</svg>
+
+<!-- [SOLO .nc-glass-card] Copia de #dropdown-glass con MENOS stdDeviation/
+     scale — primitiveUnits="objectBoundingBox" hace que el blur/
+     desplazamiento sean relativos al tamaño del elemento que lo usa, no
+     un valor fijo en píxeles: la MISMA definición produce más blur
+     absoluto sobre una caja más grande. .nc-glass-card (760px de ancho,
+     más el alto real del formulario del paso "Datos", con muchos campos)
+     es notablemente más grande que .vr-glass-card (580px, contenido más
+     compacto) — con el filtro compartido, eso se traducía en más blur/
+     distorsión absoluta y se leía como "más oscuro" pese a que
+     background/backdrop-filter/box-shadow computados eran idénticos.
+     Se duplica en vez de tocar #dropdown-glass (usado por
+     .user-dropdown-panel, .ca-results-card, dropdowns, etc. en toda la
+     app) para no afectarlos. Valores escalados por el ratio de ancho
+     580/760 ≈ .76 (0.015→0.011, 0.25→0.19) — estimado, no verificado
+     visualmente; puede necesitar un ajuste fino. -->
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="nc-card-glass"
+    x="-50%"
+    y="-50%"
+    width="200%"
+    height="200%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.011" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.19"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+</svg>
+
+<!-- [SOLO .glass-selector] Copia de #dropdown-glass con más scale de
+     desplazamiento — pedido para que la distorsión de la burbuja
+     alcance más hacia el centro. #dropdown-glass es compartido con
+     .user-dropdown-panel; se duplica en vez de tocar el original para
+     no afectar el dropdown de usuario. Mismo feTurbulence+
+     feGaussianBlur, solo cambia el scale del feDisplacementMap. -->
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="bubble-glass"
+    x="-50%"
+    y="-50%"
+    width="200%"
+    height="200%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.015" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.5"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+</svg>
+
+<!-- [SOLO .nueva-venta-glass-bg — ControlAcceso.jsx, botón "Nueva
+     Venta"] Copia de #dropdown-glass con un poco más de scale de
+     desplazamiento — pedido para que se note más diferencia respecto
+     al reposo, pero de forma sutil (no el doble de #bubble-glass,
+     que es para otro caso con distorsión más fuerte). #dropdown-glass
+     es compartido por medio dropdown/glass estático de la app; se
+     duplica en vez de tocarlo para no afectarlos. Mismo feTurbulence+
+     feGaussianBlur, solo cambia el scale del feDisplacementMap
+     (0.25 → 0.32, ~+28%). -->
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="nueva-venta-glass"
+    x="-50%"
+    y="-50%"
+    width="200%"
+    height="200%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.015" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.32"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+</svg>
+
+<!-- [SOLO .nuevo-cliente-glass-bg — ControlAcceso.jsx, botón "Nuevo
+     Cliente"] Copia EXACTA de #nueva-venta-glass (arriba) — mismos
+     valores, reutilizados por pedido explícito ("mismos valores
+     finales ya confirmados en Nueva Venta"). Duplicado en vez de
+     compartir el filtro entre los 2 botones para mantener el mismo
+     criterio "1 filtro por consumidor" que ya usa el resto de este
+     archivo (dropdown-glass-strong, nc-card-glass, bubble-glass,
+     etc.) — evita que un ajuste futuro pensado para un botón
+     modifique sin querer al otro. Ver el comentario de
+     #nueva-venta-glass para el razonamiento completo. -->
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="nuevo-cliente-glass"
+    x="-50%"
+    y="-50%"
+    width="200%"
+    height="200%"
+    primitiveUnits="objectBoundingBox"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.012 0.012"
+      numOctaves="2"
+      seed="7"
+      result="map"
+    />
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.015" result="blur" />
+    <feDisplacementMap
+      in="blur"
+      in2="map"
+      scale="0.32"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+</svg>
+
+<!-- [SOLO .rv-refracting — LiquidVentaButton.jsx, "Registrar Venta",
+     PRUEBA ÚNICA Parte C] Desplazamiento MUY sutil, pensado para el
+     texto/ícono del botón (glass-content), no un fondo grande — por
+     eso baseFrequency más alto (ruido más fino) y scale bajo (2.2px
+     de recorrido máximo aprox.). Se aplica solo ~350ms por click vía
+     una clase que se prende/apaga (ver componente), nunca animado
+     atributo-a-atributo por JS — costo de recomputar el filtro es
+     el de un toggle, no el de un loop de rAF. No tocar
+     #dropdown-glass/#bubble-glass/etc. de arriba (usados en toda la
+     app) — filtro propio, sin overlap. -->
+<!-- [SOLO .nueva-venta-liquid-layer — ControlAcceso.jsx, botón "Nueva
+     Venta"] Filtro goo clásico: blur (funde píxeles cercanos entre sí)
+     + feColorMatrix que sube el contraste del canal alfa (todo lo que
+     quedó semi-transparente por el blur pasa a 0 o a opaco, sin grises
+     intermedios) — así 2 formas separadas (.nueva-venta-liquid-anchor,
+     pegada al borde del botón, y .nueva-venta-cursor-blob, el círculo
+     que sigue al cursor) que se acercan lo suficiente para que sus
+     blurs se toquen, aparecen fusionadas como una sola gota al
+     re-endurecer el borde.
+
+     [REVERTIDO] stdDeviation 5 y matriz "100 -15" (umbral 0.15) se
+     habían probado para permitir un gradiente más transparente sin
+     perder la forma — confirmado con captura real que ese blur más
+     chico rompía la fusión visible (se veían 2 formas sueltas, sin
+     conexión, en vez de fundirse). Vuelto a stdDeviation=8 y matriz
+     "20 -8" (umbral 0.4), la última combinación confirmada que sí
+     fusionaba bien. La transparencia ahora se resuelve distinto (ver
+     .nueva-venta-liquid-layer en ControlAcceso.css: opacity en el
+     MISMO elemento que tiene este filter, aplicada DESPUÉS de que el
+     filtro ya procesó — no vuelve a bajar el alfa que entra al
+     cálculo interno del feColorMatrix, así que no repite este
+     problema). x/y/width/height amplios (no el -10%/120% por
+     defecto) porque el círculo del cursor puede quedar cerca del
+     borde de .nueva-venta-metaball-wrap y el blur necesita margen
+     extra para no recortarse contra la región del filtro.
+
+     [ESTIMACIÓN NO VERIFICADA — sin confirmar en Electron real] 8, 10
+     y 13 quedaron confirmados sin romper la fusión durante esta
+     sesión; 5 sí la rompió (reach insuficiente). 15 se subió sin
+     probar en vivo (cálculo, ver detalle abajo) y se pidió un paso
+     más sin iterar más allá — quedó en 17 por pedido explícito, ese
+     mismo cálculo no se rehizo para 17 específicamente:
+     1) Región del filtro: el layer mide ~104px de alto (56px del
+        botón + 24px de inset a cada lado) — el height="180%" da un
+        margen real de ~42px arriba/abajo antes de recortar el blur
+        en seco contra el borde de la región. El blob (25px de radio)
+        vive con otros ~22px de margen propio (el inset del anchor)
+        antes de tocar ese borde del layer. Sumado, el blur tendría
+        que superar ~64px de spread (≈3σ) antes de recortarse — eso
+        da margen hasta σ≈21 sin ese problema en particular (17
+        sigue adentro de ese margen).
+     2) Forma reconocible: el blob (círculo de 50px, radio 25px) es
+        la forma más chica/vulnerable de las 2 — como regla aproximada,
+        un blur gaussiano empieza a notarse fuerte una vez que σ pasa
+        ~40-50% del radio; a σ=17 eso es el 68% del radio del blob,
+        ya en la zona donde el cálculo anterior marcaba "más probable
+        que se sienta mancha disuelta que líquido con forma" (esa
+        zona empezaba ~18-20, 17 queda justo debajo pero cerca). Sigue
+        sin ser una medición.
+
+     [CAMBIADO — 17→19, Y el botón se achicó en la misma ronda (ver
+     ControlAcceso.css: layer inset -24px→-18px, anchor 22px→20px,
+     blob 50px→40px)] El cálculo de arriba (margen hasta σ≈21) se
+     hizo con el layer más grande (~104px de alto); con el nuevo
+     tamaño (~92px: 56 del botón + 36 de inset ×2) el margen antes de
+     recortarse contra la región del filtro baja a σ≈19 — stdDeviation
+     19 queda JUSTO en ese límite, no con margen cómodo como antes.
+     Aplicado tal cual se pidió, pero marcado: si el borde se ve
+     recortado en seco (no un desvanecido suave), ese es el síntoma
+     de estar tocando el borde de la región del filtro, y el fix
+     sería agrandar x/y/width/height del filtro, no bajar stdDeviation. -->
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="nueva-venta-goo"
+    x="-40%"
+    y="-40%"
+    width="180%"
+    height="180%"
+  >
+    <feGaussianBlur in="SourceGraphic" stdDeviation="19" result="blur" />
+    <feColorMatrix
+      in="blur"
+      values="1 0 0 0 0
+              0 1 0 0 0
+              0 0 1 0 0
+              0 0 0 20 -8"
+    />
+  </filter>
+</svg>
+
+<!-- [SOLO .nuevo-cliente-liquid-layer — ControlAcceso.jsx, botón
+     "Nuevo Cliente"] Copia EXACTA de #nueva-venta-goo (arriba,
+     incluido el historial de por qué stdDeviation quedó en 19 y la
+     matriz en "20 -8") — mismos valores confirmados, reutilizados
+     por pedido explícito. Duplicado (no compartido) por el mismo
+     criterio "1 filtro por consumidor" del resto del archivo.
+     [CAMBIADO] 17→19, sincronizado con Nueva Venta (ronda de
+     "sincronizar tamaño/blur entre los 2 botones"). -->
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="nuevo-cliente-goo"
+    x="-40%"
+    y="-40%"
+    width="180%"
+    height="180%"
+  >
+    <feGaussianBlur in="SourceGraphic" stdDeviation="19" result="blur" />
+    <feColorMatrix
+      in="blur"
+      values="1 0 0 0 0
+              0 1 0 0 0
+              0 0 1 0 0
+              0 0 0 20 -8"
+    />
+  </filter>
+</svg>
+
+<svg width="0" height="0" color-interpolation-filters="sRGB">
+  <filter
+    id="rv-ripple-refraction"
+    x="-15%"
+    y="-15%"
+    width="130%"
+    height="130%"
+  >
+    <feTurbulence
+      type="fractalNoise"
+      baseFrequency="0.09 0.09"
+      numOctaves="2"
+      seed="4"
+      result="rv-map"
+    />
+    <feGaussianBlur in="rv-map" stdDeviation="0.6" result="rv-soft-map" />
+    <feDisplacementMap
+      in="SourceGraphic"
+      in2="rv-soft-map"
+      scale="2.2"
+      xChannelSelector="R"
+      yChannelSelector="G"
+    />
+  </filter>
+</svg>
+

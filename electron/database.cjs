@@ -306,6 +306,23 @@ async function initDB() {
       concepto TEXT,
       fecha TEXT NOT NULL DEFAULT (datetime('now','localtime'))
     );
+
+    CREATE TABLE IF NOT EXISTS casilleros (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      numero TEXT UNIQUE NOT NULL,
+      estado TEXT NOT NULL DEFAULT 'disponible', -- 'disponible' | 'asignada' | 'perdida'
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE TABLE IF NOT EXISTS casillero_asignaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      casillero_id INTEGER NOT NULL REFERENCES casilleros(id),
+      cliente_id INTEGER NOT NULL REFERENCES clientes(id),
+      asignado_por INTEGER REFERENCES usuarios(id),
+      fecha_entrada TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+      fecha_salida TEXT,
+      estado TEXT NOT NULL DEFAULT 'activa' -- 'activa' | 'devuelta' | 'perdida'
+    );
   `)
 
   // ─── Tablas Sistema de Roles y Permisos ───────────────────────────────────
@@ -401,7 +418,7 @@ async function initDB() {
 
   // Seed módulos (siempre asegurar que existan)
   const modulosSeed = [
-    ['facturacion', 0], ['inventario', 0], ['caja', 1], ['ventas', 0], ['promociones', 0],
+    ['facturacion', 0], ['inventario', 0], ['caja', 1], ['ventas', 0], ['promociones', 0], ['casilleros', 0],
   ]
   for (const [modulo, activo] of modulosSeed) {
     db.run("INSERT OR IGNORE INTO configuracion_modulos (modulo, activo) VALUES (?, ?)", [modulo, activo])
@@ -606,7 +623,7 @@ async function initDB() {
     );
     CREATE TABLE IF NOT EXISTS configuracion_pos (
       id INTEGER PRIMARY KEY,
-      gym_nombre TEXT DEFAULT 'Urban Fitness Club',
+      gym_nombre TEXT DEFAULT 'Gimnasio',
       gym_direccion TEXT, gym_telefono TEXT, gym_email TEXT, gym_logo TEXT,
       qr_imagen TEXT, qr_banco TEXT, qr_cuenta TEXT, qr_descripcion TEXT,
       metodos_pago_activos TEXT DEFAULT 'efectivo,qr,tarjeta,transferencia,mixto',
@@ -632,7 +649,7 @@ async function initDB() {
 
   const posConf = queryOne('SELECT id FROM configuracion_pos WHERE id=1')
   if (!posConf) {
-    db.run("INSERT INTO configuracion_pos (id, gym_nombre) VALUES (1, 'Urban Fitness Club')")
+    db.run("INSERT INTO configuracion_pos (id, gym_nombre) VALUES (1, 'Gimnasio')")
   }
 
   // Update existing plan seeds with visual fields
@@ -789,6 +806,33 @@ async function initDB() {
   db.run("INSERT OR IGNORE INTO configuracion_modulos (modulo, activo) VALUES ('recibos', 1)")
   // Recibos debe estar activo por defecto (es función básica, no integración externa)
   db.run("UPDATE configuracion_modulos SET activo=1 WHERE modulo='recibos'")
+
+  // ─── Módulo Casilleros — permisos (retrofit, permisosSeed de arriba solo
+  // corre en BD nueva; esto asegura que una BD ya existente también los
+  // reciba) ──────────────────────────────────────────────────────────────
+  const casillerosPermisosSeed = [
+    ['casilleros.ver', 'casilleros', 'Ver Casilleros', 'Ver estado y asignaciones de casilleros'],
+    ['casilleros.asignar', 'casilleros', 'Asignar Casillero', 'Asignar y devolver llaves de casillero'],
+    ['casilleros.gestionar', 'casilleros', 'Gestionar Casilleros', 'Crear llaves y marcarlas como perdidas'],
+  ]
+  for (const [codigo, modulo, nombre, descripcion] of casillerosPermisosSeed) {
+    db.run("INSERT OR IGNORE INTO permisos (codigo, modulo, nombre, descripcion) VALUES (?, ?, ?, ?)", [codigo, modulo, nombre, descripcion])
+  }
+  // Admin: todos los permisos nuevos (el bloque "todos los permisos" de
+  // arriba también solo corre en BD nueva)
+  const casillerosPermisosIds = queryAll("SELECT id FROM permisos WHERE codigo IN ('casilleros.ver','casilleros.asignar','casilleros.gestionar')")
+  for (const p of casillerosPermisosIds) {
+    db.run("INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)", [p.id])
+  }
+  // Empleado y Cajero: ver + asignar (uso operativo en el check-in) — NO
+  // gestionar (crear llaves / marcar perdida queda a nivel admin)
+  for (const codigo of ['casilleros.ver', 'casilleros.asignar']) {
+    const p = queryOne("SELECT id FROM permisos WHERE codigo=?", [codigo])
+    if (p) {
+      db.run("INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (2, ?)", [p.id])
+      db.run("INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (3, ?)", [p.id])
+    }
+  }
 
   // ─── Columnas es_prueba (datos de prueba identificables) ─────────────────
   const tablasPrueba = [
@@ -985,8 +1029,11 @@ const clientes = {
   },
   create(data) {
     if (data.carnet) {
-      const existente = queryOne('SELECT id FROM clientes WHERE carnet=?', [data.carnet])
-      if (existente) return clientes.getById(existente.id)
+      const existente = queryOne('SELECT id, activo FROM clientes WHERE carnet=?', [data.carnet])
+      if (existente) {
+        if (!existente.activo) run('UPDATE clientes SET activo=1 WHERE id=?', [existente.id])
+        return clientes.getById(existente.id)
+      }
     }
     const r = run(
       'INSERT INTO clientes (carnet, nombre, apellido, telefono, email, fecha_nacimiento, foto_path) VALUES (?,?,?,?,?,?,?)',
@@ -1012,8 +1059,11 @@ const clientes = {
     return 'UFC' + String(num).padStart(4, '0')
   },
   createCompleto(data) {
-    const existente = queryOne('SELECT id FROM clientes WHERE carnet=?', [data.carnet])
-    if (existente) return clientes.getById(existente.id)
+    const existente = queryOne('SELECT id, activo FROM clientes WHERE carnet=?', [data.carnet])
+    if (existente) {
+      if (!existente.activo) run('UPDATE clientes SET activo=1 WHERE id=?', [existente.id])
+      return clientes.getById(existente.id)
+    }
     const codigo = clientes.getNextCodigo()
     const r = run(
       `INSERT INTO clientes (carnet, nombre, apellido, telefono, email, fecha_nacimiento, foto_path,
@@ -2050,6 +2100,17 @@ const ventas = {
     return { ok: true }
   },
 
+  setCliente(id, nombre, carnet) {
+    const v = queryOne('SELECT id FROM ventas WHERE id=?', [id])
+    if (!v) return { ok: false, error: 'Venta no encontrada' }
+    const cliente = carnet ? queryOne('SELECT id FROM clientes WHERE carnet=? AND activo=1', [carnet]) : null
+    run(
+      'UPDATE ventas SET cliente_nombre=?, cliente_carnet=?, cliente_id=COALESCE(?,cliente_id) WHERE id=?',
+      [nombre || null, carnet || null, cliente?.id || null, id]
+    )
+    return { ok: true }
+  },
+
   procesarPagoMembresia(data) {
     const memR = run(
       "INSERT INTO membresias (cliente_id, plan_id, fecha_inicio, fecha_fin, monto_pagado, estado) VALUES (?,?,?,?,?,'activa')",
@@ -2169,7 +2230,7 @@ const configuracionPOS = {
         `UPDATE configuracion_pos SET gym_nombre=?, gym_direccion=?, gym_telefono=?, gym_email=?,
          gym_logo=?, qr_imagen=?, qr_banco=?, qr_cuenta=?, qr_descripcion=?,
          metodos_pago_activos=?, facturacion_activa=?, descuento_maximo=?, sonidos_activos=? WHERE id=1`,
-        [data.gym_nombre || 'Urban Fitness Club', data.gym_direccion || null, data.gym_telefono || null,
+        [data.gym_nombre || 'Gimnasio', data.gym_direccion || null, data.gym_telefono || null,
          data.gym_email || null, data.gym_logo || null, data.qr_imagen || null,
          data.qr_banco || null, data.qr_cuenta || null, data.qr_descripcion || null,
          data.metodos_pago_activos || 'efectivo,qr,tarjeta,transferencia,mixto',
@@ -2179,7 +2240,7 @@ const configuracionPOS = {
       run(
         `INSERT INTO configuracion_pos (id,gym_nombre,gym_direccion,gym_telefono,gym_email,gym_logo,qr_imagen,qr_banco,qr_cuenta,qr_descripcion,metodos_pago_activos,facturacion_activa,descuento_maximo,sonidos_activos)
          VALUES (1,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [data.gym_nombre || 'Urban Fitness Club', data.gym_direccion || null, data.gym_telefono || null,
+        [data.gym_nombre || 'Gimnasio', data.gym_direccion || null, data.gym_telefono || null,
          data.gym_email || null, data.gym_logo || null, data.qr_imagen || null,
          data.qr_banco || null, data.qr_cuenta || null, data.qr_descripcion || null,
          data.metodos_pago_activos || 'efectivo,qr,tarjeta,transferencia,mixto',
@@ -3142,6 +3203,184 @@ const recibosDB = {
   },
 }
 
+// ─── Casilleros (control de llaves) ────────────────────────────────────────────
+// "no devuelta" = asignación sin fecha_salida (sigue afuera) cuya fecha_entrada
+// es de un día anterior a hoy — no se marca sola, es solo un indicador visual/
+// de filtro; la devolución real la hace Fase 3 (panel en Control de Acceso).
+
+const casilleros = {
+  getStats() {
+    const total = queryOne("SELECT COUNT(*) as n FROM casilleros").n
+    const disponibles = queryOne("SELECT COUNT(*) as n FROM casilleros WHERE estado='disponible'").n
+    const asignadas = queryOne("SELECT COUNT(*) as n FROM casilleros WHERE estado='asignada'").n
+    const perdidas = queryOne("SELECT COUNT(*) as n FROM casilleros WHERE estado='perdida'").n
+    const noDevueltas = queryOne(`
+      SELECT COUNT(*) as n FROM casillero_asignaciones
+      WHERE fecha_salida IS NULL AND estado='activa' AND date(fecha_entrada) < date('now','localtime')
+    `).n
+    return { total, disponibles, asignadas, perdidas, noDevueltas }
+  },
+
+  getPaginated(filtros = {}) {
+    const page = Math.max(1, filtros.page || 1)
+    const pageSize = filtros.pageSize || 10
+    const offset = (page - 1) * pageSize
+    const params = []
+    let where = ' WHERE 1=1'
+
+    if (filtros.busqueda) {
+      where += ' AND c.numero LIKE ?'
+      params.push(`%${filtros.busqueda}%`)
+    }
+    if (filtros.estado === 'no_devueltas') {
+      where += ` AND EXISTS (
+        SELECT 1 FROM casillero_asignaciones ca2
+        WHERE ca2.casillero_id=c.id AND ca2.fecha_salida IS NULL AND ca2.estado='activa'
+          AND date(ca2.fecha_entrada) < date('now','localtime')
+      )`
+    } else if (filtros.estado && filtros.estado !== 'todos') {
+      where += ' AND c.estado = ?'
+      params.push(filtros.estado)
+    }
+    if (filtros.desde) {
+      where += ` AND date(COALESCE(
+        (SELECT ca3.fecha_entrada FROM casillero_asignaciones ca3 WHERE ca3.casillero_id=c.id ORDER BY ca3.fecha_entrada DESC LIMIT 1),
+        c.created_at
+      )) >= date(?)`
+      params.push(filtros.desde)
+    }
+    if (filtros.hasta) {
+      where += ` AND date(COALESCE(
+        (SELECT ca4.fecha_entrada FROM casillero_asignaciones ca4 WHERE ca4.casillero_id=c.id ORDER BY ca4.fecha_entrada DESC LIMIT 1),
+        c.created_at
+      )) <= date(?)`
+      params.push(filtros.hasta)
+    }
+
+    const totalRow = queryOne(`SELECT COUNT(*) as n FROM casilleros c${where}`, params)
+    const total = totalRow ? totalRow.n : 0
+
+    const data = queryAll(`
+      SELECT c.*,
+        (SELECT cl.nombre || ' ' || cl.apellido
+         FROM casillero_asignaciones ca JOIN clientes cl ON cl.id=ca.cliente_id
+         WHERE ca.casillero_id=c.id AND ca.fecha_salida IS NULL AND ca.estado='activa'
+         ORDER BY ca.fecha_entrada DESC LIMIT 1) as cliente_actual_nombre,
+        (SELECT ca.fecha_entrada
+         FROM casillero_asignaciones ca
+         WHERE ca.casillero_id=c.id AND ca.fecha_salida IS NULL AND ca.estado='activa'
+         ORDER BY ca.fecha_entrada DESC LIMIT 1) as asignacion_activa_fecha,
+        (SELECT cl.nombre || ' ' || cl.apellido
+         FROM casillero_asignaciones ca JOIN clientes cl ON cl.id=ca.cliente_id
+         WHERE ca.casillero_id=c.id AND ca.fecha_salida IS NOT NULL
+         ORDER BY ca.fecha_salida DESC LIMIT 1) as ultimo_cliente_nombre,
+        (SELECT ca.fecha_entrada FROM casillero_asignaciones ca WHERE ca.casillero_id=c.id ORDER BY ca.fecha_entrada DESC LIMIT 1) as ultima_asignacion_fecha
+      FROM casilleros c
+      ${where}
+      ORDER BY (CASE WHEN c.numero GLOB '[0-9]*' THEN CAST(c.numero AS INTEGER) ELSE 999999 END), c.numero
+      LIMIT ? OFFSET ?
+    `, [...params, pageSize, offset])
+
+    return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
+  },
+
+  // Alta masiva por rango numérico (ej. 1 al 50) — omite los que ya existan.
+  crearRango(desde, hasta) {
+    const d = parseInt(desde, 10)
+    const h = parseInt(hasta, 10)
+    if (!Number.isFinite(d) || !Number.isFinite(h) || d > h) {
+      return { ok: false, error: 'Rango inválido' }
+    }
+    if (h - d + 1 > 500) {
+      return { ok: false, error: 'Máximo 500 llaves por rango de una vez' }
+    }
+    let creadas = 0
+    let existentes = 0
+    for (let n = d; n <= h; n++) {
+      const numero = String(n)
+      const existe = queryOne('SELECT id FROM casilleros WHERE numero=?', [numero])
+      if (existe) { existentes++; continue }
+      run("INSERT INTO casilleros (numero, estado) VALUES (?, 'disponible')", [numero])
+      creadas++
+    }
+    saveDB()
+    return { ok: true, creadas, existentes }
+  },
+
+  // Marcar perdida manualmente, con o sin asignación activa. Si tiene una
+  // asignación activa, esa asignación puntual queda registrada como la que
+  // se perdió (fecha y cliente identificables en el historial) — no solo el
+  // casillero en general.
+  marcarPerdida(casilleroId) {
+    const casillero = queryOne('SELECT * FROM casilleros WHERE id=?', [casilleroId])
+    if (!casillero) return { ok: false, error: 'Casillero no encontrado' }
+    const activa = queryOne(
+      "SELECT id FROM casillero_asignaciones WHERE casillero_id=? AND fecha_salida IS NULL AND estado='activa'",
+      [casilleroId]
+    )
+    if (activa) {
+      run("UPDATE casillero_asignaciones SET estado='perdida', fecha_salida=datetime('now','localtime') WHERE id=?", [activa.id])
+    }
+    run("UPDATE casilleros SET estado='perdida' WHERE id=?", [casilleroId])
+    saveDB()
+    return { ok: true }
+  },
+
+  // ─── Fase 3 — integración con Control de Acceso ─────────────────────────
+
+  // Llaves libres para el selector rápido de asignación (check-in).
+  getDisponibles() {
+    return queryAll(`
+      SELECT id, numero FROM casilleros
+      WHERE estado='disponible'
+      ORDER BY (CASE WHEN numero GLOB '[0-9]*' THEN CAST(numero AS INTEGER) ELSE 999999 END), numero
+    `)
+  },
+
+  // Lista en vivo: quién tiene qué llave ahora mismo.
+  getAsignadasActivas() {
+    return queryAll(`
+      SELECT ca.id as asignacion_id, ca.casillero_id, c.numero, ca.cliente_id,
+        cl.nombre || ' ' || cl.apellido as cliente_nombre, ca.fecha_entrada
+      FROM casillero_asignaciones ca
+      JOIN casilleros c ON c.id = ca.casillero_id
+      JOIN clientes cl ON cl.id = ca.cliente_id
+      WHERE ca.fecha_salida IS NULL AND ca.estado='activa'
+      ORDER BY ca.fecha_entrada DESC
+    `)
+  },
+
+  // Asignar llave a un cliente en el momento del check-in.
+  asignar(casilleroId, clienteId, usuarioId) {
+    const casillero = queryOne('SELECT * FROM casilleros WHERE id=?', [casilleroId])
+    if (!casillero) return { ok: false, error: 'Casillero no encontrado' }
+    if (casillero.estado !== 'disponible') return { ok: false, error: 'La llave ya no está disponible' }
+    const r = run(
+      "INSERT INTO casillero_asignaciones (casillero_id, cliente_id, asignado_por, estado) VALUES (?, ?, ?, 'activa')",
+      [casilleroId, clienteId, usuarioId || null]
+    )
+    run("UPDATE casilleros SET estado='asignada' WHERE id=?", [casilleroId])
+    saveDB()
+    return { ok: true, asignacionId: r.lastInsertRowid }
+  },
+
+  // Devolver la llave activa de un casillero (equivalente a la "salida" —
+  // ver PanelCasilleros en ControlAcceso.jsx: no existe un evento de salida
+  // separado del check-in en esta app, así que la devolución es una acción
+  // directa sobre la lista en vivo de quién tiene cada llave).
+  devolver(casilleroId) {
+    const activa = queryOne(
+      "SELECT id FROM casillero_asignaciones WHERE casillero_id=? AND fecha_salida IS NULL AND estado='activa'",
+      [casilleroId]
+    )
+    if (!activa) return { ok: false, error: 'No hay una asignación activa para esta llave' }
+    run("UPDATE casillero_asignaciones SET estado='devuelta', fecha_salida=datetime('now','localtime') WHERE id=?", [activa.id])
+    run("UPDATE casilleros SET estado='disponible' WHERE id=?", [casilleroId])
+    saveDB()
+    return { ok: true }
+  },
+}
+
 // ─── Mantenimiento BD ─────────────────────────────────────────────────────────
 
 function mantenimiento() {
@@ -3170,5 +3409,6 @@ module.exports = {
   respaldosDB, datosPrueba,
   promociones,
   recibosDB,
+  casilleros,
   getQueryHelpers
 }

@@ -1,0 +1,314 @@
+/* ============================================================
+   PERFIL DE CLIENTE — pestaña Asistencia: pedido explícito de que el
+   scroll de página completa se desactive ahí y viva SOLO en "Últimas
+   visitas" (ver TabAsistencia en PerfilCliente.jsx, que ya trae el
+   layout flex-fill correspondiente). Mismo patrón que
+   .page-content:has(.caja-page) en Caja.css — :has() nativo de
+   Chromium 120+/Electron 28. La clase perfil-asistencia-tab solo se
+   agrega al root de PerfilCliente cuando esa pestaña está activa, así
+   que el resto de pestañas (Membresías, Pagos, etc.) conservan el
+   scroll de página normal. ============================================================ */
+.page-content:has(.perfil-asistencia-tab) {
+  overflow-y: hidden;
+}
+
+/* ============================================================
+   CLIENTES — vidrio real para los botones de esta página, copiado
+   del sistema de "Nuevo Cliente" (ControlAcceso.css / .nuevo-cliente-
+   glass-bg + .nuevo-cliente-content), MENOS el goo/metaball
+   (.nuevo-cliente-liquid-*, cursor-tracking — pensado para un botón
+   grande y central, no para esta fila de botones chicos).
+
+   [CORREGIDO — ronda 2, 3 correcciones explícitas]
+   1. "no copiaste el movimiento" — faltaba el jiggle (sacudida tipo
+      gelatina) que sí tiene Nuevo Cliente al pasar el cursor. En el
+      original es JS (setTimeout 1400ms + clase) porque coexiste con
+      el blob que sigue al cursor; acá no hace falta JS — un
+      `:hover { animation }` alcanza y se reinicia solo en cada
+      entrada del cursor.
+   2. "no debe tener ningún tipo de color" — la primera versión
+      mantenía el fondo rojo del CTA, los tintes de los chips de
+      filtro, etc. Sacado TODO — el fondo de estos botones ahora es
+      100% transparent, igual que .nuevo-cliente-glass-bg. El color
+      que queda (ícono de cada acción, texto del chip activo) es
+      color de TEXTO/ÍCONO, no de fondo — no es lo que se pidió sacar.
+   3. "el contenido no debe tener difuminación" — la primera versión
+      ponía `filter:drop-shadow(...)` en el MISMO elemento que el
+      texto/ícono, y `filter` (a diferencia de `backdrop-filter`) SÍ
+      afecta a los hijos — el drop-shadow de 42px terminaba
+      "ensuciando" la letra chica. En el original real, el drop-shadow
+      vive en .nuevo-cliente-glass-bg, una capa de fondo SEPARADA
+      (position:absolute, z-index:0) del contenido
+      (.nuevo-cliente-content, z-index encima) — mismo patrón acá:
+      .clientes-glass-bg (el vidrio) y .clientes-glass-content (ícono/
+      texto) son 2 elementos distintos, el filter nunca toca al
+      segundo.
+
+   Reusa el filtro #nuevo-cliente-glass (public/filters-menu-glass.svg)
+   por referencia — no se duplica. Scope: SOLO esta página (Clients.jsx
+   importa este archivo) — no se tocan las clases globales
+   .btn-primary/.btn-secondary/.btn-ghost de index.css.
+   ============================================================ */
+
+.clientes-glass-btn {
+  position: relative;
+  isolation: isolate;
+}
+/* Anula el fondo/borde/sombra propios de .btn-primary/.btn-secondary/
+   .btn-ghost (index.css) — selector de 2 clases, gana por especificidad
+   sin depender del orden de carga de las hojas de estilo. Todo el
+   tratamiento visual pasa a vivir en .clientes-glass-bg de abajo. */
+.clientes-glass-btn.btn-primary,
+.clientes-glass-btn.btn-secondary,
+.clientes-glass-btn.btn-ghost {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* [CORREGIDO — segunda vuelta] Pedido explícito ahora: "que ya no se
+   haga de color negro, que no cambie de color al tocarlo, que se quede
+   así" — se saca el tinte negro que le había puesto en la vuelta
+   anterior para el :hover. El botón queda 100% quieto en color en
+   cualquier estado (reposo/hover/active) — solo el jiggle (movimiento)
+   da feedback, nada de color. !important en background/border/
+   box-shadow como respaldo — por más que .clientes-glass-btn.btn-primary
+   (2 clases) ya debería ganarle a .btn-primary/.btn-primary:hover (1-2
+   clases) en cualquier estado, se pidió corregir el rojo dos veces
+   seguidas así que se refuerza para que no dependa de nada más. */
+.clientes-glass-btn.btn-primary,
+.clientes-glass-btn.btn-primary:hover,
+.clientes-glass-btn.btn-primary:active,
+.clientes-glass-btn.btn-primary:focus {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: oklch(0.97 0.01 250) !important;
+}
+
+/* Capa de vidrio — separada del contenido a propósito (ver punto 3
+   arriba). pointer-events:none para que los clicks sigan llegando al
+   <button> real, no a esta capa decorativa. */
+.clientes-glass-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: url(#nuevo-cliente-glass);
+  -webkit-backdrop-filter: url(#nuevo-cliente-glass);
+  /* [BAJADO — pedido explícito, "quítale un poco los brillos, ponle un
+     brillo sutil y sombras"] drop-shadow 42px/.58 → 22px/.35 (menos
+     halo negro), inset highlight .32 → .18 (menos brillo superior), y
+     se suma una sombra de caída real (0 4px 14px) que antes no
+     existía — profundidad sutil en vez de sombra + brillo fuertes. */
+  filter: drop-shadow(0px 0px 22px rgba(0, 0, 0, 0.35));
+  box-shadow:
+    inset 0px 30px 12px -21px rgba(255, 255, 255, 0.18),
+    0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+/* Contenido (ícono + texto) — encima de la capa de vidrio, sin filter
+   propio, así que nunca se difumina. Solo text-shadow (no blurea la
+   letra en sí, solo agrega profundidad detrás). */
+.clientes-glass-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+
+/* Movimiento — mismo jiggle de Nuevo Cliente (ControlAcceso.css,
+   @keyframes nuevo-cliente-jiggle), copiado literal. Disparado por
+   :hover en vez de una clase JS con setTimeout: acá no hay blob de
+   cursor con el que coordinar el timing, así que no hace falta JS —
+   :hover ya se reinicia solo en cada entrada del cursor.
+   [CORREGIDO — "por qué la letra no se mueve igual"] Antes la
+   animación estaba SOLO en .clientes-glass-bg (la capa de vidrio) —
+   .clientes-glass-content (ícono/texto) se quedaba quieto porque es
+   un elemento hermano aparte, no un hijo de esa capa. Movida al
+   <button> (.clientes-glass-btn) completo: como bg y content son sus
+   2 hijos, animar el padre los mueve a los dos juntos, en sync, sin
+   tener que declarar la animación 2 veces. */
+.clientes-glass-btn:hover {
+  animation: clientes-glass-jiggle 1.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes clientes-glass-jiggle {
+  0%   { transform: scale(1, 1); }
+  10%  { transform: scale(0.82, 1.18); }
+  20%  { transform: scale(1.15, 0.85); }
+  30%  { transform: scale(0.90, 1.10); }
+  40%  { transform: scale(1.08, 0.92); }
+  50%  { transform: scale(0.95, 1.05); }
+  60%  { transform: scale(1.04, 0.96); }
+  70%  { transform: scale(0.98, 1.02); }
+  80%  { transform: scale(1.02, 0.98); }
+  90%  { transform: scale(0.99, 1.01); }
+  100% { transform: scale(1, 1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clientes-glass-btn:hover {
+    animation: none;
+  }
+}
+
+/* ============================================================
+   Tabla de clientes — recorrido: vidrio+distorsión igualado a
+   "Inactivos" del Dashboard → bajada la distorsión → sacada la
+   opacidad extra de .gym-card (--glass) → y ahora, pedido explícito,
+   sacado TODO. Selector de 2 clases (.gym-card.clientes-glass-table)
+   para ganarle de forma confiable a lo que .gym-card (index.css, clase
+   global compartida por el resto de la app) trae por defecto — no se
+   toca esa clase, se pisa acá solo para esta tabla.
+   ============================================================ */
+/* Sacado TODO lo que .gym-card traía → quedó 100% transparente →
+   sumada una distorsión de fondo "suave muy leve" (#historial-glass,
+   0.009/0.035) → pedido explícito de bajarla un poco más. Filtro
+   dedicado #clientes-table-glass (0.005/0.018, public/filters-menu-
+   glass.svg) en vez de bajar #historial-glass en sí, que también usa
+   Caja (filas de Historial + 2 barras de CajaAbierta) — no se quería
+   afectar eso. Sin background/box-shadow/border — nada de opacidad ni
+   brillo, solo la distorsión. */
+.gym-card.clientes-glass-table {
+  background: transparent;
+  border: none;
+  backdrop-filter: url(#clientes-table-glass);
+  -webkit-backdrop-filter: url(#clientes-table-glass);
+  /* [OPACIDAD — pedido explícito] Mismo halo de 5 capas de Card
+     (Dashboard.jsx)/KPICard.jsx, alphas subidas un escalón (.08→.10,
+     .07→.09, .10→.13, .05→.07) a pedido de "aumenta un poco la
+     opacidad". Sin background ni border — la "opacidad" acá es este
+     halo, no un tinte de color. */
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / .10),
+    inset -14px -14px 28px oklch(1 0 0 / .09),
+    inset -5px -5px 9px oklch(1 0 0 / .13),
+    0 0 10px 1px oklch(1 0 0 / .07),
+    0 30px 60px oklch(0 0 0 / .4);
+}
+
+/* [CONTENIDO — pedido explícito, "todo debe tener sombra, cliente
+   carnet contacto membresías vencimiento"] Una sola regla en vez de
+   text-shadow repetido celda por celda — se hereda a todo el texto de
+   la tabla. Los colores con alpha bajo (Carnet, Contacto, Vencimiento
+   por defecto) se pasan a sólido directo en Clients.jsx — un
+   text-shadow no arregla un color ya translúcido, solo la falta de
+   sombra. */
+.clientes-glass-table .gym-table td {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================================================
+   Íconos de acción (Ver/Editar/Renovar/Eliminar) — pedido explícito:
+   "no deben ser como botones, el ícono nomás" — se sacó el
+   .clientes-glass-bg (vidrio/marco) de estos 4, quedan sueltos sin
+   fondo/borde. Mismo movimiento que pedían los botones (rebote al
+   pasar o tocar), pero como scale puro (no el jiggle elíptico de los
+   botones grandes — a este tamaño un rebote de escala se lee más
+   claro). Sombra propia vía filter:drop-shadow (funciona en SVG,
+   text-shadow no aplica — los íconos de lucide-react son <svg>, no
+   texto). ============================================================ */
+.clientes-action-icon {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.clientes-action-icon svg {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.65));
+}
+.clientes-action-icon:hover svg {
+  animation: clientes-icon-bounce 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+.clientes-action-icon:active svg {
+  transform: scale(0.82);
+  transition: transform 0.1s ease-out;
+}
+@keyframes clientes-icon-bounce {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.35); }
+  55%  { transform: scale(0.85); }
+  75%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clientes-action-icon:hover svg { animation: none; }
+}
+
+/* ============================================================
+   Desplegable "Por página" (Pagination.jsx, componente compartido con
+   otras páginas — Historial de Caja, etc.) — pedido explícito: fondo
+   distorsionado/transparente + sombra al número. El <select> trae sus
+   estilos por INLINE style (Pagination.jsx), que siempre le gana a
+   cualquier clase externa sin !important — de ahí el !important acá,
+   scopeado bajo .clientes-page para no tocar el <select> en otras
+   páginas que también usan <Pagination>. ============================================================ */
+.clientes-page select {
+  background: transparent !important;
+  backdrop-filter: url(#clientes-table-glass) !important;
+  -webkit-backdrop-filter: url(#clientes-table-glass) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* ============================================================
+   Modal crear/editar cliente (Modal.jsx, compartido — .modal-box) —
+   pedido explícito: "el modal que es oscuro hazlo transparente,
+   añádele distorsión sutil, opacidad y sombra a las letras". Modal.jsx
+   no expone className propio para el box, así que se scopea por
+   ancestro (.clientes-page .modal-box, 2 clases — gana de forma
+   confiable sin !important) — Modal se renderiza dentro del árbol de
+   Clients.jsx, así que esto NO afecta al mismo <Modal> usado en otras
+   páginas. .modal-overlay (el scrim oscuro detrás) no se toca — sigue
+   oscureciendo el resto de la página, es UX estándar de modal, lo que
+   se pidió transparentar es el panel en sí. */
+/* [MÁS TRANSPARENTE — pedido explícito] Ya estaba en background:
+   transparent, pero la sombra ambiente de 0 40px 80px/.7 (heredada de
+   .modal-box original, pensada para un panel OPACO) seguía leyéndose
+   como un fondo oscuro grande detrás del panel. Bajada a .35, y el
+   halo interior también un escalón más sutil — entre eso y el
+   backdrop-filter, se nota bastante más lo que hay detrás. */
+.clientes-page .modal-box {
+  background: transparent;
+  backdrop-filter: url(#clientes-table-glass);
+  -webkit-backdrop-filter: url(#clientes-table-glass);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / .06),
+    inset -14px -14px 28px oklch(1 0 0 / .04),
+    inset -5px -5px 9px oklch(1 0 0 / .06),
+    0 0 10px 1px oklch(1 0 0 / .04),
+    0 40px 80px oklch(0 0 0 / .35);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* Foco rojo de los inputs (.gym-input:focus, index.css) → blanco —
+   pedido explícito: "cuando tocás la celda del carnet sale una luz
+   roja, esa luz debe ser blanca". Scopeado igual que el modal. */
+.clientes-page .gym-input:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
+}
+
+/* [SCRIM DEL MODAL — pedido explícito, "quítale la capa de color
+   negro que tiene el modal que abre, que se pueda ver transparencia"]
+   .modal-overlay (index.css) es el fondo oscuro FULL-SCREEN detrás del
+   panel — oklch(0 0 0/.65), bastante opaco. Antes solo había tocado
+   .modal-box (el panel en sí); esto es la otra mitad de "el modal" que
+   seguía siendo un bloque negro grande. Bajado a .25 acá, scopeado a
+   Clientes — se sigue notando que hay un modal abierto (no desaparece
+   del todo, sigue oscureciendo un poco) pero deja ver bastante más de
+   lo que hay detrás. */
+.clientes-page .modal-overlay {
+  background: oklch(0 0 0 / .25);
+}

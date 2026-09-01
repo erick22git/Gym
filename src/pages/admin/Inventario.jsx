@@ -11,6 +11,9 @@ import { useAuth } from '../../context/AuthContext'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { Select } from '../../components/ui/Select'
 import Pagination from '../../components/ui/Pagination'
+// Reusa las clases de vidrio/movimiento "Nuevo Cliente" (Clients.css) para
+// todos los botones y el look de vidrio de las cajas de esta página.
+import '../Clients.css'
 import suplementosImg from '../../assets/categorias/suplementos.svg'
 import bebidasImg from '../../assets/categorias/bebidas.svg'
 import snacksImg from '../../assets/categorias/snacks.svg'
@@ -109,17 +112,20 @@ function Modal({ title, onClose, children, width = 520 }) {
         style={{
           position: 'relative', zIndex: 1, width, maxWidth: 'calc(100vw - 40px)',
           maxHeight: 'calc(100vh - 80px)', overflowY: 'auto',
-          background: 'oklch(0.14 0.015 250)', border: '1px solid oklch(1 0 0 / .12)',
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent',
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .11), 0 0 16px 2px oklch(1 0 0 / .08), 0 24px 60px oklch(0 0 0 / .4)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.06em' }}>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.06em' }}>
             {title}
           </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', padding: 4 }}>
-            <X size={18} />
+          <button onClick={onClose} className="clientes-glass-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'var(--dim)' }}><X size={19} /></span>
           </button>
         </div>
         {children}
@@ -131,7 +137,7 @@ function Modal({ title, onClose, children, width = 520 }) {
 function FormField({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em' }}>{label}</label>
+      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.08em' }}>{label}</label>
       {children}
     </div>
   )
@@ -281,9 +287,9 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
           </FormField>
         </div>
         <div style={{ gridColumn: '1/-1' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Imagen del Producto</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>Imagen del Producto</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 72, height: 72, borderRadius: 10, overflow: 'hidden', background: 'var(--glass)', border: '1px solid var(--line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 77, height: 77, borderRadius: 10, overflow: 'hidden', background: 'var(--glass)', border: '1px solid var(--line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
               {form.imagen
                 ? <img src={toFileUrl(form.imagen)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display='none' }} />
                 : (() => {
@@ -291,19 +297,22 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
                     const imgDefault = getCategoryImg(catActual?.nombre, catActual?.imagen)
                     return <img src={imgDefault} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} onError={e => { e.target.style.display='none' }} />
                   })()}
+              <div style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .22)', pointerEvents: 'none' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <button type="button" onClick={seleccionarImagen} disabled={cambiandoImg}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                  background: 'oklch(0.74 0.13 250 / .12)', border: '1px solid oklch(0.74 0.13 250 / .35)', color: 'oklch(0.80 0.12 250)', cursor: 'pointer' }}>
-                <Camera size={13} />{cambiandoImg ? 'Seleccionando...' : form.imagen ? 'Cambiar imagen' : 'Seleccionar imagen'}
+              <button type="button" onClick={seleccionarImagen} disabled={cambiandoImg} className="clientes-glass-btn"
+                style={{ padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1px solid oklch(0.74 0.13 250 / .35)', cursor: 'pointer' }}>
+                <div className="clientes-glass-bg" />
+                <span className="clientes-glass-content" style={{ color: 'oklch(0.80 0.12 250)' }}>
+                  <Camera size={14} />{cambiandoImg ? 'Seleccionando...' : form.imagen ? 'Cambiar imagen' : 'Seleccionar imagen'}
+                </span>
               </button>
               {!form.imagen && cats.find(c => c.id == form.categoria_id)?.imagen && (
-                <div style={{ marginTop: 5, fontSize: 10, color: 'var(--dim)' }}>Usando imagen de categoría</div>
+                <div style={{ marginTop: 5, fontSize: 11, color: 'var(--dim)' }}>Usando imagen de categoría</div>
               )}
               {form.imagen && (
                 <button type="button" onClick={() => set('imagen', '')}
-                  style={{ marginTop: 6, fontSize: 11, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                  style={{ marginTop: 6, fontSize: 12, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                   Quitar (usar imagen de categoría)
                 </button>
               )}
@@ -312,9 +321,13 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-        <button onClick={onClose} className="btn-secondary">Cancelar</button>
-        <button onClick={guardar} className="btn-primary" disabled={guardando} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Check size={14} /> {guardando ? 'Guardando...' : 'Guardar'}
+        <button onClick={onClose} className="clientes-glass-btn btn-secondary">
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content">Cancelar</span>
+        </button>
+        <button onClick={guardar} className="clientes-glass-btn btn-primary" disabled={guardando}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Check size={15} /> {guardando ? 'Guardando...' : 'Guardar'}</span>
         </button>
       </div>
     </Modal>
@@ -365,14 +378,15 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
     <Modal title={`Ajustar stock — ${producto.nombre}`} onClose={onClose} width={400}>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {['entrada', 'salida', 'ajuste'].map(t => (
-          <button key={t} onClick={() => setTipo(t)} style={{
-            flex: 1, padding: '8px 4px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+          <button key={t} onClick={() => setTipo(t)} className="clientes-glass-btn" style={{
+            flex: 1, padding: '8px 4px', borderRadius: 8, fontSize: 13, fontWeight: 600,
             border: `1px solid ${tipo === t ? TIPO_MOV[t].color : 'var(--line)'}`,
-            background: tipo === t ? `${TIPO_MOV[t].color}20` : 'transparent',
-            color: tipo === t ? TIPO_MOV[t].color : 'var(--dim)',
-            cursor: 'pointer', transition: 'all .2s',
+            cursor: 'pointer', transition: 'border-color .2s',
           }}>
-            {TIPO_MOV[t].label}
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: tipo === t ? TIPO_MOV[t].color : 'var(--dim)' }}>
+              {TIPO_MOV[t].label}
+            </span>
           </button>
         ))}
       </div>
@@ -392,19 +406,25 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
         </FormField>
         <div style={{
           padding: '10px 14px', borderRadius: 8,
-          background: 'oklch(1 0 0 / .04)', border: '1px solid var(--line)',
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <span style={{ fontSize: 12, color: 'var(--dim)' }}>Stock resultante</span>
-          <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--display)', color: stockPreview <= producto.stock_minimo ? 'oklch(0.75 0.18 25)' : 'oklch(0.78 0.16 155)' }}>
+          <span style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Stock resultante</span>
+          <span style={{ fontSize: 19, fontWeight: 800, fontFamily: 'var(--display)', color: stockPreview <= producto.stock_minimo ? 'oklch(0.75 0.18 25)' : 'oklch(0.78 0.16 155)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             {stockPreview} {producto.unidad}
           </span>
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-        <button onClick={onClose} className="btn-secondary">Cancelar</button>
-        <button onClick={guardar} className="btn-primary" disabled={guardando} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Check size={14} /> {guardando ? 'Aplicando...' : 'Aplicar'}
+        <button onClick={onClose} className="clientes-glass-btn btn-secondary">
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content">Cancelar</span>
+        </button>
+        <button onClick={guardar} className="clientes-glass-btn btn-primary" disabled={guardando}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Check size={15} /> {guardando ? 'Aplicando...' : 'Aplicar'}</span>
         </button>
       </div>
     </Modal>
@@ -426,10 +446,14 @@ function ProductCard({ p, onEdit, onStock, onEliminar }) {
       animate={{ opacity: 1, scale: 1 }}
       whileHover={{ scale: 1.02 }}
       transition={{ duration: 0.15 }}
-      style={{ background: 'var(--glass)', border: `1px solid ${catColor}30`, borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'default' }}
+      style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderLeft: `3px solid ${catColor}`, borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'default',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+      }}
     >
       {/* Header visual */}
-      <div style={{ height: 100, background: `${catColor}12`, borderBottom: `1px solid ${catColor}20`, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: 107, background: `${catColor}12`, borderBottom: `1px solid ${catColor}20`, position: 'relative', overflow: 'hidden' }}>
         {p.imagen ? (
           <img
             src={toFileUrl(p.imagen)}
@@ -444,36 +468,38 @@ function ProductCard({ p, onEdit, onStock, onEliminar }) {
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         )}
+        <div style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .28)', pointerEvents: 'none' }} />
         {agotado && (
           <div style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#fff', letterSpacing: '.12em' }}>AGOTADO</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: '.12em' }}>AGOTADO</span>
           </div>
         )}
       </div>
 
       {/* Info */}
       <div style={{ padding: '10px 12px', flex: 1 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--display)', color: 'var(--ink)', marginBottom: 2, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</div>
-        {p.categoria_nombre && <div style={{ fontSize: 10, color: catColor, fontWeight: 600, marginBottom: 5 }}>{p.categoria_nombre}</div>}
-        <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--ink)', marginBottom: 5 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--display)', color: 'var(--ink)', marginBottom: 2, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nombre}</div>
+        {p.categoria_nombre && <div style={{ fontSize: 11, color: catColor, fontWeight: 600, marginBottom: 5 }}>{p.categoria_nombre}</div>}
+        <div style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--ink)', marginBottom: 5 }}>
           Bs. {Number(p.precio_venta).toFixed(2)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: stockColor, flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: 'var(--dim)' }}>{p.stock} {p.unidad}{stockBajo && <span style={{ color: stockColor }}> · bajo</span>}</span>
+          <span style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>{p.stock} {p.unidad}{stockBajo && <span style={{ color: stockColor }}> · bajo</span>}</span>
         </div>
       </div>
 
       {/* Acciones */}
       <div style={{ display: 'flex', borderTop: '1px solid var(--line)', padding: '7px 8px', gap: 5 }}>
-        <button onClick={() => onStock(p)} className="btn-secondary" style={{ flex: 1, padding: '5px 0', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-          <Sliders size={11} /> Stock
+        <button onClick={() => onStock(p)} className="clientes-glass-btn btn-secondary" style={{ flex: 1, padding: '5px 0', fontSize: 12 }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Sliders size={12} /> Stock</span>
         </button>
-        <button onClick={() => onEdit(p)} style={{ flex: 1, padding: '5px 0', borderRadius: 7, fontSize: 11, fontWeight: 600, background: `${catColor}18`, border: `1px solid ${catColor}35`, color: catColor, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-          <Edit2 size={11} /> Editar
+        <button onClick={() => onEdit(p)} className="clientes-action-icon" title="Editar" style={{ flex: 1, gap: 5, fontSize: 12, fontWeight: 600, color: catColor }}>
+          <Edit2 size={12} /> Editar
         </button>
-        <button onClick={() => onEliminar(p)} style={{ width: 30, height: 30, borderRadius: 7, background: 'oklch(0.66 0.22 25 / .1)', border: '1px solid oklch(0.66 0.22 25 / .2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-          <Trash2 size={11} color="oklch(0.75 0.18 25)" />
+        <button onClick={() => onEliminar(p)} className="clientes-action-icon" title="Eliminar" style={{ flexShrink: 0 }}>
+          <Trash2 size={14} color="oklch(0.75 0.18 25)" />
         </button>
       </div>
     </motion.div>
@@ -533,12 +559,14 @@ function TabProductos({ categorias, proveedores, usuario }) {
       {/* Alerta stock bajo */}
       {stockBajo.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{
-          background: 'oklch(0.66 0.22 25 / .1)', border: '1px solid oklch(0.66 0.22 25 / .3)',
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderLeft: '3px solid oklch(0.66 0.22 25)',
           borderRadius: 10, padding: '10px 16px', marginBottom: 16,
           display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
         }}>
-          <TrendingDown size={16} color="oklch(0.75 0.18 25)" />
-          <span style={{ fontSize: 12, color: 'oklch(0.85 0.10 25)' }}>
+          <TrendingDown size={17} color="oklch(0.75 0.18 25)" />
+          <span style={{ fontSize: 13, color: 'oklch(0.85 0.10 25)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             <strong>{stockBajo.length}</strong> producto{stockBajo.length !== 1 ? 's' : ''} con stock bajo o agotado
           </span>
         </motion.div>
@@ -547,10 +575,16 @@ function TabProductos({ categorias, proveedores, usuario }) {
       {/* Controles */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 180, position: 'relative' }}>
-          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)' }} />
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.88 0.01 250 / .85)', zIndex: 1 }} />
           <input
             className="gym-input"
-            style={{ paddingLeft: 32 }}
+            style={{
+              paddingLeft: 32,
+              background: 'oklch(0.2 0.02 250 / .5)',
+              border: '1px solid oklch(1 0 0 / .18)',
+              color: 'oklch(0.97 0.01 250)',
+              textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+            }}
             placeholder="Buscar producto..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
@@ -568,23 +602,29 @@ function TabProductos({ categorias, proveedores, usuario }) {
           <button
             onClick={() => setVistaGrid(false)}
             title="Vista lista"
-            style={{ padding: '6px 10px', background: !vistaGrid ? 'oklch(0.66 0.22 25 / .18)' : 'transparent', border: 'none', cursor: 'pointer', color: !vistaGrid ? 'oklch(0.76 0.20 25)' : 'var(--dim)', display: 'flex', alignItems: 'center' }}
+            className="clientes-glass-btn"
+            style={{ padding: '6px 10px', border: 'none', cursor: 'pointer' }}
           >
-            <List size={14} />
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: !vistaGrid ? 'oklch(0.76 0.20 25)' : 'var(--dim)' }}><List size={15} /></span>
           </button>
           <button
             onClick={() => setVistaGrid(true)}
             title="Vista cards"
-            style={{ padding: '6px 10px', background: vistaGrid ? 'oklch(0.66 0.22 25 / .18)' : 'transparent', border: 'none', cursor: 'pointer', color: vistaGrid ? 'oklch(0.76 0.20 25)' : 'var(--dim)', display: 'flex', alignItems: 'center' }}
+            className="clientes-glass-btn"
+            style={{ padding: '6px 10px', border: 'none', cursor: 'pointer' }}
           >
-            <LayoutGrid size={14} />
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: vistaGrid ? 'oklch(0.76 0.20 25)' : 'var(--dim)' }}><LayoutGrid size={15} /></span>
           </button>
         </div>
-        <button onClick={cargar} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <RefreshCw size={13} />
+        <button onClick={cargar} className="clientes-glass-btn btn-secondary">
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><RefreshCw size={14} /></span>
         </button>
-        <button onClick={() => setModal('crear')} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} /> Nuevo producto
+        <button onClick={() => setModal('crear')} className="clientes-glass-btn btn-primary">
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Plus size={15} /> Nuevo producto</span>
         </button>
       </div>
 
@@ -592,13 +632,13 @@ function TabProductos({ categorias, proveedores, usuario }) {
       {cargando ? (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--dim)' }}>
           <div className="spinner" style={{ margin: '0 auto 12px' }} />
-          <p style={{ fontSize: 12 }}>Cargando...</p>
+          <p style={{ fontSize: 13 }}>Cargando...</p>
         </div>
       ) : productos.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--dim)' }}>
-          <Box size={40} style={{ margin: '0 auto 12px', display: 'block', opacity: .4 }} />
-          <p style={{ fontSize: 14 }}>No hay productos</p>
-          <p style={{ fontSize: 12, marginTop: 4 }}>Agrega tu primer producto</p>
+          <Box size={43} style={{ margin: '0 auto 12px', display: 'block', opacity: .4 }} />
+          <p style={{ fontSize: 15 }}>No hay productos</p>
+          <p style={{ fontSize: 13, marginTop: 4 }}>Agrega tu primer producto</p>
         </div>
       ) : vistaGrid ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
@@ -618,6 +658,7 @@ function TabProductos({ categorias, proveedores, usuario }) {
             {productos.map((p, i) => {
               const stockBajo = p.stock <= p.stock_minimo
               const agotado = p.stock === 0
+              const stockColorFull = agotado ? 'oklch(0.66 0.22 25)' : stockBajo ? 'oklch(0.82 0.14 75)' : 'oklch(0.78 0.16 155)'
               return (
                 <motion.div
                   key={p.id}
@@ -625,34 +666,43 @@ function TabProductos({ categorias, proveedores, usuario }) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.025 }}
                   style={{
-                    background: 'var(--glass)',
-                    border: `1px solid ${agotado ? 'oklch(0.66 0.22 25 / .4)' : stockBajo ? 'oklch(0.82 0.14 75 / .3)' : 'var(--line)'}`,
-                    borderLeft: `3px solid ${agotado ? 'oklch(0.66 0.22 25)' : stockBajo ? 'oklch(0.82 0.14 75)' : 'transparent'}`,
+                    position: 'relative', overflow: 'hidden',
+                    background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                    border: '1px solid transparent',
                     borderRadius: 10, padding: '12px 16px',
                     display: 'flex', alignItems: 'center', gap: 12,
+                    boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
                   }}
                 >
+                  {/* Glow de estado de stock — mismo patrón que KPICard del Dashboard:
+                      el color va al medio (radial-gradient), no en un marco/borde */}
+                  <div style={{
+                    position: 'absolute', inset: 0, borderRadius: 10,
+                    background: `radial-gradient(circle at center, ${stockColorFull.replace(')', ' / 0.15)')} 0%, ${stockColorFull.replace(')', ' / 0.05)')} 55%, transparent 85%)`,
+                    pointerEvents: 'none',
+                  }} />
+
                   {/* Stock badge */}
                   <div style={{
-                    minWidth: 52, height: 52, borderRadius: 10,
-                    background: agotado ? 'oklch(0.66 0.22 25 / .15)' : stockBajo ? 'oklch(0.82 0.14 75 / .12)' : 'oklch(0.78 0.16 155 / .10)',
-                    border: `1px solid ${agotado ? 'oklch(0.66 0.22 25 / .3)' : stockBajo ? 'oklch(0.82 0.14 75 / .25)' : 'oklch(0.78 0.16 155 / .2)'}`,
+                    position: 'relative',
+                    minWidth: 56, height: 56, borderRadius: 10,
+                    background: 'transparent', border: '1px solid transparent',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--display)', color: agotado ? 'oklch(0.75 0.18 25)' : stockBajo ? 'oklch(0.82 0.14 75)' : 'oklch(0.78 0.16 155)', lineHeight: 1 }}>
+                    <span style={{ fontSize: 19, fontWeight: 800, fontFamily: 'var(--display)', color: agotado ? 'oklch(0.75 0.18 25)' : stockBajo ? 'oklch(0.82 0.14 75)' : 'oklch(0.78 0.16 155)', lineHeight: 1 }}>
                       {p.stock}
                     </span>
-                    <span style={{ fontSize: 9, color: 'var(--dim)', marginTop: 2 }}>{p.unidad}</span>
+                    <span style={{ fontSize: 10, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 2 }}>{p.unidad}</span>
                   </div>
 
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</span>
-                      {p.codigo && <span style={{ fontSize: 10, color: 'var(--dim)', background: 'var(--glass-2)', padding: '1px 6px', borderRadius: 4, border: '1px solid var(--line)' }}>{p.codigo}</span>}
-                      {agotado && <span style={{ fontSize: 9, fontWeight: 700, color: 'oklch(0.75 0.18 25)', background: 'oklch(0.66 0.22 25 / .15)', padding: '2px 7px', borderRadius: 10, border: '1px solid oklch(0.66 0.22 25 / .3)', letterSpacing: '.08em' }}>AGOTADO</span>}
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</span>
+                      {p.codigo && <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', background: 'var(--glass-2)', padding: '1px 6px', borderRadius: 4, border: '1px solid var(--line)' }}>{p.codigo}</span>}
+                      {agotado && <span style={{ fontSize: 10, fontWeight: 700, color: 'oklch(0.75 0.18 25)', background: 'oklch(0.66 0.22 25 / .15)', padding: '2px 7px', borderRadius: 10, border: '1px solid oklch(0.66 0.22 25 / .3)', letterSpacing: '.08em' }}>AGOTADO</span>}
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--dim)' }}>
+                    <div style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)' }}>
                       {p.categoria_nombre || 'Sin categoría'} · Venta: <strong style={{ color: 'var(--ink)' }}>{fmtMoney(p.precio_venta)}</strong>
                       {p.precio_compra > 0 && <> · Compra: {fmtMoney(p.precio_compra)}</>}
                       · Mín: {p.stock_minimo}
@@ -664,16 +714,17 @@ function TabProductos({ categorias, proveedores, usuario }) {
                     <button
                       onClick={() => setModal({ tipo: 'stock', p })}
                       title="Ajustar stock"
-                      className="btn-secondary"
-                      style={{ padding: '6px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+                      className="clientes-glass-btn btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: 13 }}
                     >
-                      <Sliders size={12} /> Stock
+                      <div className="clientes-glass-bg" />
+                      <span className="clientes-glass-content"><Sliders size={13} /> Stock</span>
                     </button>
-                    <button onClick={() => setModal({ tipo: 'editar', p })} title="Editar" style={{ width: 32, height: 32, borderRadius: 7, background: 'var(--glass-2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                      <Edit2 size={13} color="var(--dim)" />
+                    <button onClick={() => setModal({ tipo: 'editar', p })} title="Editar" className="clientes-action-icon">
+                      <Edit2 size={16} color="oklch(0.88 0.01 250 / .85)" />
                     </button>
-                    <button onClick={() => eliminar(p)} title="Eliminar" style={{ width: 32, height: 32, borderRadius: 7, background: 'oklch(0.66 0.22 25 / .1)', border: '1px solid oklch(0.66 0.22 25 / .25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                      <Trash2 size={13} color="oklch(0.75 0.18 25)" />
+                    <button onClick={() => eliminar(p)} title="Eliminar" className="clientes-action-icon">
+                      <Trash2 size={16} color="oklch(0.75 0.18 25)" />
                     </button>
                   </div>
                 </motion.div>
@@ -781,27 +832,40 @@ function TabCategorias({ categorias, onRefresh }) {
         {categorias.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 32, color: 'var(--dim)' }}>No hay categorías</div>
         ) : categorias.map(c => (
-          <div key={c.id} style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderLeft: `3px solid ${c.color || 'var(--line)'}`, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--glass-2)', border: '1px solid var(--line)' }}>
+          <div key={c.id} style={{
+            background: 'oklch(0.13 0.02 250 / .42)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+            border: '1px solid transparent', borderLeft: `3px solid ${c.color || 'oklch(1 0 0 / .12)'}`, borderRadius: 10, padding: '12px 16px',
+            display: 'flex', alignItems: 'center', gap: 12,
+            boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{ width: 43, height: 43, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'var(--glass-2)', border: '1px solid var(--line)', position: 'relative' }}>
               <img src={getCategoryImg(c.nombre, c.imagen)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display='none' }} />
+              <div style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .22)', pointerEvents: 'none' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{c.nombre}</div>
-              {c.descripcion && <div style={{ fontSize: 12, color: 'var(--dim)' }}>{c.descripcion}</div>}
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{c.nombre}</div>
+              {c.descripcion && <div style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)' }}>{c.descripcion}</div>}
             </div>
-            <button onClick={() => iniciarEdicion(c)} style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--glass-2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <Edit2 size={12} color="var(--dim)" />
+            <button onClick={() => iniciarEdicion(c)} className="clientes-glass-btn" style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid var(--line)', cursor: 'pointer' }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><Edit2 size={13} color="var(--dim)" /></span>
             </button>
-            <button onClick={() => eliminar(c)} style={{ width: 30, height: 30, borderRadius: 7, background: 'oklch(0.66 0.22 25 / .1)', border: '1px solid oklch(0.66 0.22 25 / .25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <Trash2 size={12} color="oklch(0.75 0.18 25)" />
+            <button onClick={() => eliminar(c)} className="clientes-glass-btn" style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid oklch(0.66 0.22 25 / .25)', cursor: 'pointer' }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><Trash2 size={13} color="oklch(0.75 0.18 25)" /></span>
             </button>
           </div>
         ))}
       </div>
 
       {/* Formulario */}
-      <div className="gym-card" style={{ padding: '16px 18px' }}>
-        <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+      <div className="gym-card" style={{
+        padding: '16px 18px',
+        background: 'oklch(0.13 0.02 250 / .42)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+      }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>
           {editando ? 'Editar categoría' : 'Nueva categoría'}
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -812,19 +876,23 @@ function TabCategorias({ categorias, onRefresh }) {
             <input className="gym-input" value={form.descripcion} onChange={e => setForm(p => ({ ...p, descripcion: e.target.value }))} placeholder="Opcional" />
           </FormField>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Imagen</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Imagen</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: 'var(--glass)', border: '1px solid var(--line)', flexShrink: 0 }}>
+              <div style={{ width: 51, height: 51, borderRadius: 8, overflow: 'hidden', background: 'var(--glass)', border: '1px solid var(--line)', flexShrink: 0, position: 'relative' }}>
                 <img src={form.imagen || getCategoryImg(form.nombre)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: form.imagen ? 1 : 0.5 }} onError={e => { e.target.style.display='none' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .22)', pointerEvents: 'none' }} />
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <button type="button" onClick={seleccionarImagenCategoria} disabled={cambiandoImg}
-                  style={{ padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600, background: 'oklch(0.74 0.13 250 / .12)', border: '1px solid oklch(0.74 0.13 250 / .35)', color: 'oklch(0.80 0.12 250)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Camera size={11} /> {cambiandoImg ? 'Seleccionando...' : form.imagen ? 'Cambiar' : 'Añadir foto'}
+                <button type="button" onClick={seleccionarImagenCategoria} disabled={cambiandoImg} className="clientes-glass-btn"
+                  style={{ padding: '5px 10px', borderRadius: 7, fontSize: 12, fontWeight: 600, border: '1px solid oklch(0.74 0.13 250 / .35)', cursor: 'pointer' }}>
+                  <div className="clientes-glass-bg" />
+                  <span className="clientes-glass-content" style={{ color: 'oklch(0.80 0.12 250)' }}>
+                    <Camera size={12} /> {cambiandoImg ? 'Seleccionando...' : form.imagen ? 'Cambiar' : 'Añadir foto'}
+                  </span>
                 </button>
                 {form.imagen && (
                   <button type="button" onClick={() => setForm(p => ({ ...p, imagen: '' }))}
-                    style={{ fontSize: 10, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textAlign: 'left' }}>
+                    style={{ fontSize: 11, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textAlign: 'left' }}>
                     Quitar imagen
                   </button>
                 )}
@@ -833,12 +901,14 @@ function TabCategorias({ categorias, onRefresh }) {
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
             {editando && (
-              <button onClick={() => { setEditando(null); setForm({ nombre: '', descripcion: '', color: 'oklch(0.74 0.13 250)', imagen: '' }) }} className="btn-secondary" style={{ flex: 1 }}>
-                Cancelar
+              <button onClick={() => { setEditando(null); setForm({ nombre: '', descripcion: '', color: 'oklch(0.74 0.13 250)', imagen: '' }) }} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
+                <div className="clientes-glass-bg" />
+                <span className="clientes-glass-content">Cancelar</span>
               </button>
             )}
-            <button onClick={guardar} className="btn-primary" disabled={guardando} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <Check size={13} /> {editando ? 'Guardar' : 'Agregar'}
+            <button onClick={guardar} className="clientes-glass-btn btn-primary" disabled={guardando} style={{ flex: 1 }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><Check size={14} /> {editando ? 'Guardar' : 'Agregar'}</span>
             </button>
           </div>
         </div>
@@ -891,25 +961,36 @@ function TabProveedores({ proveedores, onRefresh }) {
         {proveedores.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 32, color: 'var(--dim)' }}>No hay proveedores</div>
         ) : proveedores.map(p => (
-          <div key={p.id} style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div key={p.id} style={{
+            background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+            border: '1px solid transparent', borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
+            boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+          }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</div>
-              <div style={{ fontSize: 12, color: 'var(--dim)' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</div>
+              <div style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)' }}>
                 {[p.contacto, p.telefono, p.email].filter(Boolean).join(' · ') || 'Sin datos de contacto'}
               </div>
             </div>
-            <button onClick={() => iniciarEdicion(p)} style={{ width: 30, height: 30, borderRadius: 7, background: 'var(--glass-2)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <Edit2 size={12} color="var(--dim)" />
+            <button onClick={() => iniciarEdicion(p)} className="clientes-glass-btn" style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid var(--line)', cursor: 'pointer' }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><Edit2 size={13} color="var(--dim)" /></span>
             </button>
-            <button onClick={() => eliminar(p)} style={{ width: 30, height: 30, borderRadius: 7, background: 'oklch(0.66 0.22 25 / .1)', border: '1px solid oklch(0.66 0.22 25 / .25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <Trash2 size={12} color="oklch(0.75 0.18 25)" />
+            <button onClick={() => eliminar(p)} className="clientes-glass-btn" style={{ width: 30, height: 30, borderRadius: 7, border: '1px solid oklch(0.66 0.22 25 / .25)', cursor: 'pointer' }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><Trash2 size={13} color="oklch(0.75 0.18 25)" /></span>
             </button>
           </div>
         ))}
       </div>
 
-      <div className="gym-card" style={{ padding: '16px 18px' }}>
-        <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+      <div className="gym-card" style={{
+        padding: '16px 18px',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+      }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>
           {editando ? 'Editar proveedor' : 'Nuevo proveedor'}
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -920,12 +1001,14 @@ function TabProveedores({ proveedores, onRefresh }) {
           ))}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             {editando && (
-              <button onClick={() => { setEditando(null); setForm({ nombre: '', contacto: '', telefono: '', email: '', direccion: '', notas: '' }) }} className="btn-secondary" style={{ flex: 1 }}>
-                Cancelar
+              <button onClick={() => { setEditando(null); setForm({ nombre: '', contacto: '', telefono: '', email: '', direccion: '', notas: '' }) }} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
+                <div className="clientes-glass-bg" />
+                <span className="clientes-glass-content">Cancelar</span>
               </button>
             )}
-            <button onClick={guardar} className="btn-primary" disabled={guardando} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <Check size={13} /> {editando ? 'Guardar' : 'Agregar'}
+            <button onClick={guardar} className="clientes-glass-btn btn-primary" disabled={guardando} style={{ flex: 1 }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><Check size={14} /> {editando ? 'Guardar' : 'Agregar'}</span>
             </button>
           </div>
         </div>
@@ -957,28 +1040,32 @@ function TabMovimientos() {
             const Icon = t.icon
             return (
               <motion.div key={m.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.015 }}
-                style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 9, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}
+                style={{
+                  background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                  border: '1px solid transparent', borderRadius: 9, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12,
+                  boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                }}
               >
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: `${t.color}18`, border: `1px solid ${t.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Icon size={12} color={t.color} />
+                <div style={{ width: 30, height: 30, borderRadius: 7, background: `${t.color}18`, border: `1px solid ${t.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon size={13} color={t.color} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
                     {m.producto_nombre}
-                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: t.color, background: `${t.color}15`, padding: '1px 7px', borderRadius: 10 }}>
+                    <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: t.color, background: `${t.color}15`, padding: '1px 7px', borderRadius: 10 }}>
                       {t.label}
                     </span>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+                  <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>
                     {m.motivo || '—'} · {m.usuario_nombre || 'Sistema'} · {fmtDate(m.created_at)}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--display)', color: t.color }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--display)', color: t.color }}>
                     {m.tipo === 'salida' || m.tipo === 'venta' ? '-' : '+'}{m.cantidad}
                   </div>
                   {m.stock_nuevo != null && (
-                    <div style={{ fontSize: 10, color: 'var(--dim)' }}>{m.stock_anterior}→{m.stock_nuevo}</div>
+                    <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)' }}>{m.stock_anterior}→{m.stock_nuevo}</div>
                   )}
                 </div>
               </motion.div>
@@ -1058,12 +1145,20 @@ function ModalPromocion({ promo, onSave, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'oklch(0 0 0 / .7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        style={{ width: '100%', maxWidth: 580, maxHeight: '90vh', background: 'oklch(0.11 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        style={{
+          width: '100%', maxWidth: 580, maxHeight: '90vh',
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .11), 0 0 16px 2px oklch(1 0 0 / .08), 0 24px 60px oklch(0 0 0 / .4)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+        }}>
         <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 800, letterSpacing: '.06em', margin: 0 }}>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 800, letterSpacing: '.06em', margin: 0 }}>
             {esEdicion ? 'Editar Promoción' : 'Nueva Promoción'}
           </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={16} /></button>
+          <button onClick={onClose} className="clientes-glass-btn" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'var(--dim)' }}><X size={17} /></span>
+          </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 13 }}>
           {/* Nombre */}
@@ -1076,15 +1171,17 @@ function ModalPromocion({ promo, onSave, onClose }) {
             <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Tipo de promoción</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {Object.entries(TIPO_PROMO).map(([k, v]) => (
-                <button key={k} type="button" onClick={() => set('tipo', k)} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10,
-                  background: form.tipo === k ? `${v.color}18` : 'oklch(1 0 0 / .03)',
+                <button key={k} type="button" onClick={() => set('tipo', k)} className="clientes-glass-btn" style={{
+                  padding: '10px 14px', borderRadius: 10,
                   border: `1px solid ${form.tipo === k ? `${v.color}50` : 'var(--line)'}`,
                   cursor: 'pointer', textAlign: 'left',
                 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: form.tipo === k ? v.color : 'var(--muted)', minWidth: 90 }}>{v.label}</span>
-                  <span style={{ fontSize: 11, color: 'var(--dim)' }}>{v.desc}</span>
-                  {form.tipo === k && <Check size={13} style={{ marginLeft: 'auto', flexShrink: 0, color: v.color }} />}
+                  <div className="clientes-glass-bg" />
+                  <span className="clientes-glass-content" style={{ justifyContent: 'flex-start', gap: 10 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: form.tipo === k ? v.color : 'var(--muted)', minWidth: 90 }}>{v.label}</span>
+                    <span style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>{v.desc}</span>
+                    {form.tipo === k && <Check size={14} style={{ marginLeft: 'auto', flexShrink: 0, color: v.color }} />}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1117,7 +1214,7 @@ function ModalPromocion({ promo, onSave, onClose }) {
             </div>
           </div>
           {/* Activo */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--muted)', userSelect: 'none' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14, color: 'var(--muted)', userSelect: 'none' }}>
             <input type="checkbox" checked={form.activo === 1} onChange={e => set('activo', e.target.checked ? 1 : 0)} />
             Promoción activa
           </label>
@@ -1125,13 +1222,17 @@ function ModalPromocion({ promo, onSave, onClose }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <label className="gym-label">Productos que aplica</label>
-              <span style={{ fontSize: 10, color: 'var(--dim)' }}>
+              <span style={{ fontSize: 11, color: 'var(--dim)' }}>
                 {seleccionados.length === 0 ? 'Sin selección = aplica a todos' : `${seleccionados.length} seleccionado${seleccionados.length !== 1 ? 's' : ''}`}
               </span>
             </div>
             <div style={{ position: 'relative', marginBottom: 8 }}>
-              <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)', pointerEvents: 'none' }} />
-              <input className="gym-input" placeholder="Filtrar productos..." value={busqProd} onChange={e => setBusqProd(e.target.value)} style={{ paddingLeft: 28, fontSize: 12, height: 32 }} />
+              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.88 0.01 250 / .85)', pointerEvents: 'none', zIndex: 1 }} />
+              <input className="gym-input" placeholder="Filtrar productos..." value={busqProd} onChange={e => setBusqProd(e.target.value)} style={{
+                paddingLeft: 28, fontSize: 13, height: 32,
+                background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)',
+                color: 'oklch(0.97 0.01 250)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+              }} />
             </div>
             <div style={{ maxHeight: 190, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 10, padding: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))', gap: 6 }}>
               {cargandoProd ? (
@@ -1139,46 +1240,52 @@ function ModalPromocion({ promo, onSave, onClose }) {
                   <div className="spinner" style={{ margin: '0 auto' }} />
                 </div>
               ) : prodsFiltrados.length === 0 ? (
-                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 20, color: 'var(--dim)', fontSize: 12 }}>Sin productos</div>
+                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 20, color: 'var(--dim)', fontSize: 13 }}>Sin productos</div>
               ) : prodsFiltrados.map(p => {
                 const sel = seleccionados.includes(p.id)
                 const catColor = p.categoria_color || 'oklch(0.74 0.13 250)'
                 return (
-                  <button key={p.id} type="button" onClick={() => toggleProducto(p.id)} style={{
-                    background: sel ? `${catColor}18` : 'oklch(1 0 0 / .03)',
+                  <button key={p.id} type="button" onClick={() => toggleProducto(p.id)} className="clientes-glass-btn" style={{
                     border: `2px solid ${sel ? catColor : 'var(--line)'}`,
                     borderRadius: 8, padding: '5px 3px', cursor: 'pointer', textAlign: 'center',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                    transition: 'all .12s', position: 'relative',
+                    transition: 'border-color .12s', position: 'relative',
                   }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 6, overflow: 'hidden' }}>
-                      <img src={p.imagen ? toFileUrl(p.imagen) : getCategoryImg(p.categoria_nombre, p.categoria_imagen)}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={e => { e.target.src = getCategoryImg(p.categoria_nombre, p.categoria_imagen) }}
-                        alt={p.nombre} />
-                    </div>
-                    <div style={{ fontSize: 9, fontWeight: 600, color: sel ? catColor : 'var(--muted)', lineHeight: 1.2, wordBreak: 'break-word', maxWidth: '100%' }}>{p.nombre}</div>
-                    <div style={{ fontSize: 9, color: 'var(--dim)' }}>Bs.{Number(p.precio_venta).toFixed(0)}</div>
-                    {sel && (
-                      <div style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: catColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Check size={8} color="#fff" />
+                    <div className="clientes-glass-bg" />
+                    <span className="clientes-glass-content" style={{ flexDirection: 'column', gap: 3 }}>
+                      <div style={{ width: 43, height: 43, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
+                        <img src={p.imagen ? toFileUrl(p.imagen) : getCategoryImg(p.categoria_nombre, p.categoria_imagen)}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={e => { e.target.src = getCategoryImg(p.categoria_nombre, p.categoria_imagen) }}
+                          alt={p.nombre} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .22)', pointerEvents: 'none' }} />
                       </div>
-                    )}
+                      <div style={{ fontSize: 10, fontWeight: 600, color: sel ? catColor : 'var(--muted)', lineHeight: 1.2, wordBreak: 'break-word', maxWidth: '100%' }}>{p.nombre}</div>
+                      <div style={{ fontSize: 10, color: 'oklch(0.88 0.01 250 / .85)' }}>Bs.{Number(p.precio_venta).toFixed(0)}</div>
+                      {sel && (
+                        <div style={{ position: 'absolute', top: 2, right: 2, width: 15, height: 15, borderRadius: '50%', background: catColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Check size={9} color="#fff" />
+                        </div>
+                      )}
+                    </span>
                   </button>
                 )
               })}
             </div>
             {seleccionados.length > 0 && (
-              <button type="button" onClick={() => setSeleccionados([])} style={{ marginTop: 5, fontSize: 11, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+              <button type="button" onClick={() => setSeleccionados([])} style={{ marginTop: 5, fontSize: 12, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                 Quitar selección (aplica a todos)
               </button>
             )}
           </div>
         </div>
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--line)', display: 'flex', gap: 10 }}>
-          <button className="btn-secondary" onClick={onClose} style={{ flex: 1 }}>Cancelar</button>
-          <button className="btn-primary" onClick={handleSave} style={{ flex: 2 }}>
-            {esEdicion ? 'Guardar cambios' : 'Crear promoción'}
+          <button className="clientes-glass-btn btn-secondary" onClick={onClose} style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
+          <button className="clientes-glass-btn btn-primary" onClick={handleSave} style={{ flex: 2 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">{esEdicion ? 'Guardar cambios' : 'Crear promoción'}</span>
           </button>
         </div>
       </motion.div>
@@ -1227,19 +1334,20 @@ function TabPromociones() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Gestión de Promociones</h3>
-          <p style={{ fontSize: 12, color: 'var(--dim)', marginTop: 3 }}>2×1, descuentos en porcentaje o monto fijo</p>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--ink)', textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>Gestión de Promociones</h3>
+          <p style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 3, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>2×1, descuentos en porcentaje o monto fijo</p>
         </div>
-        <button className="btn-primary btn-sm" onClick={() => setModal({})} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} /> Nueva Promoción
+        <button className="clientes-glass-btn btn-primary btn-sm" onClick={() => setModal({})}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Plus size={15} /> Nueva Promoción</span>
         </button>
       </div>
 
       {cargando ? (
         <div style={{ textAlign: 'center', padding: 40 }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
       ) : lista.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--dim)', fontSize: 13 }}>
-          <Percent size={40} style={{ margin: '0 auto 12px', opacity: .2, display: 'block' }} />
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--dim)', fontSize: 14 }}>
+          <Percent size={43} style={{ margin: '0 auto 12px', opacity: .2, display: 'block' }} />
           No hay promociones. Crea la primera.
         </div>
       ) : (
@@ -1249,24 +1357,26 @@ function TabPromociones() {
             const vigente = esVigente(p)
             return (
               <div key={p.id} style={{
-                background: 'var(--glass)', border: `1px solid ${vigente ? `${tipo.color}30` : 'var(--line)'}`,
+                background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                border: '1px solid transparent',
                 borderLeft: `3px solid ${vigente ? tipo.color : 'oklch(1 0 0 / .1)'}`,
                 borderRadius: 12, padding: '12px 16px',
                 display: 'flex', alignItems: 'center', gap: 12,
                 opacity: p.activo ? 1 : 0.55,
+                boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.08em', padding: '2px 8px', borderRadius: 20, background: `${tipo.color}15`, border: `1px solid ${tipo.color}40`, color: tipo.color }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', padding: '2px 8px', borderRadius: 20, background: `${tipo.color}15`, border: `1px solid ${tipo.color}40`, color: tipo.color }}>
                       {tipo.label}{p.tipo !== '2x1' && p.valor > 0 ? ` ${p.valor}${p.tipo === 'descuento_pct' ? '%' : ' Bs.'}` : ''}
                     </span>
-                    {vigente && <span style={{ fontSize: 10, fontWeight: 600, color: 'oklch(0.78 0.16 155)', background: 'oklch(0.78 0.16 155 / .1)', padding: '2px 7px', borderRadius: 20 }}>● ACTIVA</span>}
+                    {vigente && <span style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.78 0.16 155)', background: 'oklch(0.78 0.16 155 / .1)', padding: '2px 7px', borderRadius: 20 }}>● ACTIVA</span>}
                   </div>
-                  {p.descripcion && <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 3 }}>{p.descripcion}</div>}
+                  {p.descripcion && <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 3 }}>{p.descripcion}</div>}
                   {(p.fecha_inicio || p.fecha_fin) && (
-                    <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Calendar size={10} />
+                    <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Calendar size={11} />
                       {p.fecha_inicio && `Desde ${p.fecha_inicio}`}
                       {p.fecha_inicio && p.fecha_fin && ' · '}
                       {p.fecha_fin && `Hasta ${p.fecha_fin}`}
@@ -1274,14 +1384,17 @@ function TabPromociones() {
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  <button className="btn-ghost btn-sm" onClick={() => toggleActivo(p)} title={p.activo ? 'Desactivar' : 'Activar'} style={{ padding: '4px 8px' }}>
-                    {p.activo ? <ToggleRight size={16} color="oklch(0.78 0.16 155)" /> : <ToggleLeft size={16} />}
+                  <button className="clientes-glass-btn btn-ghost btn-sm" onClick={() => toggleActivo(p)} title={p.activo ? 'Desactivar' : 'Activar'} style={{ padding: '4px 8px' }}>
+                    <div className="clientes-glass-bg" />
+                    <span className="clientes-glass-content">{p.activo ? <ToggleRight size={17} color="oklch(0.78 0.16 155)" /> : <ToggleLeft size={17} />}</span>
                   </button>
-                  <button className="btn-ghost btn-sm" onClick={() => setModal(p)} title="Editar" style={{ padding: '4px 8px' }}>
-                    <Edit2 size={13} />
+                  <button className="clientes-glass-btn btn-ghost btn-sm" onClick={() => setModal(p)} title="Editar" style={{ padding: '4px 8px' }}>
+                    <div className="clientes-glass-bg" />
+                    <span className="clientes-glass-content"><Edit2 size={14} /></span>
                   </button>
-                  <button className="btn-ghost btn-sm" onClick={() => handleDelete(p)} title="Eliminar" style={{ padding: '4px 8px' }}>
-                    <Trash2 size={13} color="oklch(0.66 0.22 25)" />
+                  <button className="clientes-glass-btn btn-ghost btn-sm" onClick={() => handleDelete(p)} title="Eliminar" style={{ padding: '4px 8px' }}>
+                    <div className="clientes-glass-bg" />
+                    <span className="clientes-glass-content"><Trash2 size={14} color="oklch(0.66 0.22 25)" /></span>
                   </button>
                 </div>
               </div>
@@ -1318,15 +1431,23 @@ export default function Inventario() {
   }, [rev])
 
   return (
-    <div style={{ padding: '0 2px' }}>
+    <div className="clientes-page" style={{ padding: '0 2px' }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 className="titulo-metalico" style={{ marginBottom: 6 }}>INVENTARIO</h1>
-        <p style={{ fontSize: 13, color: 'var(--dim)' }}>Gestión de productos, categorías y proveedores</p>
+        <p style={{ fontSize: 14, color: 'var(--dim)' }}>Gestión de productos, categorías y proveedores</p>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'oklch(1 0 0 / .03)', border: '1px solid var(--line)', borderRadius: 10, padding: 4 }}>
+      <div style={{
+        display: 'flex', gap: 4, marginBottom: 20,
+        background: 'oklch(0.13 0.02 250 / .34)',
+        backdropFilter: 'url(#top-clientes-glass)',
+        WebkitBackdropFilter: 'url(#top-clientes-glass)',
+        border: '1px solid transparent',
+        borderRadius: 10, padding: 4,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .09), 0 0 12px 2px oklch(1 0 0 / .06), 0 10px 26px oklch(0 0 0 / .35)',
+      }}>
         {TABS.map(t => {
           const Icon = t.icon
           return (
@@ -1334,15 +1455,16 @@ export default function Inventario() {
               key={t.id}
               onClick={() => setTab(t.id)}
               style={{
-                flex: 1, padding: '8px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                background: tab === t.id ? 'oklch(0.66 0.22 25 / .18)' : 'transparent',
-                border: tab === t.id ? '1px solid oklch(0.66 0.22 25 / .4)' : '1px solid transparent',
-                color: tab === t.id ? 'oklch(0.85 0.12 25)' : 'var(--dim)',
+                flex: 1, padding: '8px 12px', borderRadius: 7, fontSize: 13, fontWeight: 600,
+                background: tab === t.id ? 'oklch(1 0 0 / .1)' : 'transparent',
+                border: tab === t.id ? '1px solid oklch(1 0 0 / .22)' : '1px solid transparent',
+                color: tab === t.id ? 'oklch(0.97 0.01 250)' : 'var(--dim)',
+                textShadow: tab === t.id ? '0 1px 2px oklch(0 0 0 / .6)' : 'none',
                 cursor: 'pointer', transition: 'all .2s',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >
-              <Icon size={13} /> {t.label}
+              <Icon size={14} /> {t.label}
             </button>
           )
         })}

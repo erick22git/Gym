@@ -3,11 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Boxes, Receipt, Wallet, Trash2, Percent, Mail, Bell, BarChart3,
   ToggleLeft, ToggleRight, CheckCircle, AlertTriangle, X, Lock, ShoppingCart,
-  PauseCircle, Cake,
+  PauseCircle, Cake, KeyRound,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
 import { auditoriaService, ACCIONES } from '../../services/auditoriaService'
+import '../Clients.css'
 
 // ─── Metadata de cada módulo ──────────────────────────────────────────────────
 
@@ -68,6 +69,13 @@ const META = {
     features: ['Recibo al completar venta', 'Formatos: carta, media carta, ticket 80mm', 'Logo y datos del gym', 'Mensaje personalizado al pie'],
     color: 'oklch(0.74 0.16 155)',
   },
+  casilleros: {
+    icon: KeyRound,
+    titulo: 'Casilleros',
+    descripcion: 'Control de llaves de casillero: asignación, devolución e historial por cliente.',
+    features: ['Alta de llaves por rango', 'Asignar/devolver llaves', 'Historial por casillero y cliente', 'Alertas de llaves no devueltas'],
+    color: 'oklch(0.82 0.14 75)',
+  },
 }
 
 // ─── Card de módulo ───────────────────────────────────────────────────────────
@@ -83,12 +91,13 @@ function ModuloCard({ modulo, onToggle }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       style={{
-        background: 'var(--glass)',
-        border: `1px solid ${activo ? color + '35' : 'var(--line)'}`,
-        borderTop: `3px solid ${activo ? color : 'transparent'}`,
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
+        borderLeft: `3px solid ${activo ? color : 'transparent'}`,
         borderRadius: 14, padding: '20px 22px',
         display: 'flex', flexDirection: 'column', gap: 14,
         transition: 'border-color .3s',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
       }}
     >
       {/* Header */}
@@ -96,21 +105,21 @@ function ModuloCard({ modulo, onToggle }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: `${color}18`, border: `1px solid ${color}35`,
+            background: color.replace(')', ' / .18)'), border: `1px solid ${color.replace(')', ' / .35)')}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <Icon size={20} color={color} />
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{meta.titulo || modulo.modulo}</div>
-            <div style={{ fontSize: 11, color: activo ? color : 'var(--dim)', fontWeight: 600, marginTop: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{meta.titulo || modulo.modulo}</div>
+            <div style={{ fontSize: 11, color: activo ? color : 'var(--dim)', fontWeight: 600, marginTop: 1, textShadow: activo ? '0 1px 2px rgba(0,0,0,0.6)' : 'none' }}>
               {activo ? '● Activo' : '○ Inactivo'}
             </div>
           </div>
         </div>
         <button
           onClick={() => onToggle(modulo, activo)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+          className="clientes-action-icon"
         >
           {activo
             ? <ToggleRight size={36} color={color} />
@@ -120,7 +129,7 @@ function ModuloCard({ modulo, onToggle }) {
       </div>
 
       {/* Descripción */}
-      <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
+      <p style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.6, margin: 0, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
         {meta.descripcion}
       </p>
 
@@ -130,7 +139,7 @@ function ModuloCard({ modulo, onToggle }) {
           {meta.features.map(f => (
             <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <CheckCircle size={11} color={activo ? color : 'var(--dim)'} />
-              <span style={{ fontSize: 11, color: activo ? 'var(--muted)' : 'var(--dim)' }}>{f}</span>
+              <span style={{ fontSize: 11, color: activo ? 'oklch(0.88 0.01 250 / .85)' : 'var(--dim)', textShadow: activo ? '0 1px 2px rgba(0,0,0,0.6)' : 'none' }}>{f}</span>
             </div>
           ))}
         </div>
@@ -139,7 +148,7 @@ function ModuloCard({ modulo, onToggle }) {
       {/* Prerequisitos */}
       {meta.prerequisitos && !activo && (
         <div style={{ background: 'oklch(0.82 0.14 75 / .08)', border: '1px solid oklch(0.82 0.14 75 / .2)', borderRadius: 8, padding: '8px 12px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.82 0.14 75)', marginBottom: 4 }}>Requiere configuración previa:</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.82 0.14 75)', marginBottom: 4, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Requiere configuración previa:</div>
           {meta.prerequisitos.map(p => (
             <div key={p.campo} style={{ fontSize: 11, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 5 }}>
               <AlertTriangle size={9} color="oklch(0.82 0.14 75)" /> {p.label}
@@ -171,37 +180,44 @@ function ModalConfirmarDesactivar({ modulo, onConfirm, onClose }) {
         exit={{ opacity: 0 }}
         style={{
           position: 'relative', zIndex: 1, width: 420,
-          background: 'oklch(0.14 0.015 250)', border: '1px solid oklch(0.82 0.14 75 / .4)',
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent',
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <AlertTriangle size={20} color="oklch(0.82 0.14 75)" />
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.90 0.10 75)' }}>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.90 0.10 75)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Desactivar módulo
           </h2>
-          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}>
-            <X size={16} />
+          <button onClick={onClose} className="clientes-action-icon" style={{ marginLeft: 'auto' }}>
+            <X size={16} color="var(--dim)" />
           </button>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7, marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.7, marginBottom: 20, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
           ¿Estás seguro de desactivar <strong style={{ color: 'var(--ink)' }}>{meta.titulo || modulo.modulo}</strong>?
           <br /><br />
           Los datos <strong>NO se perderán</strong>. El módulo se ocultará del menú y no estará disponible hasta que lo reactives.
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button onClick={onClose} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
           <button
             onClick={onConfirm}
+            className="clientes-glass-btn"
             style={{
               flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-              background: 'oklch(0.82 0.14 75 / .2)', border: '1px solid oklch(0.82 0.14 75 / .5)',
-              color: 'oklch(0.90 0.10 75)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              border: '1px solid oklch(0.82 0.14 75 / .5)',
+              cursor: 'pointer',
             }}
           >
-            <Lock size={14} /> Desactivar
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'oklch(0.90 0.10 75)' }}>
+              <Lock size={14} /> Desactivar
+            </span>
           </button>
         </div>
       </motion.div>
@@ -262,7 +278,7 @@ export default function GestionModulos() {
   const activos = modulos.filter(m => m.activo === 1).length
 
   return (
-    <div style={{ padding: '0 2px' }}>
+    <div className="clientes-page" style={{ padding: '0 2px' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 className="titulo-metalico" style={{ marginBottom: 6 }}>MÓDULOS DEL SISTEMA</h1>
         <p style={{ fontSize: 13, color: 'var(--dim)' }}>

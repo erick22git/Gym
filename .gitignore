@@ -7,4 +7,12 @@ dev_data/
 .env
 .env.local
 *.db
+*.sqlite
 electron/*.jsc
+
+# Fondos de video (frames JPG) — pesados (~300MB), no hacen falta para
+# clonar el proyecto y probar el pipeline de IA en otra máquina.
+public/frames/
+
+# Logs/snapshots de sesiones de testing con Playwright MCP — debug, no código.
+.playwright-mcp/

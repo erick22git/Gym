@@ -345,7 +345,7 @@ export default function EmitirFactura() {
           <h3 style={{ fontSize: 14, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 16 }}>Detalle de la Factura</h3>
           <div style={{ marginBottom: 14 }}>
             <label className="gym-label">Concepto / Descripción *</label>
-            <input className="gym-input" value={form.concepto} onChange={f('concepto')} required placeholder="Ej: Membresía Mensual Urban Fitness Club" />
+            <input className="gym-input" value={form.concepto} onChange={f('concepto')} required placeholder="Ej: Membresía Mensual Gimnasio" />
           </div>
           <div className="form-grid-3" style={{ marginBottom: 14 }}>
             <div>

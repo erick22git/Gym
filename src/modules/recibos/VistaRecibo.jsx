@@ -2,6 +2,36 @@ import { useState, useEffect, useRef } from 'react'
 import { Download, Printer, X, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+// ─── Botón de vidrio reutilizable — mismo tratamiento que "INICIAR
+// SESIÓN" del login (transparente, drop-shadow + inner-shadow
+// blancos, texto/ícono sólidos), para los 4 botones de la barra
+// final que antes tenían color sólido (rojo Imprimir, azul Guardar
+// PDF) o ya eran neutros (refrescar/cerrar) — ahora los 4 comparten
+// el mismo material. [CORREGIDO — parpadeo/luz que sigue al cursor/
+// destellos rojo-azul] Antes usaba useGlassButton (GlassMaterial vía
+// glass.js/card.js), que anima --light-intensity/--rainbow-* en
+// tiempo real siguiendo el cursor — es la causa raíz reportada. Vidrio
+// 100% ESTÁTICO ahora: sin ref, sin instancia JS, solo CSS vía inline
+// style (este componente no tiene hoja de estilos propia). ──
+function ReciboGlassButton({ children, style, ...props }) {
+  return (
+    <button
+      {...props}
+      style={{
+        background: 'transparent',
+        border: '1px solid rgba(255, 255, 255, 0.3)',
+        color: '#ffffff',
+        filter: 'drop-shadow(0px 0px 42px rgba(0, 0, 0, 0.58))',
+        boxShadow: 'inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32)',
+        cursor: 'pointer',
+        ...style,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
 // ─── Print styles injected once ──────────────────────────────────────────────
 const PRINT_STYLE_ID = 'vista-recibo-print-style'
 function injectPrintStyle(formato) {
@@ -113,7 +143,7 @@ export default function VistaRecibo({ venta, onClose }) {
             {/* LED parpadeante */}
             <div style={{ position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)', width: 7, height: 7, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px rgba(74,222,128,0.8)', animation: 'ledBlink 1.6s ease-in-out infinite' }} />
             {/* Texto impresora */}
-            <div style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', fontSize: 9, fontWeight: 700, letterSpacing: '.12em', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase' }}>Urban Fitness</div>
+            <div style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', fontSize: 9, fontWeight: 700, letterSpacing: '.12em', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase' }}>Gimnasio</div>
           </div>
 
           {/* Máscara: oculta la parte superior del papel */}
@@ -146,7 +176,7 @@ export default function VistaRecibo({ venta, onClose }) {
                 </div>
               )}
               <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: isTicket ? 11 : 15, marginBottom: 2 }}>
-                {gymConfig?.gym_nombre || 'URBAN FITNESS CLUB'}
+                {gymConfig?.gym_nombre || 'GIMNASIO'}
               </div>
               {show('mostrar_datos_gym') && gymConfig?.gym_direccion && (
                 <div style={{ textAlign: 'center', fontSize: isTicket ? 8 : 9, color: '#555', marginBottom: 4 }}>
@@ -230,19 +260,19 @@ export default function VistaRecibo({ venta, onClose }) {
 
         {/* Acciones */}
         <div className="print-actions" style={{ display: 'flex', gap: 8, marginTop: 14, zIndex: 10 }}>
-          <button onClick={lanzarAnimacion} title="Repetir animación" style={{ width: 42, height: 42, borderRadius: 12, background: 'oklch(1 0 0 / .1)', border: '1px solid oklch(1 0 0 / .2)', color: '#ccc', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <ReciboGlassButton onClick={lanzarAnimacion} title="Repetir animación" style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <RefreshCw size={16} />
-          </button>
-          <button onClick={imprimir} style={{ height: 42, flex: 1, borderRadius: 12, background: 'oklch(0.66 0.22 25 / .25)', border: '1px solid oklch(0.66 0.22 25 / .5)', color: 'oklch(0.9 0.1 25)', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+          </ReciboGlassButton>
+          <ReciboGlassButton onClick={imprimir} style={{ height: 42, flex: 1, minWidth: 'fit-content', padding: '0 20px', borderRadius: 12, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
             <Printer size={15} /> Imprimir
-          </button>
-          <button onClick={descargar} disabled={guardando} style={{ height: 42, flex: 1, borderRadius: 12, background: 'oklch(0.74 0.13 250 / .2)', border: '1px solid oklch(0.74 0.13 250 / .4)', color: 'oklch(0.85 0.1 250)', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+          </ReciboGlassButton>
+          <ReciboGlassButton onClick={descargar} disabled={guardando} style={{ height: 42, flex: 1, minWidth: 'fit-content', padding: '0 20px', borderRadius: 12, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
             <Download size={15} /> {guardando ? 'Guardando...' : 'Guardar PDF'}
-          </button>
+          </ReciboGlassButton>
           {onClose && (
-            <button onClick={onClose} style={{ width: 42, height: 42, borderRadius: 12, background: 'oklch(1 0 0 / .1)', border: '1px solid oklch(1 0 0 / .2)', color: '#ccc', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ReciboGlassButton onClick={onClose} style={{ width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <X size={16} />
-            </button>
+            </ReciboGlassButton>
           )}
         </div>
       </div>

@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useApp } from '../../context/AppContext'
 import { PAGES } from '../../constants'
 import CambiarPasswordModal from '../../pages/CambiarPassword'
+import TopNav from './TopNav'
 
 // ─── Diálogo de confirmación de cierre ───────────────────────────────────────
 
@@ -36,7 +37,7 @@ function CloseConfirmDialog({ onConfirm, onCancel }) {
       >
         <div style={{ fontSize: 22, marginBottom: 12, textAlign: 'center' }}>⚠️</div>
         <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700, color: 'oklch(0.97 0.01 250)', textAlign: 'center' }}>
-          ¿Cerrar Urban Fitness Club?
+          ¿Cerrar Gimnasio?
         </h3>
         <p style={{ margin: '0 0 20px', fontSize: 12.5, color: 'oklch(0.78 0.02 250 / .65)', textAlign: 'center', lineHeight: 1.5 }}>
           Asegúrate de haber guardado los cambios pendientes antes de cerrar.
@@ -163,8 +164,13 @@ function UserDropdownPortal({ open, pos, usuario, onClose, onCambioPass, onGesti
         style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'transparent' }}
       />
 
-      {/* Dropdown */}
+      {/* Dropdown — fondo de vidrio real (::before/::after en index.css,
+          ver .user-dropdown-panel), mismos filtros SVG que ya usa la
+          barra (pack-upper + liquid-glass-new + fresnel, sin duplicar
+          ids). El contenido va en .user-dropdown-content, z-index mayor
+          que las dos capas de filtro — sólido, nunca parte del material. */}
       <motion.div
+        className="user-dropdown-panel"
         initial={{ opacity: 0, y: -6, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -6, scale: 0.97 }}
@@ -174,48 +180,44 @@ function UserDropdownPortal({ open, pos, usuario, onClose, onCambioPass, onGesti
           top: pos.bottom + 6,
           right: pos.right,
           zIndex: 9999,
-          background: 'oklch(0.15 0.015 250)',
-          backdropFilter: 'blur(40px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-          border: '1px solid oklch(1 0 0 / .14)',
-          borderRadius: 12,
           padding: '6px',
           minWidth: 220,
-          boxShadow: '0 20px 60px oklch(0 0 0 / .8), inset 0 1px 0 oklch(1 0 0 / .1)',
         }}
       >
-        {/* Info usuario */}
-        <div style={{
-          padding: '8px 10px 10px',
-          borderBottom: '1px solid oklch(1 0 0 / .07)',
-          marginBottom: 4,
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.95 0.01 250)' }}>
-            {usuario.nombre_completo}
+        <div className="user-dropdown-content">
+          {/* Info usuario */}
+          <div style={{
+            padding: '8px 10px 10px',
+            borderBottom: '1px solid oklch(1 0 0 / .07)',
+            marginBottom: 4,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.95 0.01 250)' }}>
+              {usuario.nombre_completo}
+            </div>
+            <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .45)', marginTop: 1 }}>
+              @{usuario.username}
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <span style={{
+                fontSize: 10, fontWeight: 600, letterSpacing: '.08em',
+                textTransform: 'uppercase',
+                background: 'oklch(0.66 0.22 25 / .15)',
+                border: '1px solid oklch(0.66 0.22 25 / .3)',
+                color: 'oklch(0.70 0.18 25)',
+                padding: '2px 8px', borderRadius: 20,
+              }}>
+                {usuario.rol_nombre}
+              </span>
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .45)', marginTop: 1 }}>
-            @{usuario.username}
-          </div>
-          <div style={{ marginTop: 6 }}>
-            <span style={{
-              fontSize: 10, fontWeight: 600, letterSpacing: '.08em',
-              textTransform: 'uppercase',
-              background: 'oklch(0.66 0.22 25 / .15)',
-              border: '1px solid oklch(0.66 0.22 25 / .3)',
-              color: 'oklch(0.70 0.18 25)',
-              padding: '2px 8px', borderRadius: 20,
-            }}>
-              {usuario.rol_nombre}
-            </span>
-          </div>
-        </div>
 
-        <DropItem icon={Key} label="Cambiar contraseña" onClick={onCambioPass} />
-        {usuario.rol_nombre === 'Administrador' && (
-          <DropItem icon={Shield} label="Usuarios y Roles" onClick={onGestionUsuarios} />
-        )}
-        <div style={{ borderTop: '1px solid oklch(1 0 0 / .06)', marginTop: 4, paddingTop: 4 }} />
-        <DropItem icon={LogOut} label="Cerrar sesión" onClick={onLogout} danger />
+          <DropItem icon={Key} label="Cambiar contraseña" onClick={onCambioPass} />
+          {usuario.rol_nombre === 'Administrador' && (
+            <DropItem icon={Shield} label="Usuarios y Roles" onClick={onGestionUsuarios} />
+          )}
+          <div style={{ borderTop: '1px solid oklch(1 0 0 / .06)', marginTop: 4, paddingTop: 4 }} />
+          <DropItem icon={LogOut} label="Cerrar sesión" onClick={onLogout} danger />
+        </div>
       </motion.div>
     </>,
     document.body
@@ -232,6 +234,14 @@ export default function TitleBar() {
   const [showCambioPass, setShowCambioPass] = useState(false)
   const [alertCount, setAlertCount] = useState(0)
   const [alertCriticas, setAlertCriticas] = useState(false)
+  // Animación de "nueva notificación" — swingKey cambia SOLO cuando el
+  // contador sube respecto al valor anterior; se usa como key de un
+  // motion.div (ver abajo) para que React lo remonte y la animación de
+  // keyframes se reproduzca una vez y se detenga (no un loop). prevCountRef
+  // arranca en null para no disparar el swing en el primer fetch (eso
+  // sería "loop molesto" al cargar la página, no "llegó algo nuevo").
+  const [swingKey, setSwingKey] = useState(0)
+  const prevAlertCountRef = useRef(null)
   const btnRef = useRef(null)
 
   useEffect(() => {
@@ -244,6 +254,10 @@ export default function TitleBar() {
         ])
         const total = (pv?.length || 0) + (v?.length || 0)
         const criticas = (pv || []).filter(m => (m.dias_restantes ?? 0) <= 2).length
+        if (prevAlertCountRef.current !== null && total > prevAlertCountRef.current) {
+          setSwingKey(k => k + 1)
+        }
+        prevAlertCountRef.current = total
         setAlertCount(total)
         setAlertCriticas(criticas > 0 || (v?.length || 0) > 0)
       } catch {}
@@ -252,6 +266,17 @@ export default function TitleBar() {
     const interval = setInterval(fetchAlerts, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [usuario])
+
+  // Balanceo al ABRIR la app — dispara UNA vez al montar (deps [], no
+  // depende de usuario/alertCount). Delay de 500ms para que no se sienta
+  // simultáneo a las animaciones de entrada del resto de la barra
+  // (dropdown, framer-motion de otros elementos). Reutiliza el MISMO
+  // swingKey que ya dispara con alertCount y con el click de abajo — un
+  // solo mecanismo, tres disparadores.
+  useEffect(() => {
+    const t = setTimeout(() => setSwingKey(k => k + 1), 500)
+    return () => clearTimeout(t)
+  }, [])
 
   const openDropdown = useCallback(() => {
     if (btnRef.current) {
@@ -288,73 +313,118 @@ export default function TitleBar() {
   return (
     <>
       <div className="titlebar">
-        {/* Marca */}
-        <div className="titlebar-brand" style={{ WebkitAppRegion: 'no-drag' }}>
-          <img
-            src="/logo.jpg"
-            alt="Urban Fitness Club"
-            style={{
-              width: 32, height: 32,
-              objectFit: 'cover', objectPosition: 'center 30%',
-              borderRadius: 7,
-              border: '1px solid oklch(0.66 0.22 25 / .4)',
-              filter: 'drop-shadow(0 2px 6px oklch(0 0 0 /.6))',
-            }}
-          />
-          <span className="silver" style={{ fontSize: 13, letterSpacing: '.16em' }}>
-            URBAN FITNESS CLUB
-          </span>
-        </div>
+        {/* [ELIMINADO] .titlebar-glass-mask (máscara de bit-packing vía
+            mix-blend-mode:plus-lighter) — diagnosticado y descartado con
+            prueba de fondo rojo: reemplazando temporalmente el contenido
+            real detrás de la barra por rojo puro, CON la máscara la barra
+            seguía viéndose negra (rgb 12,12,12) pase lo que pase detrás;
+            SIN la máscara, el rojo pasaba casi intacto (rgb 254,0,0).
+            plus-lighter es un blend ADITIVO puro (min(1, fondo+fuente)) —
+            matemáticamente no puede convertir rojo en negro. Eso prueba
+            que el navegador NO estaba mezclando esta capa con mix-blend-mode
+            como se esperaba: la pintaba OPACA (normal, no blend), tapando
+            todo lo real detrás con el resultado casi-negro de #pack-lower
+            (blanco escalado a ~1/255) — y ESE tapado corrompía además lo
+            que #liquid-glass-new leía como fondo real, arruinando la
+            transparencia para toda la barra, no solo donde estaba la
+            máscara. Es una limitación real de Chromium combinando
+            mix-blend-mode + filter:url(#svg) en este caso, no un valor de
+            CSS mal puesto. Sin esta capa, ::before (#pack-upper) +
+            ::after (#liquid-glass-new + #fresnel) SÍ dejan pasar el fondo
+            real tal cual (mismo test: rojo se mantiene rojo). */}
 
-        <div style={{ flex: 1 }} />
+        {/* Navegación horizontal (antes sidebar vertical) */}
+        <TopNav />
 
-        {/* Campana de alertas */}
+        {/* Campana de alertas — vidrio, no fondo sólido: .bell-inner es
+            SOLO box-shadow inset (bisel claro en reposo, "hundimiento"
+            oscuro en hover) — nunca background-color, nunca un sistema
+            de backdrop-filter aparte. Ya está sentada sobre el material
+            compartido de .titlebar (::before/::after en index.css, la
+            campana es descendiente con z-index:1 encima de ese vidrio),
+            así que no necesita su propio backdrop-filter — sería
+            redundante y reintroduciría el mismo riesgo de
+            filter+mix-blend-mode que ya rompió .titlebar-glass-mask.
+            Ícono y badge van en .bell-icon-wrap / el div del badge,
+            ambos position:relative (o absolute con z-index implícito
+            por orden de DOM) para quedar SIEMPRE encima de .bell-inner
+            — 100% sólidos, nunca parte del material.
+            swingKey>0 es lo que evita que el swing se reproduzca en el
+            primer render (ver el useEffect de fetchAlerts arriba, que
+            solo lo incrementa cuando el contador SUBE) — key={swingKey}
+            remonta el <span> cada vez que sube, así la animación CSS se
+            reproduce una vez desde el principio y se quita sola al
+            terminar (onAnimationEnd), lista para la siguiente alerta. */}
         {usuario && (
           <div style={{ WebkitAppRegion: 'no-drag', marginRight: 4 }}>
             <button
-              onClick={() => navigate(PAGES.ALERTS)}
+              className="titlebar-bell"
+              onClick={() => { navigate(PAGES.ALERTS); setSwingKey(k => k + 1) }}
               title="Ver alertas"
               style={{
-                position: 'relative', width: 34, height: 34, borderRadius: 8,
-                background: alertCriticas ? 'oklch(0.66 0.22 25 / .12)' : 'oklch(1 0 0 / .04)',
-                border: alertCriticas ? '1px solid oklch(0.66 0.22 25 / .35)' : '1px solid var(--line)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: alertCriticas ? 'oklch(0.82 0.14 25)' : 'var(--dim)',
-                transition: 'all .15s',
+                borderColor: alertCriticas ? 'rgba(255, 255, 255, .35)' : 'transparent',
+                color: '#ffffff',
               }}
             >
-              <Bell size={15} strokeWidth={alertCriticas ? 2 : 1.6} />
+              <span className="bell-inner" aria-hidden="true" />
+              <span
+                key={swingKey}
+                className={`bell-icon-wrap${swingKey > 0 ? ' bell-ring-animate' : ''}`}
+                onAnimationEnd={() => setSwingKey(0)}
+              >
+                <Bell size={15} strokeWidth={alertCriticas ? 2 : 1.6} />
+              </span>
               {alertCount > 0 && (
-                <div
-                  className={alertCriticas ? 'badge-pulse' : ''}
-                  style={{
-                    position: 'absolute', top: -4, right: -4,
-                    minWidth: 16, height: 16, borderRadius: 8,
-                    background: 'var(--red)', border: '2px solid oklch(0.12 0.01 250)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 9, fontWeight: 800, color: '#fff', padding: '0 3px',
-                  }}
-                >
-                  {alertCount > 99 ? '99+' : alertCount}
-                </div>
+                swingKey > 0 ? (
+                  <motion.div
+                    key={`badge-${swingKey}`}
+                    className={alertCriticas ? 'badge-pulse' : ''}
+                    initial={{ scale: 1 }}
+                    animate={{ scale: [1, 1.15, 1] }}
+                    transition={{ duration: 0.4 }}
+                    style={{
+                      position: 'absolute', top: -4, right: -4,
+                      minWidth: 16, height: 16, borderRadius: 8,
+                      background: '#ffffff', border: '2px solid oklch(0.12 0.01 250)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 9, fontWeight: 800, color: 'oklch(0.12 0.01 250)', padding: '0 3px',
+                    }}
+                  >
+                    {alertCount > 99 ? '99+' : alertCount}
+                  </motion.div>
+                ) : (
+                  <div
+                    className={alertCriticas ? 'badge-pulse' : ''}
+                    style={{
+                      position: 'absolute', top: -4, right: -4,
+                      minWidth: 16, height: 16, borderRadius: 8,
+                      background: '#ffffff', border: '2px solid oklch(0.12 0.01 250)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 9, fontWeight: 800, color: 'oklch(0.12 0.01 250)', padding: '0 3px',
+                    }}
+                  >
+                    {alertCount > 99 ? '99+' : alertCount}
+                  </div>
+                )
               )}
             </button>
           </div>
         )}
 
-        {/* Sesión de usuario */}
+        {/* Sesión de usuario — sin fondo/borde sólido propio, igual que la
+            campana: se integra con el vidrio compartido de .titlebar en
+            vez de verse como un bloque aparte (ver .titlebar-user-btn en
+            index.css). El único estado que sigue inline es "abierto"
+            (dropdown visible), como ya hacía la campana con el crítico. */}
         {usuario && (
           <div style={{ WebkitAppRegion: 'no-drag' }}>
             <button
               ref={btnRef}
               onClick={openDropdown}
+              className="titlebar-user-btn"
+              data-open={showDropdown || undefined}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: showDropdown ? 'oklch(1 0 0 / .08)' : 'oklch(1 0 0 / .04)',
-                border: '1px solid oklch(1 0 0 / .1)',
-                borderRadius: 8, padding: '4px 10px 4px 6px',
-                cursor: 'pointer', color: 'oklch(0.95 0.01 250)',
-                transition: 'background .15s',
+                color: 'oklch(0.95 0.01 250)',
               }}
             >
               {usuario?.foto ? (
@@ -375,7 +445,7 @@ export default function TitleBar() {
                   {initiales}
                 </div>
               )}
-              <div style={{ textAlign: 'left', lineHeight: 1.2 }}>
+              <div className="titlebar-user-text" style={{ textAlign: 'left', lineHeight: 1.2 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'oklch(0.95 0.01 250)' }}>
                   {usuario.nombre_completo}
                 </div>

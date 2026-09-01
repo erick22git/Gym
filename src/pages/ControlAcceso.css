@@ -1,0 +1,1185 @@
+/* [CONTROL DE ACCESO — CONSUMIDOR] Vidrio líquido para el buscador, el
+   panel de resultados y los botones "Nueva Venta"/"Nuevo Cliente" — ver
+   GLASS_ENGINE_PORTABILIDAD.md.
+
+   Ya no queda ningún motor JS (GlassMaterial/useGlassButton) instanciado
+   en esta página — todo pasó a vidrio 100% ESTÁTICO vía CSS puro: el
+   buscador, el panel de resultados y "Nueva Venta"/"Nuevo Cliente" usan
+   backdrop-filter:url(#dropdown-glass) (mismo patrón que
+   .user-dropdown-panel), y los botones .vr-glass-btn del modal de Venta
+   Rápida usan el material en capas (glass-layer--fill/specular/rainbow)
+   con sus variables --light-intensity/etc. FIJAS en vez de animadas por
+   un loop de rAF — ver cada bloque abajo para el detalle de cada uno.
+
+   REGLA DE LETRA GRANDE Y SÓLIDA (ver prompt de esta fase): dentro de
+   estos elementos glass ningún texto/ícono/placeholder puede quedar
+   con opacidad reducida ni con alpha bajo simulando gris — por eso
+   este archivo pisa acá los colores de .gym-input/var(--dim) que en
+   el resto de la app sí usan alpha bajo (ahí el fondo detrás es
+   sólido, así que se lee bien; acá el fondo es vidrio translúcido). */
+
+/* [CAMBIADO — conflicto de anidamiento] .ca-search-card envuelve el
+   buscador Y el panel de resultados (.ca-results-wrap/.ca-results-card/
+   .ca-result-item viven DENTRO de este mismo contenedor en el DOM) —
+   su propio backdrop-filter competía con el de .ca-result-item, mismo
+   límite de Chromium ya documentado varias veces en este archivo. Se le
+   quita el filtro acá; el buscador en sí no pierde su fondo (sigue con
+   border + border-radius, que no son backdrop-filter) — el vidrio con
+   distorsión real ahora vive en cada fila de resultado individual, no
+   en este wrapper. */
+.ca-search-card {
+  position: relative;
+  background: transparent;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* [CAMBIADO — conflicto de anidamiento] .ca-results-card YA NO lleva
+   backdrop-filter propio — competía con el backdrop-filter de cada
+   .ca-result-item (el hijo), y un filtro hijo dentro de un padre que
+   ya tiene filtro no se renderiza en Chromium. Ahora el padre se queda
+   solo con background:transparent (deja pasar lo que haya detrás) y el
+   vidrio con distorsión real vive en cada fila individual
+   (.ca-result-item, ver más abajo — copia literal de
+   .user-dropdown-panel). */
+.ca-results-card {
+  position: relative;
+  /* [OPACIDAD — pedido explícito, "te faltó ponerle la opacidad a la
+     lista de desplegables"] Antes transparent del todo — esto es el
+     panel que envuelve TODAS las filas de sugerencia, no una fila
+     individual. Un `background` acá no compite con el backdrop-filter de
+     cada .ca-result-item hijo (el límite de Chromium es solo con
+     backdrop-filter anidado, un background plano no cuenta) así que es
+     seguro sumarlo. Mismo tono oscuro que ya usa .ca-search-card
+     .gym-input en este archivo (rgba(14,15,19,X)), para no meter un
+     tercer lenguaje de color a la página. */
+  background: rgba(14, 15, 19, 0.45);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  /* [NUEVO] Scroll interno — antes esta caja no tenía max-height, así
+     que con muchos resultados crecía sin límite y terminaba
+     desplazando TODA la página en vez de scrollear solo el panel. */
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* [NUEVO] Vidrio del buscador — vive en el INPUT mismo, no en
+   .ca-search-card (el padre, que perdió su filtro por el conflicto de
+   anidamiento con .ca-result-item, ver arriba). El input es HERMANO de
+   .ca-results-wrap (ambos hijos del mismo div relative, ver
+   ControlAcceso.jsx) — nunca su ancestro, así que su propio
+   backdrop-filter no compite con el de las filas de resultado; son 2
+   ramas independientes del árbol. El fondo sólido de abajo pinta ENCIMA
+   de la distorsión, no la reemplaza (mismo patrón ya usado en el resto
+   del archivo) — el texto tecleado sigue 100% legible. */
+.ca-search-card .gym-input {
+  background: rgba(14, 15, 19, 0.55);
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  /* [NUEVO — Parte B.2] El global .gym-input (index.css) ya transiciona
+     border-color/background a .2s, pero el box-shadow del glow de foco
+     (regla de abajo) no estaba en esa lista — aparecía de golpe. Acá se
+     agrega scoped (no se toca la regla global, que afecta toda la app)
+     con los 3 juntos a 180ms — dentro del rango pedido (150-200ms),
+     preciso e inmediato, sin blur ni parallax, es un input. */
+  transition: border-color 180ms ease-out, background 180ms ease-out, box-shadow 180ms ease-out;
+}
+.ca-search-card .gym-input::placeholder {
+  color: #9a9ca3;
+}
+.ca-search-card .gym-input:focus {
+  background: rgba(14, 15, 19, 0.7);
+  /* [CORREGIDO — brillo rojo] .gym-input:focus (index.css, global) trae
+     border-color:oklch(0.66 0.22 25/.6) + box-shadow:0 0 0 3px
+     oklch(0.66 0.22 25/.12) — un borde y un halo rojos. Acá se pisan
+     los 2 con blanco, mismo blur/spread/alpha, sin tocar la regla
+     global (afecta inputs de toda la app). */
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 3px oklch(1 0 0 / .12);
+}
+.ca-search-icon {
+  color: #9a9ca3;
+}
+
+/* [CAMBIADO — de vuelta a vidrio real, ahora más notorio]
+   .ca-search-card (el contenedor del buscador Y del panel de
+   resultados) era el ancestro que competía con el filtro de estas
+   filas — despejado arriba. Además de destrabarlo, se pidió más
+   intensidad de distorsión que la que usa .user-dropdown-panel: en vez
+   de #dropdown-glass se usa #dropdown-glass-strong (misma definición,
+   stdDeviation/scale más altos — ver public/filters-menu-glass.svg),
+   duplicado para no afectar a .user-dropdown-panel/el buscador/otros
+   usos de #dropdown-glass que ya se ven bien. El contenido (avatar,
+   nombre, CI, badge) son hijos normales — un backdrop-filter nunca
+   difumina ni afecta la opacidad de sus propios hijos, solo lo que hay
+   detrás del elemento. */
+/* [BAJADO — dos vueltas] Antes #dropdown-glass-strong → #dropdown-glass
+   normal/compartido → pedido explícito de bajarlo un poco más: filtro
+   dedicado #ca-result-glass (public/filters-menu-glass.svg), por debajo
+   del #dropdown-glass compartido (no se toca ese, afecta a toda la app).
+   background pasa de transparent a un tinte blanco leve en reposo (antes
+   solo aparecía en :hover) para que la fila se note incluso sin el
+   cursor encima; el :hover de abajo sigue un escalón más arriba para que
+   se note la diferencia. */
+.ca-result-item,
+.ca-result-item--default {
+  background: oklch(1 0 0 / .08);
+  backdrop-filter: url(#ca-result-glass);
+  -webkit-backdrop-filter: url(#ca-result-glass);
+  /* [NUEVO — Parte B.9] No tenía NINGÚN hover — respuesta inmediata,
+     énfasis ligero, MICRO (120ms, dentro de 80-150ms). */
+  transition: background 120ms ease-out;
+}
+.ca-result-item:hover,
+.ca-result-item--default:hover {
+  /* .06 → .10 → .14 (subido de nuevo junto con el reposo, .05 → .08,
+     para mantener el mismo salto relativo entre reposo y hover). */
+  background: oklch(1 0 0 / .14);
+}
+
+/* Envoltorio del dropdown de resultados. Desktop/tablet: flota
+   superpuesto (position:absolute) sobre lo que venga después, que
+   ahí es el buscador o nada. Mobile: los botones quedan APILADOS
+   DEBAJO del buscador (.ca-toolbar en columna, ver responsive más
+   abajo) — si el dropdown siguiera flotando ahí, taparía/se
+   mezclaría con esos botones (quedan en el mismo espacio de
+   pantalla, ver bug real encontrado probando 400px). En mobile pasa
+   a position:static para empujar el flujo normal en vez de flotar. */
+.ca-results-wrap {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  box-shadow: 0 12px 40px oklch(0 0 0 / .6);
+}
+@media (max-width: 599px) {
+  .ca-results-wrap {
+    position: static;
+    margin-top: 6px;
+    box-shadow: none;
+  }
+}
+
+/* ── Botones — mismo tratamiento que "INICIAR SESIÓN" (Login.css:
+   .login-glass-card .login-glass-btn). [CORREGIDO — brillo que sigue
+   al cursor] Antes usaban useGlassButton (GlassMaterial vía
+   glass.js/card.js, ".glass-root" es la clase que agregaba ese motor),
+   que anima --light-intensity en tiempo real siguiendo el mouse — es
+   la causa del brillo no deseado. Ya no se instancia ningún motor JS
+   para estos 2 botones (ver ControlAcceso.jsx), así que la clase
+   ".glass-root" no aplica a nada acá: vidrio 100% ESTÁTICO, drop-shadow
+   + inset box-shadow fijos vía CSS puro, sin loop de rAF ni cursor
+   tracking. ── */
+.ca-glass-btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: transparent;
+  /* Mismo fondo con distorsión que los desplegables (ver .ca-results-card/
+     .ca-search-card) — no el glass-material en capas de .vr-glass-btn. */
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
+  filter: drop-shadow(0px 0px 42px rgba(0, 0, 0, 0.58));
+  box-shadow: inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32);
+  transition: opacity 0.15s;
+}
+.ca-glass-btn:hover {
+  opacity: 0.9;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   EFECTO "AGUA" — SOLO .ca-glass-btn (Nueva Venta/Nuevo Cliente en el
+   toolbar de Control de Acceso). [REVERTIDO — Parte A, ronda
+   siguiente] Se sacó por completo de .vr-glass-btn (todos los botones
+   de Venta Rápida: método de pago, montos rápidos, Recibo, Registrar
+   Venta) — volvieron a su material glass original sin ninguna capa de
+   líquido. 2 olas SVG superpuestas (distinta velocidad/opacidad =
+   sensación de profundidad), inline vía <WaterButton> (ver
+   ControlAcceso.jsx) — sin archivos externos, 100% offline.
+
+   .liquid vive fuera de vista (translateY(100%)) y sube al :hover/
+   :active — el overflow:hidden + border-radius YA existentes en el
+   botón (reglas de arriba) la recortan a la forma real, sin
+   necesidad de repetir el radio acá. El <svg> interno mide 200% de
+   ancho — el doble del botón — para poder desplazarse -50% en loop
+   (media vuelta = un ciclo completo del patrón, técnica estándar de
+   olas CSS sin salto visible) sin que el overflow:hidden del botón
+   lo recorte prematuramente por la izquierda/derecha.
+   ══════════════════════════════════════════════════════════════════ */
+.ca-glass-btn .label {
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transition: color 300ms ease;
+}
+.ca-glass-btn .liquid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transform: translateY(100%);
+  transition: transform 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ca-glass-btn:hover .liquid,
+.ca-glass-btn:active .liquid {
+  transform: translateY(0);
+}
+.ca-glass-btn .liquid svg {
+  width: 200%;
+  height: 100%;
+}
+/* Colores: blanco translúcido — misma paleta glass ya establecida en
+   toda la app, sin introducir tonos nuevos. wave1 más opaca/rápida
+   (3s), wave2 más tenue/lenta (5s) — la diferencia de velocidad es lo
+   que da la sensación de profundidad (2 capas de agua, no 1 plana). */
+.ca-glass-btn .wave1 {
+  fill: rgba(255, 255, 255, 0.16);
+  animation: water-wave-x 3s linear infinite;
+}
+.ca-glass-btn .wave2 {
+  fill: rgba(255, 255, 255, 0.08);
+  animation: water-wave-x 5s linear infinite;
+}
+@keyframes water-wave-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ca-glass-btn .liquid {
+    transition: none;
+  }
+  .ca-glass-btn .wave1,
+  .ca-glass-btn .wave2 {
+    animation: none;
+  }
+}
+
+/* [CAMBIADO — quitar acento de color] Nuevo Cliente y Nueva Venta
+   tenían acento rojo/celeste en borde+texto+ícono respectivamente —
+   ahora vidrio transparente + blanco sólido, mismo tratamiento que
+   INICIAR SESIÓN (Login.css), sin ningún tinte de color. Encadena
+   sobre .btn-primary (global, index.css) para pisar su fondo sólido
+   rojo por defecto en el caso de Nuevo Cliente. */
+.ca-glass-btn.btn-primary {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+.ca-glass-btn.btn-primary:hover {
+  background: transparent;
+  /* .btn-primary:hover (index.css) trae su propio box-shadow con la
+     MISMA especificidad que .ca-glass-btn de arriba (2 clases vs 1
+     clase+1 pseudo-clase) — sin este hover explícito, en :hover
+     ganaría el que cargue después en el bundle (frágil). Se repite el
+     mismo valor para no depender del orden de imports. */
+  box-shadow: inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32);
+}
+
+/* [CAMBIADO — metaball reemplaza el wobble] .ca-venta-btn ya NO pinta
+   su propio vidrio (background/backdrop-filter/filter/box-shadow/
+   border) — ese material vive ahora en .nueva-venta-glass-bg (ver
+   bloque METABALL más abajo), una capa HERMANA que NO pasa por el
+   filtro goo (ver ahí el porqué). El botón real queda transparente
+   por encima, con z-index:2 para quedar siempre arriba de TODAS las
+   capas (glass-bg:0, liquid-layer/goo:1) — solo texto/ícono
+   (.nueva-venta-content) y el color/tamaño de fuente, nunca se
+   deforma ni se desenfoca. */
+.ca-glass-btn.ca-venta-btn {
+  color: #ffffff;
+  border-radius: 12px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  filter: none;
+  box-shadow: none;
+  z-index: 2;
+}
+/* [NUEVO — limpieza, PROBLEMA 1] Reemplaza a <WaterButton> como
+   contenido de "Nueva Venta" — WaterButton traía .liquid/.wave1/
+   .wave2 (relleno gris/blanco que "sube" desde abajo al hover, ver
+   EFECTO "AGUA" más abajo en este archivo), un efecto de una ronda
+   distinta que quedó compitiendo visualmente con el metaball.
+   [ACTUALIZADO] Nuevo Cliente TAMBIÉN dejó de usarlo (ronda de
+   réplica del sistema completo, ver .nuevo-cliente-content más
+   abajo) — <WaterButton> como componente ya no lo renderiza NINGÚN
+   botón de esta página, queda huérfano (ver PASO 3 de la auditoría
+   de esa ronda). Este div solo replica el layout (flex centrado,
+   mismo gap) + el text-shadow que traía WaterButton .label, para no
+   perder legibilidad — sin ninguna capa de líquido. */
+.nueva-venta-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  /* [CAMBIADO] Más marcado que el 0 1px 2px/.5 estándar del resto de
+     la app — este botón tiene el líquido de fondo (goo) que puede
+     restar contraste, así que necesita más sombra para legibilidad. */
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   METABALL "LÍQUIDO" — SOLO "Nueva Venta" (.ca-venta-btn). Fusión
+   real entre un apéndice líquido pegado al borde del botón
+   (.nueva-venta-liquid-anchor) y un círculo que sigue al cursor
+   (.nueva-venta-cursor-blob, ver handleVentaMetaballMove/Leave en
+   ControlAcceso.jsx) — filtro goo #nueva-venta-goo (blur + contraste
+   de alpha, public/filters-menu-glass.svg), no un keyframe
+   pre-programado.
+
+   [HISTORIAL RESUMIDO — 4 rondas de vidrio antes de esta, cada una
+   falló por un motivo distinto:
+   1) backdrop-filter compitiendo con el filtro goo (mismo elemento,
+      o ancestro/descendiente en cualquier combinación): NUNCA se
+      renderiza — límite de Chromium, mismo que .ca-results-card/
+      .ca-result-item más arriba.
+   2) vidrio limpio + silueta RELLENA como hermanas (sin competir):
+      se renderiza, pero la silueta, en cuanto su alfa pasa el umbral
+      ~0.4 del feColorMatrix ("20 -8", umbral DURO no un paso suave),
+      queda 100% opaca y TAPA el vidrio de abajo — confirmado con
+      captura real, se veía blanco opaco.
+   3) silueta como borde FINO en vez de relleno (para no tapar): con
+      stdDeviation=8 un borde de pocos px se diluye por el blur muy
+      por debajo del umbral — invisible, no "sutil".
+   4) engrosar/subir alfa del borde lo justo para cruzar el umbral:
+      el margen entre "invisible" y "vuelve a tapar todo de blanco"
+      resultó casi inexistente — confirmado con captura real, otra
+      vez opaco. Bajarlo más (10px/.35, para no tapar) lo dejó del
+      OTRO lado del umbral: invisible de nuevo, sin fusión perceptible.
+   5) relleno sólido (alfa .5/.6, sin gradiente): el apéndice fusiona
+      bien, pero se ve como un blanco sólido plano, no como vidrio —
+      se pidió backdrop-filter real acá también (2 sub-capas, B1
+      vidrio limpio + B2 goo como "máscara" vía mix-blend-mode). NO
+      SE IMPLEMENTÓ: mix-blend-mode mezcla COLOR contra el fondo, no
+      recorta geometría — B1 seguiría pintando su rectángulo/círculo
+      COMPLETO, sin tomar la silueta orgánica fundida de B2. Un mask
+      real (SVG <mask> con el mismo goo adentro, aplicado a B1 vía
+      mask-image) sí sería técnicamente posible, pero exige duplicar
+      las formas dinámicas (posición del blob) como elementos SVG
+      nativos controlados por JS aparte de los divs actuales, y es
+      una combinación mask+filter+backdrop-filter no probada — con 4
+      rondas ya chocando contra límites de Chromium en esta misma
+      zona, no pareció una apuesta razonable. Se optó por el Plan B
+      del pedido: gradiente radial en vez de relleno plano (ver
+      .nueva-venta-liquid-anchor/.nueva-venta-cursor-blob) — sin
+      backdrop-filter, solo CSS.
+
+   SOLUCIÓN — separar "botón" de "apéndice" por completo, cada uno
+   con su propio rol, ninguno a medio camino:
+   • Capa A (.nueva-venta-glass-bg, z-index:0): el botón en sí,
+     vidrio limpio, SIN el filtro goo — nunca compite con nada, así
+     que SIEMPRE se ve nítido, sea cual sea el estado del apéndice.
+   • Capa B (.nueva-venta-liquid-layer, z-index:1): el apéndice, un
+     elemento APARTE que solo aparece en :hover — el filtro goo vive
+     acá y en ningún otro lado. Adentro, .nueva-venta-liquid-anchor y
+     .nueva-venta-cursor-blob (44px) usan un radial-gradient con un
+     stop ARRIBA del umbral .4 (highlight) y el resto DEBAJO (ver
+     comentario ahí) — el filtro deja pasar solo el highlight
+     concentrado, más parecido a un brillo/reflejo de vidrio que a
+     un disco plano, y al solaparse el goo los funde con claridad.
+   • .nueva-venta-liquid-layer usa un inset negativo (valor actual:
+     ver la regla misma más abajo, se fue agrandando en rondas
+     sucesivas) — más grande que el botón, para darle al blob margen
+     real donde "salir" antes de que el filtro lo recorte.
+     .nueva-venta-liquid-anchor usa su propio inset (NO 0, que
+     quedaría pegado a los bordes del layer ya expandido, no a los
+     del botón) — el punto de referencia es el layer expandido, no
+     el botón, así que el margen real respecto al botón = inset del
+     anchor − |inset del layer| (puede dar negativo = el anchor
+     sobresale del botón, ver nota en esa regla). El blob compensa el
+     mismo desfase sumando el |inset del layer| a su left/top en JS
+     (ver handleVentaMetaballMove) — sin esto, quedaría desviado de
+     la posición real del cursor. Los 3 valores (inset del layer,
+     inset del anchor, offset en JS) están acoplados — cambiar uno
+     sin los otros dos rompe la fusión o desalinea el blob. */
+.nueva-venta-metaball-wrap {
+  position: relative;
+  display: flex;
+}
+/* backdrop-filter apunta a #nueva-venta-glass (copia de
+   #dropdown-glass con scale de displacement subido de .25 a .32, ver
+   public/filters-menu-glass.svg) en vez del #dropdown-glass
+   compartido — más distorsión en ESTE botón sin afectar otros usos
+   de #dropdown-glass en la app (dropdowns, Nuevo Cliente, etc.). */
+.nueva-venta-glass-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  backdrop-filter: url(#nueva-venta-glass);
+  -webkit-backdrop-filter: url(#nueva-venta-glass);
+  filter: drop-shadow(0px 0px 42px rgba(0, 0, 0, 0.58));
+  box-shadow: inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32);
+}
+/* [NUEVO] opacity ACÁ (en .nueva-venta-liquid-layer, el MISMO
+   elemento que tiene `filter`) es distinto de poner opacity en un
+   DESCENDIENTE (ver el diagnóstico más abajo sobre por qué eso
+   rompió el anchor 2 rondas atrás) — por spec de CSS, cuando
+   `opacity` y `filter` están en el MISMO elemento, el orden de
+   composición es: 1) se renderiza el contenido, 2) se aplica
+   `filter`, 3) RECIÉN AHÍ se aplica `opacity` sobre el resultado ya
+   filtrado. O sea que el feColorMatrix del goo sigue viendo los
+   alfas altos del gradiente (sin diluir), fusiona bien, y la
+   atenuación pareja se aplica DESPUÉS, sobre el resultado ya
+   fusionado — no puede romper el umbral porque nunca entra al
+   cálculo del filtro. */
+/* [CAMBIADO — se sacó el sistema de idle timer por completo, ronda
+   simplificada] Ya no hay opacity de reposo fija (.55) ni timer de
+   inactividad — el líquido ahora arranca en 0 y SOLO se muestra
+   mientras el cursor está físicamente encima (is-hovering,
+   mouseenter/mouseleave puro, sin delay). El valor .55 que antes era
+   la opacidad de reposo pasa a ser la opacidad EN HOVER — mismo
+   número (la atenuación "vidrio encima" post-filtro que ya se había
+   afinado, ver el comentario de arriba sobre por qué opacity en este
+   mismo elemento —no en un descendiente— es seguro acá), simplemente
+   ya no está siempre puesta, aparece/desaparece con el hover. Vuelta
+   a transition:0.15s (el valor pre-idle) — ya no hace falta la
+   versión lenta de 0.4s, que era específicamente para que el apagado
+   por inactividad se sintiera suave. */
+.nueva-venta-liquid-layer {
+  position: absolute;
+  inset: -18px;
+  z-index: 1;
+  filter: url(#nueva-venta-goo);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.nueva-venta-metaball-wrap.is-hovering .nueva-venta-liquid-layer {
+  opacity: 0.55;
+}
+/* El líquido se oculta mientras se mantiene presionado el click
+   (isPressed, ver handleVentaMetaballDown/Up en ControlAcceso.jsx),
+   incluso con el cursor todavía encima (is-hovering activo a la
+   vez). Misma especificidad que la regla de arriba (3 clases cada
+   una) — gana por venir DESPUÉS en la hoja de estilos, no por ser
+   más específica; si esta regla se llegara a mover antes que la de
+   is-hovering en el archivo, dejaría de ganar el empate. */
+.nueva-venta-metaball-wrap.is-pressed .nueva-venta-liquid-layer {
+  opacity: 0;
+}
+/* [CAMBIADO — SIMPLIFICADO, se revierten las últimas 2 rondas] La
+   versión anterior (5 radial-gradient + conic-gradient de arcoíris +
+   box-shadow múltiple + 2 pseudo-elementos + forma orgánica) rompió
+   el efecto por completo — causa real, no "se diluyó el alfa":
+   `background: rgba(...), conic-gradient(...)` ponía el color SÓLIDO
+   como PRIMERA capa de una lista de varias — en el shorthand
+   `background`, un color plano solo es válido como la ÚLTIMA capa
+   (las demás necesitan imagen/gradiente real); con el color primero,
+   el navegador descarta la declaración ENTERA como inválida. El
+   elemento se quedaba sin background alguno — solo lo que pintaban
+   el box-shadow (concentrado en las esquinas) y los pseudo-elementos
+   (glints chicos), el resto de la superficie en alfa 0. De ahí que
+   "el goo dejó de aparecer": no era un problema de umbral, era una
+   declaración CSS inválida.
+
+   Vuelta a la base mínima que sí fusionaba: 1 background sólido
+   plano (sin listas, sin riesgo de este error) + 3 box-shadow en el
+   MISMO elemento (sombra abajo-derecha, brillo arriba-izquierda,
+   línea sutil en el borde) — sin arcoíris, sin pseudo-elementos, sin
+   forma orgánica (el blob vuelve a border-radius:50%, ver su regla
+   más abajo). El arcoíris queda pendiente para retomar en otra
+   ronda, una vez confirmada esta base. */
+/* [CAMBIADO — blanco a negro] Mismo alfa de base (.48, el que ya
+   fusiona bien con el filtro) — solo cambió el canal de color. */
+.nueva-venta-liquid-anchor,
+.nueva-venta-cursor-blob {
+  background: rgba(0, 0, 0, 0.48);
+  box-shadow:
+    inset 6px 6px 8px rgba(0, 0, 0, 0.5),
+    inset -5px -5px 8px rgba(60, 60, 70, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+/* [DIAGNÓSTICO — por qué el anchor no se veía EN ABSOLUTO, ni
+   siquiera con el gradiente ya arriba del umbral, en la ronda que
+   introdujo opacity:.18/.4 en .nueva-venta-liquid-anchor] `opacity`
+   en un DESCENDIENTE de un elemento con `filter` es distinto del
+   caso de arriba — ahí SÍ multiplica el alfa de TODO lo que pinta el
+   elemento (incluido el alfa de su propio `background`) ANTES de
+   que ese resultado llegue al `filter` del ANCESTRO. Con opacity:.18
+   en reposo, el alfa real que entraba al filtro era gradiente×.18 —
+   un stop de .55 quedaba en .55×.18≈.099, muy por debajo del umbral
+   .4. Con opacity:.4 en :hover no era mejor: .55×.4=.22, TAMBIÉN por
+   debajo del umbral. En NINGÚN estado el anchor podía sobrevivir el
+   filtro goo. Por eso solo se veía el blob (su propio scale/opacity
+   los maneja JS por fuera de este problema) y el anchor no aparecía
+   NUNCA. Se sacó opacity/:hover de .nueva-venta-liquid-anchor por
+   completo — el anchor se renderiza siempre a su alfa real, sin
+   ningún multiplicador pre-filtro. El "lámpara de lava" (flotado +
+   visible incluso sin hover) sigue intacto. */
+/* [CAMBIADO — reducido de nuevo] Contenedor (.nueva-venta-liquid-layer)
+   ahora inset:-18px (antes -24px). Con inset:20px acá, el margen neto
+   respecto al borde REAL del botón es 20-18 = +2px hacia ADENTRO
+   (misma convención de siempre: positivo = margen hacia adentro,
+   negativo = sobresale) — el anchor queda levemente más chico y más
+   contenido que la ronda anterior. */
+.nueva-venta-liquid-anchor {
+  position: absolute;
+  inset: 20px;
+  border-radius: 12px;
+  animation: nueva-venta-liquid-float 6s ease-in-out infinite;
+}
+@keyframes nueva-venta-liquid-float {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(3px, -4px) scale(1.03); }
+  50%  { transform: translate(-2px, 3px) scale(0.97); }
+  75%  { transform: translate(-4px, -2px) scale(1.02); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+.nueva-venta-cursor-blob {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.15s ease-out, opacity 0.2s ease-out;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nueva-venta-liquid-anchor,
+  .nueva-venta-cursor-blob {
+    display: none;
+  }
+  .nueva-venta-liquid-anchor {
+    animation: none;
+  }
+}
+
+/* [CAMBIADO] Temblor tipo gelatina — se dispara UNA VEZ al entrar el
+   cursor (handleVentaMetaballEnter, ControlAcceso.jsx agrega/quita
+   la clase is-jiggling con un timeout de 1400ms — DEBE coincidir con
+   la duración de acá abajo, si se cambia una hay que cambiar la
+   otra). Va en .nueva-venta-metaball-wrap (todo el conjunto: vidrio +
+   capa líquida + botón), no en .nueva-venta-glass-bg/.nueva-venta-
+   liquid-layer ni en .btn-nueva-venta por separado — así el
+   texto/ícono tiembla PEGADO al pill, no se separa ni se
+   desincroniza mientras se asienta. Subido de 0.6s/5 puntos a 1.4s/
+   10 puntos — la amplitud decae de ±18% al inicio a ±1% al final,
+   varios ciclos de oscilación amortiguándose (física de resorte),
+   no un solo golpe corto. */
+.nueva-venta-metaball-wrap.is-jiggling {
+  animation: nueva-venta-jiggle 1.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes nueva-venta-jiggle {
+  0%   { transform: scale(1, 1); }
+  10%  { transform: scale(0.82, 1.18); }
+  20%  { transform: scale(1.15, 0.85); }
+  30%  { transform: scale(0.90, 1.10); }
+  40%  { transform: scale(1.08, 0.92); }
+  50%  { transform: scale(0.95, 1.05); }
+  60%  { transform: scale(1.04, 0.96); }
+  70%  { transform: scale(0.98, 1.02); }
+  80%  { transform: scale(1.02, 0.98); }
+  90%  { transform: scale(0.99, 1.01); }
+  100% { transform: scale(1, 1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nueva-venta-metaball-wrap.is-jiggling {
+    animation: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   METABALL "LÍQUIDO" — "Nuevo Cliente" (.nuevo-cliente-btn). Réplica
+   EXACTA del sistema de "Nueva Venta" de arriba — mismos valores
+   finales ya confirmados ahí (gradiente .55/.42/.48 sin tinte,
+   stdDeviation:17, tamaño/inset 50px/-24px/22px, jiggle de 10 puntos/
+   1.4s, aparición pura por hover sin idle timer, ocultamiento por
+   click) — con prefijo `nuevo-cliente-` en vez de `nueva-venta-`
+   para no colisionar clases, y filtros SVG DUPLICADOS
+   (#nuevo-cliente-goo/#nuevo-cliente-glass, mismo criterio "1 filtro
+   por consumidor" que el resto de filters-menu-glass.svg) en vez de
+   compartidos. Mismo razonamiento/historial que "Nueva Venta" arriba
+   aplica acá — no repetido línea por línea, ver esos comentarios
+   para el porqué de cada valor. Único cambio real respecto al
+   original de "Nuevo Cliente": dejó de usar <WaterButton> (mismo
+   diagnóstico que en Nueva Venta — el relleno que "sube" en hover
+   competía visualmente con el metaball), reemplazado por
+   .nuevo-cliente-content, igual que allá. */
+.ca-glass-btn.btn-primary.nuevo-cliente-btn {
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  filter: none;
+  box-shadow: none;
+  z-index: 2;
+}
+/* .ca-glass-btn.btn-primary (arriba en este archivo) trae su propio
+   :hover con box-shadow — 2 clases + :hover, más específico que un
+   :hover de una sola clase. Se necesitan las 3 clases juntas + :hover
+   para ganarle de forma confiable (no por orden de carga). */
+.ca-glass-btn.btn-primary.nuevo-cliente-btn:hover {
+  background: transparent;
+  box-shadow: none;
+}
+.nuevo-cliente-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+.nuevo-cliente-metaball-wrap {
+  position: relative;
+  display: flex;
+}
+.nuevo-cliente-glass-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  backdrop-filter: url(#nuevo-cliente-glass);
+  -webkit-backdrop-filter: url(#nuevo-cliente-glass);
+  filter: drop-shadow(0px 0px 42px rgba(0, 0, 0, 0.58));
+  box-shadow: inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32);
+}
+/* [CAMBIADO] inset sincronizado con Nueva Venta (-24px→-18px). */
+.nuevo-cliente-liquid-layer {
+  position: absolute;
+  inset: -18px;
+  z-index: 1;
+  filter: url(#nuevo-cliente-goo);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.nuevo-cliente-metaball-wrap.is-hovering .nuevo-cliente-liquid-layer {
+  opacity: 0.55;
+}
+/* Misma especificidad que la regla de arriba (3 clases cada una) —
+   gana por venir DESPUÉS en la hoja de estilos, no por ser más
+   específica (ver nota igual en el bloque de Nueva Venta). */
+.nuevo-cliente-metaball-wrap.is-pressed .nuevo-cliente-liquid-layer {
+  opacity: 0;
+}
+/* [CAMBIADO — sincronizado con Nueva Venta: blanco a negro, mismo
+   alfa de base .48, box-shadow en vez de radial-gradient] */
+.nuevo-cliente-liquid-anchor,
+.nuevo-cliente-cursor-blob {
+  background: rgba(0, 0, 0, 0.48);
+  box-shadow:
+    inset 6px 6px 8px rgba(0, 0, 0, 0.5),
+    inset -5px -5px 8px rgba(60, 60, 70, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+/* [CAMBIADO] inset sincronizado con Nueva Venta (22px→20px). */
+.nuevo-cliente-liquid-anchor {
+  position: absolute;
+  inset: 20px;
+  border-radius: 12px;
+  animation: nuevo-cliente-liquid-float 6s ease-in-out infinite;
+}
+@keyframes nuevo-cliente-liquid-float {
+  0%   { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(3px, -4px) scale(1.03); }
+  50%  { transform: translate(-2px, 3px) scale(0.97); }
+  75%  { transform: translate(-4px, -2px) scale(1.02); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+/* [CAMBIADO] tamaño sincronizado con Nueva Venta (50px→40px). */
+.nuevo-cliente-cursor-blob {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.15s ease-out, opacity 0.2s ease-out;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nuevo-cliente-liquid-anchor,
+  .nuevo-cliente-cursor-blob {
+    display: none;
+  }
+  .nuevo-cliente-liquid-anchor {
+    animation: none;
+  }
+}
+.nuevo-cliente-metaball-wrap.is-jiggling {
+  animation: nuevo-cliente-jiggle 1.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes nuevo-cliente-jiggle {
+  0%   { transform: scale(1, 1); }
+  10%  { transform: scale(0.82, 1.18); }
+  20%  { transform: scale(1.15, 0.85); }
+  30%  { transform: scale(0.90, 1.10); }
+  40%  { transform: scale(1.08, 0.92); }
+  50%  { transform: scale(0.95, 1.05); }
+  60%  { transform: scale(1.04, 0.96); }
+  70%  { transform: scale(0.98, 1.02); }
+  80%  { transform: scale(1.02, 0.98); }
+  90%  { transform: scale(0.99, 1.01); }
+  100% { transform: scale(1, 1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nuevo-cliente-metaball-wrap.is-jiggling {
+    animation: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE — 3 formatos, breakpoints oficiales del proyecto (ver
+   src/styles/responsive.css).
+
+   Desktop (default, sin @media): buscador + botones en fila.
+   Tablet: .ca-toolbar-actions baja de línea sola cuando no entra —
+   flex-wrap + min-width en .ca-search-card ya lo resuelven sin CSS
+   extra (no hace falta un @media de tablet acá).
+   Mobile: buscador arriba a full width, botones apilados debajo,
+   también full width.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* [NUEVO] Título centrado respecto al ancho TOTAL de la página — vive
+   fuera del maxWidth:1040 que usa el resto del contenido (ver
+   ControlAcceso.jsx), por eso alcanza con text-align:center acá,
+   ningún tamaño de fuente cambia. */
+.ca-header-title {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* .ca-search-actions-row vive fuera del maxWidth:1040 a propósito:
+   .ca-toolbar-actions necesita medir su right (130px) contra el ancho
+   TOTAL de la página, no contra un contenedor angosto — si el ancho de
+   referencia fuera de 1040px nomás, los botones caerían encima del
+   buscador en vez de a su derecha. El buscador (.ca-toolbar) también
+   se centra dentro de este mismo ancho total, con margin:0 auto — así
+   queda alineado al mismo centro que el título. */
+.ca-search-actions-row {
+  position: relative;
+  margin-bottom: 20px;
+}
+/* [CAMBIADO — centrado + más angosto] Antes max-width:860px pegado a
+   la izquierda (ancho de siempre, sin centrar). Ahora más angosto y
+   centrado con margin:0 auto dentro de .ca-search-actions-row (que es
+   full-width — ver arriba —, mismo ancho de referencia que usa el
+   título para centrarse). */
+/* [CAMBIADO — bug de superposición preexistente] max-width fijo de
+   480px hacía que, entre ~1024px y ~1120px de ancho (todavía dentro
+   del rango "desktop" oficial), el buscador centrado en el ancho
+   TOTAL alcanzara a meterse debajo de los botones Nueva Venta/Nuevo
+   Cliente (anclados a right:130px, ver .ca-toolbar-actions) — se
+   verificó con capturas reales, el texto del placeholder quedaba
+   tapado. min() lo achica SOLO cuando hace falta (pantallas angostas)
+   — en desktop ancho (~1120px+) sigue exactamente en 480px, sin
+   cambio visual. max() adentro pone un piso de 260px (mismo valor que
+   min-width de .ca-search-card, la caja del input adentro) — sin esto,
+   calc(100vw - 640px) se vuelve NEGATIVO por debajo de 640px de ancho
+   (todo el rango tablet/mobile), lo que rompe max-width por completo
+   (confirmado con medición real: .ca-toolbar colapsaba a width:0). */
+.ca-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  max-width: min(480px, max(260px, calc(100vw - 640px)));
+  margin: 0 auto;
+  position: relative;
+}
+.ca-search-card {
+  flex: 1;
+  min-width: 260px;
+}
+/* Botones — apilados verticalmente, fijos a 130px del borde derecho de
+   .ca-search-actions-row (antes 200px — se pidió más pegado al borde),
+   en la misma altura vertical (top:0) donde ya estaba la fila del
+   buscador — ni el tamaño ni la fila/columna interna de cada botón
+   individual cambian. */
+.ca-toolbar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: absolute;
+  top: 0;
+  right: 130px;
+}
+
+/* [NUEVO] Fila de la card de cliente — full-width y centrada (fuera del
+   maxWidth:1040 de "resto de la página", mismo ancho de referencia que
+   usa el buscador) para que el margin:0 auto de ClienteCard.jsx tenga
+   espacio real donde centrarse. ClienteCard.jsx (tamaño, padding, todo
+   lo compactado) no se toca. */
+.ca-cliente-card-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* [NUEVO] Mismo arreglo para el estado vacío ("Escribe para buscar un
+   cliente...") — full-width fuera del maxWidth:1040 para centrarse
+   contra el ancho total de la página. El bloque de adentro (ícono +
+   textos, tamaño/color/padding) no se tocó. */
+.ca-empty-state-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 599px) {
+  /* En mobile no hay espacio para "200px del borde derecho" sin que
+     los botones se salgan de la pantalla o se superpongan — vuelven al
+     flujo normal, apilados debajo del buscador a ancho completo (mismo
+     comportamiento de mobile que ya tenía la página). */
+  .ca-toolbar-actions {
+    position: static;
+    width: 100%;
+  }
+  .ca-toolbar { flex-direction: column; align-items: stretch; max-width: none; }
+  .ca-search-card { width: 100%; min-width: 0; }
+  .ca-toolbar-actions .ca-glass-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  /* .nueva-venta-metaball-wrap reemplazó al botón como flex item
+     directo de .ca-toolbar-actions (ver METABALL en este archivo) —
+     necesita su propio width:100% acá para que el ancho completo se
+     siga repartiendo igual que antes (el botón adentro ya se estira
+     con flex:1, ver ControlAcceso.jsx). Mismo motivo para
+     .nuevo-cliente-metaball-wrap — ahora también es un wrap, no el
+     botón directo. */
+  .nueva-venta-metaball-wrap,
+  .nuevo-cliente-metaball-wrap {
+    width: 100%;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   VENTA RÁPIDA / DATOS DEL COMPROBANTE — vidrio del modal completo.
+
+   [CORREGIDO — parpadeo/luz que sigue al cursor/destellos rojo-azul]
+   .vr-glass-card ya NO usa el motor JS (GlassMaterial vía
+   useGlassButton/glass.js) — por eso no lleva ".glass-root" (esa
+   clase la agregaba el JS, que ya no se instancia, ver
+   ControlAcceso.jsx). Vidrio 100% ESTÁTICO, mismo patrón que
+   .user-dropdown-panel/.ca-results-card: un solo backdrop-filter con
+   #dropdown-glass, sin luz que reaccione al cursor ni instancia que
+   crear/destruir — así no hay parpadeo ni destello rojo/azul (ese
+   destello era el --rainbow-opacity/--rainbow-offset del motor).
+   ══════════════════════════════════════════════════════════════════ */
+.vr-glass-card {
+  position: relative;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
+}
+
+/* Inputs — mismo tratamiento que los del login: fondo sólido oscuro
+   (no el vidrio translúcido en sí, para que el texto tecleado no
+   compita con la distorsión de detrás), texto/placeholder 100%
+   sólidos. Mismos valores que .ca-search-card .gym-input.
+   Foco en blanco sutil, NUNCA rojo — selector de 2 clases (en vez de
+   depender del orden de imports) para ganarle con certeza a
+   .gym-input:focus (index.css), que trae borde rojo por defecto. */
+.vr-input {
+  background: rgba(14, 15, 19, 0.55);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+}
+.vr-input::placeholder {
+  color: #9a9ca3;
+}
+.gym-input.vr-input:focus {
+  background: rgba(14, 15, 19, 0.7);
+  border-color: rgba(255, 255, 255, 0.3);
+  outline: none;
+  box-shadow: none;
+}
+
+/* Botones — misma ESTRUCTURA DOM que "INICIAR SESIÓN" del login
+   (button.glass-root.glass--regular > div.glass-material con sus 3
+   glass-layer [fill/specular/rainbow] > div.glass-content con el
+   texto), copiada tal cual del motor GlassMaterial
+   (glass-engine/core/glass.js: wrapContent()+buildLayers()) — ver
+   VrGlassButton en ControlAcceso.jsx, que arma este HTML a mano.
+   SIGUE sin instanciar el motor JS (useGlassButton): las variables
+   --light-intensity/--rainbow-opacity/--rainbow-offset/
+   --border-intensity/--press que glass.css (CORE, glass-root/
+   glass-layer--specular/glass-layer--rainbow) lee vía var(...) quedan
+   FIJAS acá abajo en vez de ser animadas cada frame por un loop de
+   rAF que sigue al cursor — eso es lo que elimina el parpadeo/brillo
+   que se mueve, sin perder el material (blur, tinte, refracción,
+   specular, drop-shadow, inset box-shadow). .vr-glass-btn--active
+   distingue el estado seleccionado (monto rápido) con borde/tinte
+   blanco más marcado — nunca con un color de fondo distinto.
+   Selector repetido con ".glass-root" para ganarle con certeza a
+   .glass-root (glass.css) sin depender del orden de imports — mismo
+   criterio ya usado en el resto de este archivo. */
+.vr-glass-btn,
+.vr-glass-btn.glass-root {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  filter: drop-shadow(0px 0px 42px rgba(0, 0, 0, 0.58));
+  box-shadow: inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32);
+  cursor: pointer;
+  /* Fade del borde/fondo al pasar a estado --active (monto rápido /
+     método de pago seleccionado) — sigue, no es parte del efecto agua
+     (eso sí se revirtió, ver abajo — ya NO hay position/overflow/
+     isolation acá, volvió al estado previo al agua). */
+  transition: all 200ms ease-out;
+}
+.vr-glass-btn.glass-root {
+  /* --glass-blur en 14px iguala el blur del botón de login (Login.css)
+     — más marcado que el --glass-blur:10px compartido por defecto
+     (glass-engine/variables.css), pensado para superficies grandes. */
+  --glass-blur: 14px;
+  --light-intensity: 0.4;
+  --rainbow-opacity: 0;
+  --rainbow-offset: 0px;
+  --border-intensity: 0.25;
+  --press: 0;
+  /* .glass-root (CORE) trae border-radius:var(--glass-radius) = 999px
+     (pensado para la burbuja/píldora del menú) — acá se pisa con un
+     valor de botón normal; los botones que ya pasan su propio
+     borderRadius por inline style (la mayoría) lo siguen ganando, ya
+     que un style prop de React siempre gana sobre una regla de clase. */
+  border-radius: 10px;
+}
+.vr-glass-btn.glass-root .glass-layer--fill {
+  /* Mismos filtros SVG que el motor JS aplicaría (channel "button", ver
+     syncRefractionFilters() en glass.js + public/svg/filters.svg) —
+     puestos acá directo por CSS, sin JS, así que quedan en su posición/
+     escala ESTÁTICA de fábrica (fePointLight x=.5/y=.3, feDisplacementMap
+     scale=16) en vez de seguir al cursor en tiempo real. */
+  filter: url(#glass-refraction-button) url(#glass-specular-button);
+}
+.vr-glass-btn:hover,
+.vr-glass-btn.glass-root:hover {
+  background: transparent;
+}
+.vr-glass-btn--active,
+.vr-glass-btn--active.glass-root {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+}
+.vr-glass-btn--active:hover,
+.vr-glass-btn--active.glass-root:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.vr-glass-btn:disabled {
+  cursor: not-allowed;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CASILLEROS (FASE 3) — bloque del panel izquierdo, montado solo con
+   el módulo 'casilleros' activo (ver PanelCasilleros/return en
+   ControlAcceso.jsx: con el módulo apagado se devuelve `contenido`
+   sin ningún wrapper nuevo — el DOM queda idéntico al de antes de
+   esta fase).
+
+   Mismo criterio de anidamiento de backdrop-filter que el resto de
+   este archivo: UN solo nivel con distorsión real — el contenedor
+   .ca-side-panel (igual patrón que .vr-glass-card, arriba) — sus
+   hijos (grid de llaves, filas "en uso ahora") llevan fondo sólido
+   translúcido SIN backdrop-filter propio, para no repetir el
+   conflicto de anidamiento de Chromium ya documentado en este mismo
+   archivo (ver .ca-results-card/.ca-result-item). Texto 100% sólido
+   con text-shadow (mismos valores que .ca-result-item) por la regla
+   de letra grande y sólida sobre vidrio.
+   ══════════════════════════════════════════════════════════════════ */
+/* [CAMBIADO — bug del corrimiento] .ca-layout-split ya NO reparte el
+   ancho con flex entre panel y contenido (eso era lo que empujaba el
+   buscador/título hacia la derecha al activar el módulo). Ahora es
+   solo un contenedor relative — el ancho real de referencia para
+   centrar el contenido sigue siendo el mismo width:100% de siempre,
+   esté o no esté montado el panel. .ca-panel-col se saca del flujo
+   con position:absolute anclado a la izquierda: ocupa su propio
+   espacio SIN restarle ancho a .ca-main-col. */
+.ca-layout-split {
+  position: relative;
+  width: 100%;
+}
+.ca-main-col {
+  width: 100%;
+  min-width: 0;
+}
+.ca-panel-col {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  z-index: 5;
+}
+
+.ca-side-panel {
+  position: relative;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+/* [NUEVO — bug de superposición en tablet] Botón/ícono que colapsa el
+   panel en el rango 600-1023px (ver @media más abajo) — en desktop y
+   mobile no se muestra nunca (display:none acá), el panel se sigue
+   viendo completo como siempre. .ca-panel-flyout envuelve
+   PanelCasilleros (el contenido real, sin tocar su propio CSS) para
+   poder ocultarlo/mostrarlo sin tocar .ca-side-panel. */
+.ca-panel-toggle {
+  display: none;
+}
+.ca-panel-flyout {
+  display: block;
+}
+.ca-panel-backdrop {
+  display: none;
+}
+
+.ca-key-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ca-key-btn {
+  min-width: 38px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.ca-key-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.ca-key-btn:disabled {
+  cursor: not-allowed;
+}
+
+.ca-key-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.ca-key-row + .ca-key-row {
+  margin-top: 6px;
+}
+.ca-key-row--alerta {
+  border-color: oklch(0.75 0.18 25 / .5);
+  background: oklch(0.75 0.18 25 / .1);
+}
+
+/* Breakpoints oficiales del proyecto (ver src/styles/responsive.css)
+
+   [CAMBIADO — bug de superposición] En este rango el panel fijo de
+   240px (position:absolute, igual que desktop) se comía buena parte
+   del buscador/card centrados — a este ancho ocupan casi toda la
+   pantalla, así que 240px flotando desde la izquierda tapaba su mitad
+   izquierda. Acá el panel YA NO se muestra siempre abierto: colapsa a
+   un botón circular (.ca-panel-toggle, 44px) y el contenido real
+   (.ca-panel-flyout) se oculta por default — se abre bajo demanda como
+   flotante (position:absolute, por encima de todo con z-index) al
+   tocar el botón, y un backdrop invisible de pantalla completa lo
+   cierra al tocar afuera. Ver panelCasillerosAbierto en
+   ControlAcceso.jsx. */
+@media (max-width: 1023px) and (min-width: 600px) {
+  .ca-panel-col {
+    width: auto;
+  }
+  .ca-panel-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: transparent;
+    backdrop-filter: url(#dropdown-glass);
+    -webkit-backdrop-filter: url(#dropdown-glass);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    cursor: pointer;
+    filter: drop-shadow(0px 0px 24px rgba(0, 0, 0, 0.5));
+  }
+  .ca-panel-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  /* [CAMBIADO — Fase 2 animaciones, punto 2] display:none/block
+     instantáneo → opacity+scale con transición. Se queda SIEMPRE
+     position:absolute (no solo cuando .ca-panel-abierto) para no
+     afectar el layout de .ca-panel-col (que en este rango mide solo
+     el botón toggle, width:auto) tanto abierto como cerrado.
+     pointer-events:none mientras está cerrado — invisible pero, sin
+     esto, seguiría siendo clickeable por estar ahí con opacity:0. */
+  .ca-panel-flyout {
+    display: block;
+    position: absolute;
+    top: 52px;
+    left: 0;
+    width: 240px;
+    z-index: 60;
+    opacity: 0;
+    transform: scale(0.95);
+    pointer-events: none;
+    transition: opacity 200ms ease-out, transform 200ms ease-out;
+  }
+  .ca-panel-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: transparent;
+  }
+  .ca-panel-abierto .ca-panel-flyout {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+
+  /* [CAMBIADO — bug de superposición preexistente, no relacionado a
+     casilleros] Nueva Venta/Nuevo Cliente colgaban de right:130px
+     (position:absolute) sobre la MISMA fila del buscador — en este
+     rango el buscador centrado (aun angostado por el min() de arriba)
+     ya no deja 130px libres antes del borde, así que el botón quedaba
+     ENCIMA del buscador tapando parte del texto (confirmado con
+     captura real). Bajan al flujo normal, debajo del buscador,
+     centrados en fila — mismo criterio que ya usaba mobile (más
+     abajo), solo que acá quedan lado a lado en vez de apilados
+     verticalmente porque en este ancho sí entran los dos juntos. */
+  .ca-toolbar-actions {
+    position: static;
+    flex-direction: row;
+    justify-content: center;
+    width: 100%;
+    margin-top: 10px;
+  }
+}
+@media (max-width: 599px) {
+  /* Mobile: el panel deja de flotar (position:absolute) y vuelve al
+     flujo normal, apilado ARRIBA del contenido central — es primero
+     en el DOM (ver ControlAcceso.jsx), así que basta con
+     position:static para que aparezca antes que .ca-main-col sin
+     superponerse ni recortar nada. */
+  .ca-panel-col {
+    position: static;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+}

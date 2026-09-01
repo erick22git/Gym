@@ -1,0 +1,106 @@
+/* ─── PRUEBA ÚNICA — Parte C (ronda de animaciones): sistema de
+   líquido premium SOLO para "Registrar Venta" (LiquidVentaButton.jsx).
+   Todo vive bajo .rv-liquid-btn/.rv-*, clases que NINGÚN otro botón
+   usa — no toca .vr-glass-btn ni ninguna otra regla compartida.
+   .glass-root ya trae position:relative + isolation:isolate (ver
+   glass-engine/glass.css) — acá solo se agrega lo que falta:
+   overflow:hidden, para que el ripple quede contenido dentro del
+   borde redondeado del botón ("absorbido en el borde", no cortado
+   de golpe: el propio fade de opacity hace que ya casi no quede
+   nada visible para cuando toca el borde). ────────────────────── */
+
+.rv-liquid-btn {
+  overflow: hidden;
+}
+
+/* Sheen reactivo al cursor — capa 100% compositor (opacity/background
+   con gradiente posicional). La posición (--rv-x/--rv-y) y la fuerza
+   (--rv-strength, 0..1 según velocidad del cursor) las escribe el
+   componente vía ref.style.setProperty(), throttleado a 1 vez por
+   frame con requestAnimationFrame — nunca por React state/re-render. */
+.rv-sheen {
+  position: absolute;
+  inset: 0;
+  /* [FIX — verificado en Electron real] .glass-material vive en
+     z-index:var(--z-glass)=5 (glass-engine/glass.css) — con z-index:1
+     esta capa quedaba TAPADA por el material, invisible pese a
+     animar bien. 10 la sube por encima del material y la deja por
+     debajo de .glass-content (z-index:var(--z-content)=20, el texto). */
+  z-index: 10;
+  pointer-events: none;
+  opacity: var(--rv-sheen-opacity, 0);
+  transition: opacity 200ms ease-out;
+  background: radial-gradient(
+    140px circle at var(--rv-x, 50%) var(--rv-y, 50%),
+    rgba(255, 255, 255, calc(0.09 + 0.18 * var(--rv-strength, 0))) 0%,
+    transparent 70%
+  );
+}
+
+.rv-ripple-layer {
+  position: absolute;
+  inset: 0;
+  /* mismo fix de apilamiento que .rv-sheen — ver comentario ahí. */
+  z-index: 10;
+  pointer-events: none;
+}
+
+.rv-ripple-ring {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+
+/* [FIX — verificado en Electron real] con alpha 0.5/0.16 en el
+   gradiente, el pico visible real (alpha del gradiente × opacity del
+   motion.div) rondaba ~0.1 — se confirmó con un círculo rojo inyectado
+   a mano en el mismo layer/z-index que SÍ se vio perfectamente, así
+   que el problema no era apilamiento sino intensidad: contra el
+   propio highlight cálido del material de vidrio del botón, ese ~10%
+   de blanco se perdía por completo. Subido a 0.72/0.28 — más notorio
+   pero sigue siendo un glow suave, no una capa opaca. */
+.rv-ripple-main {
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.72) 0%,
+    rgba(255, 255, 255, 0.28) 45%,
+    transparent 72%
+  );
+}
+
+/* Reflejo especular que viaja con la onda — un anillo fino, no un
+   círculo relleno, mix-blend-mode:screen para que quede casi
+   imperceptible sobre el material en vez de "pintar" una capa opaca. */
+.rv-ripple-specular {
+  mix-blend-mode: screen;
+  background: radial-gradient(
+    circle,
+    transparent 56%,
+    rgba(255, 255, 255, 0.75) 61%,
+    transparent 66%
+  );
+}
+
+.rv-ripple-echo {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 68%);
+}
+
+/* Sin position/z-index propios: .glass-content (glass-engine/glass.css)
+   ya trae position:relative + z-index:var(--z-content)=20 — por encima
+   de .rv-sheen/.rv-ripple-layer (10) y de .glass-material (5). Declarar
+   acá otro z-index hubiera competido en especificidad igual contra esa
+   regla y dependido del orden de carga de CSS — mejor no tocarlo.
+
+   Refracción del texto/ícono — se prende ~350ms por click (ver
+   componente), scale muy bajo en el filtro (#rv-ripple-refraction,
+   public/filters-menu-glass.svg) para que nunca se vuelva ilegible. */
+.rv-refracting {
+  filter: url(#rv-ripple-refraction);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-sheen,
+  .rv-ripple-layer {
+    display: none;
+  }
+}

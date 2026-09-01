@@ -8,10 +8,10 @@ let mainWindow
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1024,
-    minHeight: 680,
+    width: 900,
+    height: 700,
+    minWidth: 360,
+    minHeight: 580,
     backgroundColor: '#0a0a0a',
     frame: false,
     titleBarStyle: 'hidden',
@@ -25,15 +25,19 @@ function createWindow() {
       devTools: isDev,                    // F12 deshabilitado en producción
       spellcheck: false,
     },
-    title: 'URBAN FITNESS CLUB',
+    title: 'GIMNASIO',
     icon: fs.existsSync(path.join(__dirname, '../build/icon.ico'))
       ? path.join(__dirname, '../build/icon.ico')
-      : path.join(__dirname, '../public/logo.jpg'),
+      : path.join(__dirname, '../public/logo.png'),
   })
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
+    // TEMP-DEBUG — diagnóstico doble burbuja, quitar después de la prueba
+    mainWindow.webContents.on('console-message', (event, level, message) => {
+      console.log('[renderer]', message)
+    })
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
 
@@ -52,6 +56,10 @@ function createWindow() {
     // Bloquear apertura de ventanas nuevas externas
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   }
+
+  mainWindow.on('closed', () => { mainWindow = null })
+
+  return mainWindow
 }
 
 app.whenReady().then(async () => {
@@ -121,13 +129,35 @@ app.on('window-all-closed', () => {
 
 // ─── IPC Handlers ───────────────────────────────────────────────────────────
 
-// Window controls
-ipcMain.handle('window:minimize', () => mainWindow.minimize())
-ipcMain.handle('window:maximize', () => {
-  if (mainWindow.isMaximized()) mainWindow.unmaximize()
-  else mainWindow.maximize()
+// Window controls — dirigidos a la ventana que MANDÓ el mensaje (event.sender),
+// no a un mainWindow fijo. MinimalWindowBar (login) y TitleBar (app
+// autenticada) llaman a estos MISMOS canales desde ventanas distintas.
+ipcMain.handle('window:minimize', (event) => BrowserWindow.fromWebContents(event.sender)?.minimize())
+ipcMain.handle('window:maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) return
+  if (win.isMaximized()) win.unmaximize()
+  else win.maximize()
 })
-ipcMain.handle('window:close', () => mainWindow.close())
+ipcMain.handle('window:close', (event) => BrowserWindow.fromWebContents(event.sender)?.close())
+
+// Redimensionan la MISMA ventana (login ↔ app autenticada) — nunca crean
+// ni cierran ventanas. Ver AuthContext.jsx.
+ipcMain.on('window:enter-app-mode', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) return
+  win.setMinimumSize(360, 580)
+  win.setSize(1280, 800)
+  win.center()
+})
+
+ipcMain.on('window:enter-login-mode', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) return
+  win.setMinimumSize(360, 580)
+  win.setSize(900, 700)
+  win.center()
+})
 
 // Clientes
 ipcMain.handle('clientes:getAll', () => require('./database.cjs').clientes.getAll())
@@ -260,6 +290,7 @@ ipcMain.handle('ventas:getPaginated', (_, filtros) => require('./database.cjs').
 ipcMain.handle('ventas:getById', (_, id) => require('./database.cjs').ventas.getById(id))
 ipcMain.handle('ventas:getKPIs', (_, filtros) => require('./database.cjs').ventas.getKPIs(filtros))
 ipcMain.handle('ventas:anular', (_, id) => require('./database.cjs').ventas.anular(id))
+ipcMain.handle('ventas:setCliente', (_, id, nombre, carnet) => require('./database.cjs').ventas.setCliente(id, nombre, carnet))
 
 // Descuentos
 ipcMain.handle('descuentos:getAll', () => require('./database.cjs').descuentos.getAll())
@@ -274,7 +305,7 @@ ipcMain.handle('pos:saveConfig', (_, data) => require('./database.cjs').configur
 ipcMain.handle('pos:getPrinters', (event) => event.sender.getPrinters())
 ipcMain.handle('pos:testPrint', (_, printerName) => new Promise(resolve => {
   const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } })
-  win.loadURL('data:text/html,<!DOCTYPE html><html><body style="font-family:monospace;padding:20px"><h2>Test de Impresión</h2><p>Urban Fitness Club</p><p>Si ves esto, la impresora funciona correctamente.</p><p>' + new Date().toLocaleString('es-BO') + '</p></body></html>')
+  win.loadURL('data:text/html,<!DOCTYPE html><html><body style="font-family:monospace;padding:20px"><h2>Test de Impresión</h2><p>Gimnasio</p><p>Si ves esto, la impresora funciona correctamente.</p><p>' + new Date().toLocaleString('es-BO') + '</p></body></html>')
   win.webContents.once('did-finish-load', () => {
     win.webContents.print({ silent: true, deviceName: printerName, printBackground: false }, (success, reason) => {
       win.destroy()
@@ -383,8 +414,8 @@ ipcMain.handle('respaldos:listar', () => {
 ipcMain.handle('respaldos:exportar', async () => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Guardar respaldo',
-    defaultPath: `urbanfitness_respaldo_${new Date().toISOString().slice(0, 10)}.enc`,
-    filters: [{ name: 'Respaldo UFC', extensions: ['enc'] }],
+    defaultPath: `gimnasio_respaldo_${new Date().toISOString().slice(0, 10)}.enc`,
+    filters: [{ name: 'Respaldo Gimnasio', extensions: ['enc'] }],
   })
   if (result.canceled) return { cancelado: true }
   const db = require('./database.cjs')
@@ -404,7 +435,7 @@ ipcMain.handle('respaldos:exportar', async () => {
 ipcMain.handle('respaldos:seleccionarArchivo', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Seleccionar respaldo',
-    filters: [{ name: 'Respaldo UFC', extensions: ['enc', 'json'] }],
+    filters: [{ name: 'Respaldo Gimnasio', extensions: ['enc', 'json'] }],
     properties: ['openFile'],
   })
   if (result.canceled) return null
@@ -490,8 +521,8 @@ ipcMain.handle('recibos:generarPDF', async (_, venta) => {
       doc.pipe(stream)
       const M = isTicket ? 10 : 24
       let y = M
-      const gymNombre = posConfig.gym_nombre || 'Urban Fitness Club'
-      const logoPath = path.join(__dirname, '../public/logo.jpg')
+      const gymNombre = posConfig.gym_nombre || 'Gimnasio'
+      const logoPath = path.join(__dirname, '../public/logo.png')
       if ((config.mostrar_logo !== 0) && fs.existsSync(logoPath)) {
         try { doc.image(logoPath, W/2 - 20, y, { height: 30 }); y += 34 } catch { y += 8 }
       }
@@ -579,8 +610,8 @@ ipcMain.handle('recibos:guardarPDF', async (_, venta) => {
     const W = isTicket ? 226 : (formato === 'carta' ? 612 : 396)
     const M = isTicket ? 10 : 24
     let y = M
-    const gymNombre = posConfig.gym_nombre || 'Urban Fitness Club'
-    const logoPath = path.join(__dirname, '../public/logo.jpg')
+    const gymNombre = posConfig.gym_nombre || 'Gimnasio'
+    const logoPath = path.join(__dirname, '../public/logo.png')
     const pdfPath = path.join(PDFS_DIR, `recibo_${venta.numero||Date.now()}.pdf`)
     await new Promise((res, rej) => {
       const doc = new PDFDocument({ size: [W, 800], margin: 0 })
@@ -668,6 +699,16 @@ ipcMain.handle('promociones:update',    (_, id, data) => require('./database.cjs
 ipcMain.handle('promociones:delete',    (_, id) => require('./database.cjs').promociones.delete(id))
 ipcMain.handle('promociones:setActivo',    (_, id, activo) => require('./database.cjs').promociones.setActivo(id, activo))
 ipcMain.handle('promociones:getProductos', (_, id) => require('./database.cjs').promociones.getProductos(id))
+
+// Casilleros
+ipcMain.handle('casilleros:getStats',      () => require('./database.cjs').casilleros.getStats())
+ipcMain.handle('casilleros:getPaginated',  (_, filtros) => require('./database.cjs').casilleros.getPaginated(filtros))
+ipcMain.handle('casilleros:crearRango',    (_, desde, hasta) => require('./database.cjs').casilleros.crearRango(desde, hasta))
+ipcMain.handle('casilleros:marcarPerdida', (_, id) => require('./database.cjs').casilleros.marcarPerdida(id))
+ipcMain.handle('casilleros:getDisponibles',      () => require('./database.cjs').casilleros.getDisponibles())
+ipcMain.handle('casilleros:getAsignadasActivas', () => require('./database.cjs').casilleros.getAsignadasActivas())
+ipcMain.handle('casilleros:asignar',  (_, casilleroId, clienteId, usuarioId) => require('./database.cjs').casilleros.asignar(casilleroId, clienteId, usuarioId))
+ipcMain.handle('casilleros:devolver', (_, casilleroId) => require('./database.cjs').casilleros.devolver(casilleroId))
 
 // Open file dialog for photo
 ipcMain.handle('dialog:openImage', async () => {

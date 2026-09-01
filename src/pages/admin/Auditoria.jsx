@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { Select } from '../../components/ui/Select'
 import Pagination from '../../components/ui/Pagination'
+import '../Clients.css'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -90,18 +91,19 @@ function FilaRegistro({ reg }) {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       style={{
-        background: 'var(--glass)',
-        border: '1px solid var(--line)',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
         borderLeft: `3px solid ${meta.color}`,
         borderRadius: 10,
         overflow: 'hidden',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .07), 0 0 10px 1px oklch(1 0 0 / .04), 0 14px 34px oklch(0 0 0 / .35)',
       }}
     >
       <button
         onClick={() => setAbierto(v => !v)}
+        className="clientes-action-icon"
         style={{
-          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
-          padding: '10px 14px',
+          width: '100%', padding: '10px 14px', borderRadius: 0,
           display: 'grid',
           gridTemplateColumns: '28px 1fr 140px 120px 24px',
           alignItems: 'center', gap: 10, textAlign: 'left',
@@ -109,28 +111,28 @@ function FilaRegistro({ reg }) {
       >
         <div style={{
           width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-          background: `${meta.color}18`, border: `1px solid ${meta.color}30`,
+          background: meta.color.replace(')', ' / .15)'), border: `1px solid ${meta.color.replace(')', ' / .3)')}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Icon size={13} color={meta.color} />
         </div>
 
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{meta.label}</div>
-          <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{meta.label}</div>
+          <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 1, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             {reg.usuario_nombre || 'Sistema'} · {MODULOS_LABEL[reg.modulo] || reg.modulo}
           </div>
         </div>
 
-        <div style={{ fontSize: 11, color: 'var(--dim)', textAlign: 'right', lineHeight: 1.4 }}>
+        <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textAlign: 'right', lineHeight: 1.4, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
           {fmtFecha(reg.fecha)}
         </div>
 
-        <div style={{ fontSize: 11, color: 'var(--dim)', textAlign: 'right' }}>
+        <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textAlign: 'right', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
           {reg.ip_local || '—'}
         </div>
 
-        <div style={{ color: 'var(--dim)' }}>
+        <div style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>
           {abierto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </div>
       </button>
@@ -150,14 +152,14 @@ function FilaRegistro({ reg }) {
               paddingTop: 10,
             }}>
               {reg.detalle ? (
-                <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
+                <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.6, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                   {reg.detalle}
                 </div>
               ) : (
-                <div style={{ fontSize: 11, color: 'var(--dim)', fontStyle: 'italic' }}>Sin detalles adicionales</div>
+                <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', fontStyle: 'italic', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Sin detalles adicionales</div>
               )}
               {reg.registro_afectado_tipo && reg.registro_afectado_id && (
-                <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 4, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                   Registro: {reg.registro_afectado_tipo} #{reg.registro_afectado_id}
                 </div>
               )}
@@ -190,14 +192,15 @@ function Filtros({ filtros, onChange, onLimpiar, usuarios }) {
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
       <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 180 }}>
-        <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)' }} />
+        <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.88 0.01 250 / .85)', pointerEvents: 'none', zIndex: 1 }} />
         <input
           placeholder="Buscar acción, usuario o detalle..."
           value={filtros.busqueda}
           onChange={e => onChange({ ...filtros, busqueda: e.target.value })}
           style={{
-            width: '100%', background: 'var(--glass)', border: '1px solid var(--line)',
-            borderRadius: 8, padding: '7px 10px 7px 30px', fontSize: 12, color: 'var(--ink)',
+            width: '100%', background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)',
+            borderRadius: 8, padding: '7px 10px 7px 30px', fontSize: 12, color: 'oklch(0.97 0.01 250)',
+            textShadow: '0 1px 2px rgba(0,0,0,0.6)',
             outline: 'none',
           }}
         />
@@ -235,8 +238,9 @@ function Filtros({ filtros, onChange, onLimpiar, usuarios }) {
         value={filtros.desde}
         onChange={e => onChange({ ...filtros, desde: e.target.value })}
         style={{
-          background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 8,
-          padding: '7px 10px', fontSize: 12, color: filtros.desde ? 'var(--ink)' : 'var(--dim)',
+          background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)', borderRadius: 8,
+          padding: '7px 10px', fontSize: 12, color: filtros.desde ? 'oklch(0.97 0.01 250)' : 'oklch(0.88 0.01 250 / .85)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
           outline: 'none', cursor: 'pointer',
         }}
       />
@@ -246,8 +250,9 @@ function Filtros({ filtros, onChange, onLimpiar, usuarios }) {
         value={filtros.hasta}
         onChange={e => onChange({ ...filtros, hasta: e.target.value })}
         style={{
-          background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 8,
-          padding: '7px 10px', fontSize: 12, color: filtros.hasta ? 'var(--ink)' : 'var(--dim)',
+          background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)', borderRadius: 8,
+          padding: '7px 10px', fontSize: 12, color: filtros.hasta ? 'oklch(0.97 0.01 250)' : 'oklch(0.88 0.01 250 / .85)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
           outline: 'none', cursor: 'pointer',
         }}
       />
@@ -255,13 +260,11 @@ function Filtros({ filtros, onChange, onLimpiar, usuarios }) {
       {hayFiltros && (
         <button
           onClick={onLimpiar}
-          style={{
-            background: 'oklch(0.65 0.22 25 / .12)', border: '1px solid oklch(0.65 0.22 25 / .3)',
-            borderRadius: 8, padding: '7px 12px', fontSize: 12, color: 'oklch(0.75 0.15 25)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-          }}
+          className="clientes-glass-btn"
+          style={{ borderRadius: 999, padding: '7px 14px', fontSize: 12 }}
         >
-          <X size={12} /> Limpiar
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content" style={{ color: 'oklch(0.75 0.15 25)' }}><X size={12} /> Limpiar</span>
         </button>
       )}
     </div>
@@ -309,7 +312,7 @@ export default function Auditoria() {
   }
 
   return (
-    <div style={{ padding: '0 2px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="clientes-page" style={{ padding: '0 2px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Header */}
       <div>
         <h1 className="titulo-metalico" style={{ marginBottom: 6 }}>AUDITORÍA DEL SISTEMA</h1>
@@ -332,7 +335,7 @@ export default function Auditoria() {
           <div className="spinner" style={{ margin: '0 auto' }} />
         </div>
       ) : registros.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--dim)', fontSize: 13 }}>
+        <div style={{ textAlign: 'center', padding: 60, color: 'oklch(0.88 0.01 250 / .85)', fontSize: 13 }}>
           No se encontraron registros
         </div>
       ) : (
@@ -342,7 +345,7 @@ export default function Auditoria() {
             display: 'grid',
             gridTemplateColumns: '28px 1fr 140px 120px 24px',
             gap: 10, padding: '0 14px',
-            fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.08em',
+            fontSize: 10, color: 'oklch(0.88 0.01 250 / .85)', textTransform: 'uppercase', letterSpacing: '.08em', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
           }}>
             <div />
             <div>Acción / Usuario</div>

@@ -1,0 +1,183 @@
+/* ============================================================
+   CAJA — fondo con distorsión (#dropdown-glass) + sombra de
+   texto/íconos + animaciones. Ver auditoría/discusión completa
+   en la conversación que originó este archivo.
+   ============================================================ */
+
+/* text-shadow es una propiedad heredada — un solo valor acá cubre
+   TODO el texto de la página (títulos, montos, labels, botones)
+   sin tener que tocar cada estilo inline uno por uno. filter NO se
+   hereda, así que los íconos SVG (lucide-react) necesitan su propio
+   selector.
+   [AJUSTADO — "texto borroso"] backdrop-filter nunca afecta a los
+   hijos de su propio elemento (solo distorsiona lo que hay DETRÁS,
+   nunca el contenido propio) — verificado que ningún texto de Caja
+   vive dentro de un elemento con `filter` (que sí afecta a los
+   hijos; acá todo es `backdrop-filter`, nunca `filter`, excepto el
+   drop-shadow de íconos de abajo, que no difumina). La causa real
+   del "borroneo" percibido: blur-radius:3px de la sombra es GRANDE
+   frente a las etiquetas de 9-10px que abundan en esta página — a
+   ese tamaño una sombra con tanto blur se lee como el propio texto
+   perdiendo nitidez. Bajado a 2px (offset/opacidad sin tocar) —
+   sigue dando profundidad en texto grande, deja de "derretir" el
+   texto chico. */
+.caja-page {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* [NUEVO] La página ya no debe scrollear completa — solo
+   "Movimientos de la sesión" (.caja-movimientos-list) tiene su
+   propio overflow-y:auto. El scroll general venía de .page-content
+   (index.css), un wrapper COMPARTIDO por todas las páginas, así que
+   no se puede tocar ahí sin afectar al resto de la app — :has()
+   lo desactiva SOLO cuando el contenido es esta página. Electron 28
+   corre Chromium 120+, con soporte nativo de :has(). */
+.page-content:has(.caja-page) {
+  overflow-y: hidden;
+}
+.caja-page svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* [NUEVO — uniformado con "Nueva Venta"] Los 18 botones de la página
+   (CajaBtn, ver Caja.jsx) ya traen su propio filter:drop-shadow inline
+   (el mismo valor exacto que .nueva-venta-glass-bg) aplicado sobre TODO
+   el botón — icono+texto juntos, una sola sombra. Sin esto, el ícono
+   SVG de adentro heredaría TAMBIÉN el filter de `.caja-page svg` de
+   arriba (drop-shadow no se hereda, pero el selector de descendiente sí
+   lo alcanza) y quedaría con más sombra que Nueva Venta, que no tiene
+   ningún filter propio en su ícono (todo el filter vive en una capa
+   hermana vacía, nunca toca el ícono). Se anula acá para igualar la
+   CANTIDAD de sombra, no solo el valor. */
+.caja-btn-uniform svg {
+  filter: none;
+}
+
+/* Utilidad reusable — agrega la distorsión ya usada en el dropdown
+   de usuario/Control de Acceso SIN tocar el `background` inline que
+   cada bloque ya trae (el color/tinte que ya tenía se mantiene
+   intacto, este filtro solo distorsiona lo que hay detrás). Vive
+   como clase aparte (no en el `background` inline) para no chocar
+   con los estilos dinámicos de las KPI cards (color por card). */
+/* [DISTORSIÓN — pedido explícito] Antes #dropdown-glass (compartido con
+   el resto de la app). Bajado a #top-clientes-glass (public/filters-
+   menu-glass.svg, stdDeviation 0.02/scale 0.08) — la misma distorsión ya
+   configurada en el Dashboard, para que Caja quede al mismo nivel. */
+.caja-glass-block {
+  backdrop-filter: url(#top-clientes-glass);
+  -webkit-backdrop-filter: url(#top-clientes-glass);
+}
+
+/* [NUEVO — bloques que ERAN opacos] Shells de los 3 modales +
+   panel expandido de Historial: antes `background:oklch(0.14 ...)`
+   sólido (backdrop-filter ahí habría sido invisible — nada pasa a
+   través de un fondo 100% opaco). Mismo patrón ya usado en
+   .vr-glass-card (ControlAcceso.css): transparent + backdrop-filter,
+   con el overlay oscuro (oklch(0 0 0/.6) blur, HERMANO en el DOM,
+   no ancestro — sin conflicto de anidamiento de Chromium) dando el
+   tinte oscuro detrás. */
+/* [AJUSTADO — Cambio 3] antes `background:transparent` puro — se le
+   suma un tinte propio leve (además del overlay oscuro hermano, que
+   también se sube en los 3 modales, ver Caja.jsx) porque el panel
+   expandido de Historial usa esta misma clase SIN overlay detrás (no
+   es un modal, vive en el flujo normal de la página) — sin tinte
+   propio quedaba a merced de lo que hubiera detrás en la página real,
+   no solo del oscurecimiento del overlay. El alpha es bajo a
+   propósito: sigue dejando pasar y ver la distorsión real de
+   #dropdown-glass, no vuelve a ser un bloque opaco. */
+/* [DISTORSIÓN — pedido explícito] Misma baja que .caja-glass-block, a
+   #top-clientes-glass. [OPACIDAD — pedido explícito, "ponle opacidad
+   más"] tinte propio subido de .18 a .28. */
+.caja-glass-shell {
+  background: oklch(0.14 0.015 250 / .28);
+  backdrop-filter: url(#top-clientes-glass);
+  -webkit-backdrop-filter: url(#top-clientes-glass);
+}
+
+/* [Cambio 1] Sombra más marcada que el resto de la página (0 2px 6px/
+   .85 vs. el 0 1px 2px/.6 general de arriba) — "Venta de productos"
+   no era un texto fijo del código, era un concepto real que alguien
+   escribió al registrar un ingreso. Se aplica al CONCEPTO de cada
+   movimiento (Caja.jsx: lista "Movimientos de la sesión" e Historial
+   expandido) — es el dato principal que identifica la fila, se
+   destaca más que fecha/monto/usuario. */
+.caja-emphasis {
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+}
+
+/* [Cambio 1 — ajuste ancho] "Movimientos de la sesión" (CajaAbierta)
+   ocupaba el ancho completo del panel, muy largo para 4 columnas de
+   dato (tipo/concepto/monto/fecha). Centrado con max-width, igual
+   que un contenido de lectura normal. */
+.caja-movimientos {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Fila de movimiento es flex con minWidth/flexShrink:0 en tipo/monto/
+   fecha (Caja.jsx) — el concepto es el único campo flex:1, así que es
+   el que se recorta con ellipsis en vez de forzar overflow o wrap feo
+   al angostar el contenedor. min-width:0 es necesario porque un flex
+   item con flex:1 no se encoge bajo su contenido por default. */
+.caja-movimiento-concepto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* [NUEVO] Scroll interno — mismo fix que .ca-results-card
+   (ControlAcceso.css): antes esta lista no tenía max-height, así que
+   con muchos movimientos crecía sin límite y desplazaba TODA la
+   página en vez de scrollear solo la lista. Aplicado al contenedor
+   de las filas (no a .caja-movimientos completo) para no scrollear
+   también el título "Movimientos de la sesión". */
+.caja-movimientos-list {
+  max-height: 380px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* [RETIRADO — uniformado con "Nueva Venta"] .caja-danger-btn le daba a
+   "Cerrar Caja"/"Registrar egreso" una sombra propia MÁS marcada que el
+   resto de botones de la página (0 2px 5px/.8 vs 0 2px 6px/.85 nuevo,
+   y un drop-shadow de ícono que Nueva Venta no tiene). Se retiró la
+   clase por completo: ahora los 18 botones (incluidos estos 2) reciben
+   la MISMA sombra vía el estilo inline de CajaBtn — la diferenciación
+   "estos 2 resaltan más" quedó reemplazada a propósito por la
+   uniformidad pedida. className="caja-danger-btn" se quitó de
+   Caja.jsx (Registrar egreso / Cerrar Caja) porque ya no queda nada acá
+   que esa clase aporte. */
+
+/* [Cambio 2 — ronda 2] El alpha anterior (.18-.26 sobre oklch claro)
+   seguía sin garantizar contraste sobre el video de fondo real
+   (madera/herramientas) — sobre un fondo claro esos alphas bajos
+   dejaban pasar demasiado. Base oscura casi opaca (.88) tintada con
+   el acento propio de cada botón: el texto/ícono (color oklch claro
+   del acento, inline en Caja.jsx) queda garantizado legible sin
+   depender de qué imagen haya detrás en ese momento. */
+.caja-btn-ingreso {
+  background: rgba(11, 42, 29, 0.88);
+}
+.caja-btn-egreso {
+  background: rgba(56, 16, 20, 0.88);
+}
+.caja-btn-nota {
+  background: rgba(52, 36, 8, 0.88);
+}
+.caja-btn-cerrar {
+  background: rgba(48, 10, 13, 0.88);
+}
+.caja-btn-ventas {
+  background: rgba(10, 26, 46, 0.88);
+}
+
+/* [NO tocar — nesting] BLOQUE EFECTIVO, BLOQUE PAGOS ELECTRÓNICOS,
+   la fila "Total recaudado" y el panel "RESUMEN DEL TURNO" viven
+   DENTRO de .caja-glass-shell (ModalCerrarCaja) en el DOM — un
+   backdrop-filter propio ahí no renderizaría (límite de Chromium:
+   backdrop-filter hijo dentro de un ancestro que ya tiene uno),
+   así que se dejan con su tinte translúcido/sólido actual tal cual,
+   sin filtro propio. El vidrio distorsionado del shell ya se ve
+   detrás de ellos igual. */

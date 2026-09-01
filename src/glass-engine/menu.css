@@ -1,0 +1,163 @@
+/* ============================================================
+   GLASS ENGINE — mecánica de menú portada desde
+   D:\Saas\glassefecto\GlassEngine\css\menu.css
+   Ver GLASS_ENGINE_PORTABILIDAD.md en el proyecto de origen.
+
+   SOLO la mecánica CORE (.glass-menu, .glass-selector y su capa
+   visual consolidada) — copiada tal cual, sin tocar lógica. El
+   bloque CONSUMIDOR (.menu-item, tamaños de ícono/texto por app)
+   vive en src/index.css, adaptado a TopNav (ver TopNav.jsx).
+   ============================================================ */
+
+/* ============================================================
+ * [GLASS ENGINE — CORE] — COPIAR TAL CUAL, NO MODIFICAR
+ * ============================================================ */
+
+/*=============================================================
+  BARRA DEL MENÚ
+=============================================================*/
+
+.glass-menu{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    gap:var(--menu-gap);
+    height:var(--menu-height);
+    padding:var(--menu-padding);
+    border-radius:var(--glass-radius);
+    box-shadow:
+        var(--shadow-small),
+        inset 0 1px 0 rgba(var(--white), .06);
+}
+
+/*=============================================================
+  RELLENO DE LA BARRA — en un ::before propio, no en .glass-menu
+  directamente. Motivo: así el filtro de refracción (el mismo
+  #glass-refraction-menu que ya usa la burbuja) solo distorsiona
+  ESTE fondo, nunca a los <button>/iconos reales que son
+  hermanos, no hijos, de este pseudo-elemento. Si el SVG no
+  cargó (file:// sin servidor), `filter:url(...)` simplemente no
+  resuelve y el resto sigue funcionando igual.
+=============================================================*/
+
+.glass-menu::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:0;
+    border-radius:inherit;
+    pointer-events:none;
+    background:rgba(var(--black), .025);
+    backdrop-filter:blur(calc(var(--glass-blur) * .16)) saturate(165%);
+    -webkit-backdrop-filter:blur(calc(var(--glass-blur) * .16)) saturate(165%);
+    /* Misma pareja refracción+especular que usa la burbuja — la
+       barra queda hecha del mismo material, no es un panel aparte
+       con blur genérico. */
+    filter:url(#glass-refraction-menu) url(#glass-specular-menu);
+}
+
+/*=============================================================
+  CÁPSULA SELECTORA — es un GlassMaterial, esto solo la ubica
+=============================================================*/
+
+.glass-selector{
+    position:absolute;
+    top:var(--menu-padding);
+    left:0;
+    height:calc(var(--menu-height) - (var(--menu-padding) * 2));
+    /* [FIX — "marco fantasma" al cargar] Sin `width` en CSS (ver nota
+       de left:center más abajo), el navegador la encoge a 0px hasta
+       que menu.js le escribe un ancho real — pero eso pasa recién en
+       el requestAnimationFrame diferido de syncToActive(true), no en
+       el mismo tick que este div se inserta en el DOM (buildSelector).
+       En ese hueco de 1 frame, el box-shadow no-inset de
+       .glass-material::before (abajo) igual se pinta como una franja
+       vertical en left:0 — justo donde cae el primer ítem del menú
+       ("Control de Acceso"). opacity:0 por defecto tapa ese frame;
+       menu.js recién la sube a 1 en el mismo callback donde ya aplicó
+       el width/posición reales (ver syncToActive(immediate) en
+       core/menu.js), así nunca se ve un frame con la burbuja mal
+       formada. */
+    opacity:0;
+    /* Sintaxis de dos ejes (radio-x / radio-y): permite compensar
+       el radio por separado en cada eje cuando menu.js escala la
+       burbuja de forma no uniforme (scaleX != scaleY) — si no, los
+       extremos redondeados se leen como óvalos, no círculos, y eso
+       es lo que se percibía como "rectángulo fantasma" al moverse.
+       El valor de aquí es solo el de reposo (scaleX=scaleY=1);
+       menu.js lo reescribe cada frame en applyTransform(). */
+    border-radius:var(--glass-radius) / var(--glass-radius);
+    pointer-events:none;
+    /* left center: el ancho fijo (baseWidth, puesto una sola vez
+       por menu.js) escala hacia la derecha desde su propio borde
+       izquierdo — así translateX+scaleX pueden reproducir
+       cualquier posición/ancho visual sin tocar `width` nunca
+       durante la animación (eso disparaba el recálculo del
+       filtro SVG en cada frame — el "doble marco fantasma"). */
+    transform-origin:left center;
+    will-change:transform;
+    /* La región del filtro SVG (x/y/width/height en
+       objectBoundingBox) solo debe depender del tamaño de ESTA
+       caja — contain:layout aísla su layout del resto del árbol
+       para que el navegador no tenga motivo para recalcularla
+       fuera de los cambios de transform que ya maneja aparte.
+       SIN "paint": contain:paint recorta cualquier pintura de
+       los descendientes (el glow, el blur bleed) al cuadro
+       propio de este elemento, en su espacio ANTES del
+       transform. */
+    contain:layout style;
+    z-index:1;
+    /* isolation:isolate ya lo pone GlassMaterial (clase .glass-root). */
+}
+
+/*=============================================================
+  .glass-selector ES SOLO EL MOTOR DE MOVIMIENTO — nada visual.
+  Todo el trabajo visual —glow, specular, backdrop-filter, filtro
+  SVG— se consolida en UN solo elemento (.glass-material::before)
+  para evitar el "borde duplicado" (dos capas de GPU
+  desincronizadas bajo transform — ver CHANGELOG del proyecto
+  origen).
+
+  overflow:visible en .glass-material (que por defecto en
+  glass.css es "hidden") se sobreescribe aquí SOLO para el menú:
+  el glow exterior necesita salir de esa caja para verse alrededor
+  de la burbuja.
+=============================================================*/
+
+.glass-selector.glass-root{
+    box-shadow:none;
+}
+
+.glass-selector .glass-material{
+    overflow:visible;
+}
+
+/*=============================================================
+  CAPA VISUAL ÚNICA — glow + specular + distorsión, todo en el
+  mismo elemento (.glass-material::before).
+=============================================================*/
+
+.glass-selector .glass-material::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    background:rgba(255, 255, 255, 0.04);
+    backdrop-filter:url(#glassLensDistortion) blur(2px) saturate(160%);
+    -webkit-backdrop-filter:blur(6px) saturate(160%);
+    box-shadow:
+        0 4px 16px rgba(0, 0, 20, 0.25),
+        inset 1px 1px 0.5px rgba(255, 255, 255, 0.4),
+        inset -1px -1px 0.5px rgba(255, 255, 255, 0.12);
+}
+
+/* Fallback: navegadores sin soporte de backdrop-filter+SVG
+   (Firefox / Safari más antiguos) — blur simple, sin feImage/
+   feDisplacementMap. */
+@supports not (backdrop-filter: url(#glassLensDistortion)){
+    .glass-selector .glass-material::before{
+        backdrop-filter:blur(10px) saturate(160%);
+        -webkit-backdrop-filter:blur(10px) saturate(160%);
+    }
+}

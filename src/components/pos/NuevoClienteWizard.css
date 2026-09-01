@@ -1,0 +1,211 @@
+/* [NUEVO CLIENTE / RENOVAR] Vidrio líquido consistente con Venta Rápida
+   y gestión de usuarios — ver prompt de corrección de esta fase.
+
+   Sistema 100% ESTÁTICO, SIN motor de cursor (glass.js/card.js): ningún
+   elemento de este archivo usa useGlassCard/useGlassButton. Todo el
+   vidrio va vía CSS puro, backdrop-filter:url(#dropdown-glass) +
+   background:transparent — mismo patrón ya probado y estable de
+   .user-dropdown-panel/.ca-results-card/.vr-glass-card. Esto evita el
+   parpadeo, la luz que sigue al cursor y los destellos rojo/azul que
+   causaba el motor JS en Venta Rápida antes de corregirlo.
+
+   REGLA DE LETRA GRANDE Y SÓLIDA: dentro de estos elementos glass
+   ningún texto/ícono/placeholder queda con opacidad reducida — mismo
+   criterio que ControlAcceso.css. */
+
+/* [CORREGIDO — Nuevo Cliente se veía casi negro sólido, a diferencia de
+   Venta Rápida] .nc-wizard-step-content envolvía TODO el paso "Datos"
+   (básicamente la misma área que .nc-glass-card, no un sub-panel chico)
+   con su PROPIO backdrop-filter:url(#dropdown-glass) — eso apilaba el
+   filtro de vidrio 2 veces sobre la misma zona (una vez en la tarjeta,
+   otra vez acá encima), y el filtro SVG compuesto 2 veces se ve mucho
+   más oscuro/saturado que una sola pasada. Venta Rápida (.vr-card-body,
+   ControlAcceso.css) no tiene ninguna regla propia — es un div sin
+   estilo, apoyado 100% en el único filtro de .vr-glass-card. Se quita
+   el className del wrapper en NuevoClienteWizard.jsx (PasoDatos) y esta
+   regla entera, para que quede el mismo esquema de UNA sola capa. Los
+   .nc-panel de abajo NO se tocan: esos sí son sub-paneles chicos
+   (resumen, banner, tarjetas de método de pago), el mismo patrón que ya
+   usa Venta Rápida en sus filas de carrito. */
+
+/* ── Contenedor principal del wizard — mismo nivel que .vr-glass-card
+   (Venta Rápida): sin box-shadow propio (antes tenía uno grande y
+   oscuro, 0 24px 80px al 70% de negro, que sumaba encima del overlay
+   ya oscuro de fondo).
+
+   [CORREGIDO — seguía viéndose más oscuro que Venta Rápida] Auditado a
+   fondo: NO hay ningún background/capa extra en la cadena real
+   (.nc-glass-card > Body scrollable > PasoDatos) — los 3 están sin
+   estilo propio de fondo, igual que su equivalente en Venta Rápida
+   (.vr-card-body no tiene ninguna regla CSS). La causa real es que
+   #dropdown-glass (compartido) usa primitiveUnits objectBoundingBox —
+   su blur/distorsión escalan con el tamaño del elemento. Esta tarjeta
+   es más grande que .vr-glass-card (760px de ancho vs 580px, más el
+   alto real del formulario del paso "Datos"), así que el MISMO filtro
+   produce más blur absoluto acá — se usa #nc-card-glass (ver
+   public/filters-menu-glass.svg), una copia de #dropdown-glass
+   recalibrada para este tamaño, sin tocar el filtro compartido. ── */
+.nc-glass-card {
+  position: relative;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: url(#nc-card-glass);
+  -webkit-backdrop-filter: url(#nc-card-glass);
+}
+
+/* ── Sub-paneles (resumen de compra, detalle de venta, contenido de
+   método de pago, banner de titular) — mismo filtro, borde más sutil
+   por ir anidados dentro del contenedor que ya tiene su propia
+   distorsión. ── */
+.nc-panel {
+  position: relative;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
+}
+
+/* ── Inputs — mismo tratamiento que .vr-input (Venta Rápida)/login:
+   fondo sólido oscuro (no vidrio translúcido en el input en sí, para
+   que el texto tecleado no compita con la distorsión de detrás),
+   texto/placeholder 100% sólidos. Foco en blanco sutil, NUNCA rojo —
+   selector de 2 clases para ganarle con certeza a .gym-input:focus
+   (index.css), que trae borde rojo por defecto. ── */
+.nc-input {
+  background: rgba(14, 15, 19, 0.55);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+}
+.nc-input::placeholder {
+  color: #9a9ca3;
+}
+.gym-input.nc-input:focus {
+  background: rgba(14, 15, 19, 0.7);
+  border-color: rgba(255, 255, 255, 0.3);
+  outline: none;
+  box-shadow: none;
+}
+
+/* ── Select custom (Ext./Género/Tipo de sangre/Descuento) — mismo tratamiento de
+   distorsión que el dropdown de usuario, copiado tal cual
+   (.user-dropdown-panel: background:transparent + backdrop-filter:
+   url(#dropdown-glass)). Foco blanco, no rojo. ── */
+.custom-select-trigger.nc-select-trigger {
+  background: transparent;
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.custom-select-trigger.nc-select-trigger:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.custom-select-trigger.nc-select-trigger:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+.custom-select-dropdown.nc-select-dropdown {
+  background: transparent;
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Botones — misma ESTRUCTURA DOM que "INICIAR SESIÓN" del login
+   (button.glass-root.glass--regular > div.glass-material con sus 3
+   glass-layer [fill/specular/rainbow] > div.glass-content con el
+   texto), copiada tal cual del motor GlassMaterial
+   (glass-engine/core/glass.js) — ver NcGlassButton en
+   NuevoClienteWizard.jsx, que arma este HTML a mano. SIGUE sin
+   instanciar el motor JS (useGlassButton): las variables
+   --light-intensity/--rainbow-opacity/--rainbow-offset/
+   --border-intensity/--press que glass.css (CORE) lee vía var(...)
+   quedan FIJAS acá abajo en vez de ser animadas cada frame por un
+   loop de rAF que sigue al cursor — eso es lo que elimina el
+   parpadeo/brillo que se mueve, sin perder el material (blur, tinte,
+   refracción, specular, drop-shadow, inset box-shadow). Se aplica
+   junto a .btn-primary/.btn-secondary (globales, usados en toda la
+   app) para pisar su fondo por defecto SOLO acá, sin tocar esas
+   clases globalmente. Selector repetido con ".glass-root" para
+   ganarle con certeza a .glass-root (glass.css) sin depender del
+   orden de imports. ── */
+.btn-primary.nc-glass-btn,
+.btn-secondary.nc-glass-btn,
+.nc-glass-btn,
+.nc-glass-btn.glass-root {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  filter: drop-shadow(0px 0px 42px rgba(0, 0, 0, 0.58));
+  box-shadow: inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32);
+  cursor: pointer;
+}
+.nc-glass-btn.glass-root {
+  /* --glass-blur en 14px iguala el blur del botón de login (Login.css)
+     — más marcado que el --glass-blur:10px compartido por defecto
+     (glass-engine/variables.css), pensado para superficies grandes. */
+  --glass-blur: 14px;
+  --light-intensity: 0.4;
+  --rainbow-opacity: 0;
+  --rainbow-offset: 0px;
+  --border-intensity: 0.25;
+  --press: 0;
+  /* .glass-root (CORE) trae border-radius:var(--glass-radius) = 999px
+     (pensado para la burbuja/píldora del menú) — acá se pisa con un
+     valor de botón normal; los botones que ya pasan su propio
+     borderRadius por inline style lo siguen ganando (un style prop de
+     React siempre gana sobre una regla de clase). */
+  border-radius: 10px;
+}
+.nc-glass-btn.glass-root .glass-layer--fill {
+  /* Mismos filtros SVG que el motor JS aplicaría (channel "button", ver
+     syncRefractionFilters() en glass.js + public/svg/filters.svg) —
+     puestos acá directo por CSS, sin JS, así que quedan en su posición/
+     escala ESTÁTICA de fábrica (fePointLight x=.5/y=.3, feDisplacementMap
+     scale=16) en vez de seguir al cursor en tiempo real. */
+  filter: url(#glass-refraction-button) url(#glass-specular-button);
+}
+.btn-primary.nc-glass-btn:hover,
+.btn-secondary.nc-glass-btn:hover,
+.nc-glass-btn:hover,
+.nc-glass-btn.glass-root:hover {
+  background: transparent;
+}
+.btn-primary.nc-glass-btn:disabled,
+.nc-glass-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.nc-glass-btn.nc-glass-btn--active,
+.nc-glass-btn.nc-glass-btn--active.glass-root {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+}
+.nc-glass-btn.nc-glass-btn--active:hover,
+.nc-glass-btn.nc-glass-btn--active.glass-root:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Método de pago (PasoPago) — minimalista, como los íconos del menú
+   horizontal: sin bloque grande y brillante de fondo, distinción
+   sutil entre seleccionado/no seleccionado. Mismo criterio ya
+   validado en Venta Rápida (.vr-glass-btn--method). ── */
+.nc-method-btn {
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.nc-method-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.nc-method-btn--active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+.nc-method-btn--active:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

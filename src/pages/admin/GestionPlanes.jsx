@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
 import { auditoriaService } from '../../services/auditoriaService'
 import Descuentos from './Descuentos'
+import '../Clients.css'
 
 const COLORS_PRESET = [
   'oklch(0.66 0.22 25)', 'oklch(0.74 0.13 250)', 'oklch(0.78 0.16 155)',
@@ -87,7 +88,7 @@ function ModalPlan({ plan, onSave, onClose }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 200, background: 'oklch(0 0 0 / .7)',
+      position: 'fixed', inset: 0, zIndex: 200, background: 'oklch(0 0 0 / .25)',
       backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }}>
       <motion.div
@@ -95,15 +96,18 @@ function ModalPlan({ plan, onSave, onClose }) {
         animate={{ scale: 1, opacity: 1 }}
         style={{
           width: '100%', maxWidth: 580, maxHeight: 'calc(100vh - 80px)',
-          background: 'oklch(0.11 0.01 250)', border: '1px solid var(--line-s)',
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#clientes-table-glass)', WebkitBackdropFilter: 'url(#clientes-table-glass)',
+          border: '1px solid transparent',
           borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), 0 0 12px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .4)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         }}
       >
         <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 800, letterSpacing: '.06em', margin: 0 }}>
             {plan ? 'Editar Plan' : 'Crear Plan'}
           </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={18} /></button>
+          <button onClick={onClose} className="clientes-action-icon" title="Cerrar"><X size={18} color="var(--dim)" /></button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -244,9 +248,13 @@ function ModalPlan({ plan, onSave, onClose }) {
         </div>
 
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between' }}>
-          <button className="btn-secondary" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary" onClick={handleSave} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Check size={15} /> {plan ? 'Guardar cambios' : 'Crear plan'}
+          <button className="clientes-glass-btn btn-secondary" onClick={onClose}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
+          <button className="clientes-glass-btn btn-primary" onClick={handleSave}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Check size={15} /> {plan ? 'Guardar cambios' : 'Crear plan'}</span>
           </button>
         </div>
       </motion.div>
@@ -269,14 +277,18 @@ function PlanCard({ plan, onEdit, onToggle, onDelete }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       style={{
-        background: 'var(--glass)', border: `1px solid ${plan.activo ? color + '40' : 'var(--line)'}`,
-        borderRadius: 14, padding: '18px 16px', position: 'relative',
+        position: 'relative',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderLeft: plan.activo ? `3px solid ${color}` : '3px solid oklch(1 0 0 / .12)',
+        borderRadius: 14, padding: '18px 16px',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .07), 0 0 10px 1px oklch(1 0 0 / .04), 0 14px 34px oklch(0 0 0 / .35)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         opacity: plan.activo ? 1 : 0.55,
       }}
     >
       {tagParsed && (
         <div style={{
-          position: 'absolute', top: -10, right: 12,
+          position: 'absolute', top: -10, right: 12, zIndex: 1,
           background: tagParsed.color, color: '#000',
           fontSize: 9, fontWeight: 800, letterSpacing: '.08em',
           padding: '3px 8px', borderRadius: 999,
@@ -284,40 +296,40 @@ function PlanCard({ plan, onEdit, onToggle, onDelete }) {
       )}
       <div style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: '.1em', marginBottom: 4 }}>
         {plan.nombre.toUpperCase()}
-        {!plan.activo && <span style={{ marginLeft: 6, color: 'var(--dim)' }}>(INACTIVO)</span>}
+        {!plan.activo && <span style={{ marginLeft: 6, color: 'oklch(0.88 0.01 250 / .85)' }}>(INACTIVO)</span>}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--display)', marginBottom: 2 }}>
+      <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--display)', marginBottom: 2, color: 'var(--ink)' }}>
         Bs. {plan.precio}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 10 }}>/ {plan.duracion_dias} días</div>
+      <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', marginBottom: 10 }}>/ {plan.duracion_dias} días</div>
       {caracteristicas.slice(0, 4).map((c, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
           <Check size={10} color={color} />
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{c}</span>
+          <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)' }}>{c}</span>
         </div>
       ))}
       {plan.clientes_activos > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, padding: '4px 8px', background: 'oklch(1 0 0 / .04)', borderRadius: 6 }}>
-          <Users size={11} color="var(--dim)" />
-          <span style={{ fontSize: 11, color: 'var(--dim)' }}>{plan.clientes_activos} clientes activos</span>
+          <Users size={11} color="oklch(0.88 0.01 250 / .85)" />
+          <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)' }}>{plan.clientes_activos} clientes activos</span>
         </div>
       )}
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         {puedeEditar && (
-          <button onClick={() => onEdit(plan)} className="btn-secondary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 12, padding: '6px 0' }}>
-            <Edit2 size={13} /> Editar
+          <button onClick={() => onEdit(plan)} className="clientes-glass-btn btn-secondary" style={{ flex: 1, fontSize: 12, padding: '6px 0' }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Edit2 size={13} /> Editar</span>
           </button>
         )}
         {puedeEditar && (
-          <button onClick={() => onToggle(plan)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: 12 }} title={plan.activo ? 'Desactivar' : 'Activar'}>
-            {plan.activo ? <ToggleRight size={16} color="var(--green)" /> : <ToggleLeft size={16} color="var(--dim)" />}
+          <button onClick={() => onToggle(plan)} className="clientes-action-icon" title={plan.activo ? 'Desactivar' : 'Activar'}>
+            {plan.activo ? <ToggleRight size={16} color="var(--green)" /> : <ToggleLeft size={16} color="oklch(0.88 0.01 250 / .85)" />}
           </button>
         )}
         {puedeEliminar && plan.activo && (
           <button
             onClick={() => onDelete(plan)}
-            className="btn-secondary"
-            style={{ padding: '6px 10px', fontSize: 12 }}
+            className="clientes-action-icon"
             title="Eliminar plan"
           >
             <Trash2 size={13} color="var(--red)" />
@@ -334,17 +346,18 @@ function ModalEliminarPlan({ plan, onConfirm, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .6)', backdropFilter: 'blur(4px)' }} />
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .25)', backdropFilter: 'blur(4px)' }} />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0 }}
         style={{
           position: 'relative', zIndex: 1, width: 420,
-          background: 'oklch(0.14 0.015 250)',
-          border: '1px solid oklch(0.65 0.22 25 / .4)',
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#clientes-table-glass)', WebkitBackdropFilter: 'url(#clientes-table-glass)',
+          border: '1px solid oklch(0.65 0.22 25 / .35)',
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), 0 24px 60px oklch(0 0 0 / .4)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -354,7 +367,7 @@ function ModalEliminarPlan({ plan, onConfirm, onClose }) {
           </h2>
         </div>
 
-        <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 14 }}>
+        <p style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.6, marginBottom: 14 }}>
           ¿Enviar el plan <strong style={{ color: 'var(--ink)' }}>"{plan?.nombre}"</strong> (Bs. {plan?.precio}) a la Papelera?
           Podrás restaurarlo desde <em>Papelera</em> si fue por error.
         </p>
@@ -375,17 +388,13 @@ function ModalEliminarPlan({ plan, onConfirm, onClose }) {
         )}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-          <button
-            onClick={onConfirm}
-            style={{
-              flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-              background: 'oklch(0.65 0.22 25 / .2)', border: '1px solid oklch(0.65 0.22 25 / .5)',
-              color: 'oklch(0.85 0.12 25)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}
-          >
-            <Trash2 size={13} /> Enviar a Papelera
+          <button onClick={onClose} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
+          <button onClick={onConfirm} className="clientes-glass-btn" style={{ flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'oklch(0.85 0.12 25)' }}><Trash2 size={13} /> Enviar a Papelera</span>
           </button>
         </div>
       </motion.div>
@@ -441,7 +450,7 @@ export default function GestionPlanes() {
   function onSave() { cerrarModal(); cargar() }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+    <div className="clientes-page" style={{ maxWidth: 1000, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 className="titulo-metalico" style={{ marginBottom: 4 }}>Gestión de Planes</h1>
@@ -450,14 +459,16 @@ export default function GestionPlanes() {
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => setShowDescuentos(true)}
-            className="btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13 }}
+            className="clientes-glass-btn btn-secondary"
+            style={{ fontSize: 13 }}
           >
-            <Percent size={14} /> Descuentos
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Percent size={14} /> Descuentos</span>
           </button>
           {puedeCrear && (
-            <button onClick={abrirNuevo} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Plus size={16} /> Nuevo Plan
+            <button onClick={abrirNuevo} className="clientes-glass-btn btn-primary">
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><Plus size={16} /> Nuevo Plan</span>
             </button>
           )}
         </div>
@@ -476,14 +487,16 @@ export default function GestionPlanes() {
               onClick={abrirNuevo}
               whileHover={{ scale: 1.02 }}
               style={{
-                background: 'oklch(1 0 0 / .03)', border: '1.5px dashed var(--line)',
+                position: 'relative', overflow: 'hidden',
+                background: 'oklch(0.13 0.02 250 / .2)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                border: '1.5px dashed oklch(1 0 0 / .2)',
                 borderRadius: 14, padding: '40px 16px', cursor: 'pointer',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                minHeight: 180,
+                minHeight: 180, textShadow: '0 1px 2px rgba(0,0,0,0.6)',
               }}
             >
-              <Plus size={28} color="var(--dim)" />
-              <span style={{ fontSize: 13, color: 'var(--dim)' }}>Crear nuevo plan</span>
+              <Plus size={28} color="oklch(0.88 0.01 250 / .85)" />
+              <span style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)' }}>Crear nuevo plan</span>
             </motion.button>
           )}
         </div>
@@ -503,16 +516,22 @@ export default function GestionPlanes() {
       {/* Modal Descuentos */}
       <AnimatePresence>
         {showDescuentos && (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'oklch(0 0 0 / .7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'oklch(0 0 0 / .25)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
             <motion.div
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              style={{ width: '100%', maxWidth: 760, maxHeight: 'calc(100vh - 80px)', background: 'oklch(0.11 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+              style={{
+                width: '100%', maxWidth: 760, maxHeight: 'calc(100vh - 80px)',
+                background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#clientes-table-glass)', WebkitBackdropFilter: 'url(#clientes-table-glass)',
+                border: '1px solid transparent', borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), 0 0 12px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .4)',
+                textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+              }}
             >
               <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 800, letterSpacing: '.06em', margin: 0 }}>Descuentos y Promociones</h2>
-                <button onClick={() => setShowDescuentos(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={18} /></button>
+                <button onClick={() => setShowDescuentos(false)} className="clientes-action-icon" title="Cerrar"><X size={18} color="var(--dim)" /></button>
               </div>
               <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px' }}>
                 <Descuentos />

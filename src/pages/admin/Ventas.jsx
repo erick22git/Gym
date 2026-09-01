@@ -10,6 +10,8 @@ import { useApp } from '../../context/AppContext'
 import { PAGES } from '../../constants'
 import { Select } from '../../components/ui/Select'
 import Pagination from '../../components/ui/Pagination'
+import '../Clients.css'
+import './Ventas.css'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,14 +60,26 @@ const TIPO_COLOR = {
 function KPICard({ label, value, icon: Icon, color }) {
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      style={{ background: `${color}0c`, border: `1px solid ${color}30`, borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}
+      style={{
+        position: 'relative', overflow: 'hidden',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 12, padding: '16px 20px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 8,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}
     >
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon size={18} color={color} />
+      {/* Glow de estado — mismo patrón que KPICard del Dashboard */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 12,
+        background: `radial-gradient(circle at center, ${color.replace(')', ' / 0.15)')} 0%, ${color.replace(')', ' / 0.05)')} 55%, transparent 85%)`,
+        pointerEvents: 'none',
+      }} />
+      <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 10, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={19} color={color} />
       </div>
-      <div>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color, marginBottom: 3 }}>{label}</div>
-        <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--display)', color, lineHeight: 1 }}>{value}</div>
+      <div style={{ position: 'relative' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'oklch(0.97 0.01 250)', marginBottom: 3, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{label}</div>
+        <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--display)', color: 'oklch(0.97 0.01 250)', lineHeight: 1, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{value}</div>
       </div>
     </motion.div>
   )
@@ -102,11 +116,17 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .65)', backdropFilter: 'blur(4px)' }} />
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        style={{ position: 'relative', zIndex: 1, width: 480, background: 'oklch(0.13 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 16, padding: '24px 28px', boxShadow: '0 24px 60px oklch(0 0 0 / .5)', maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}
+        style={{
+          position: 'relative', zIndex: 1, width: 480,
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 16, padding: '24px 28px',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .11), 0 0 16px 2px oklch(1 0 0 / .08), 0 24px 60px oklch(0 0 0 / .4)',
+          maxHeight: 'calc(100vh - 80px)', overflowY: 'auto', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+        }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Venta #{venta.id}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={16} /></button>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Venta #{venta.id}</h2>
+          <button onClick={onClose} title="Cerrar" className="clientes-action-icon"><X size={17} color="var(--dim)" /></button>
         </div>
 
         {!detalle ? (
@@ -114,8 +134,8 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
         ) : (
           <>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: tipoBadge.bg, color: tipoBadge.color }}>{tipoBadge.label}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: estadoBadge.bg, color: estadoBadge.color }}>{estadoBadge.label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: tipoBadge.bg, color: tipoBadge.color }}>{tipoBadge.label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: estadoBadge.bg, color: estadoBadge.color }}>{estadoBadge.label}</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginBottom: 16 }}>
@@ -132,23 +152,23 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
                 ['Registrado por', detalle.usuario_nombre || '—'],
               ].map(([k, v]) => (
                 <div key={k}>
-                  <div style={{ fontSize: 10, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 2 }}>{k}</div>
-                  <div style={{ fontSize: 13, color: 'var(--ink)', fontWeight: k === 'Total' ? 700 : 400 }}>{v}</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: 2 }}>{k}</div>
+                  <div style={{ fontSize: 14, color: 'var(--ink)', fontWeight: k === 'Total' ? 700 : 400 }}>{v}</div>
                 </div>
               ))}
             </div>
 
             {detalle.detalle && detalle.detalle.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Productos</div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Productos</div>
                 <div style={{ background: 'oklch(1 0 0 / .03)', borderRadius: 8, overflow: 'hidden' }}>
                   {detalle.detalle.map((d, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: i < detalle.detalle.length - 1 ? '1px solid oklch(1 0 0 / .06)' : 'none' }}>
                       <div>
-                        <div style={{ fontSize: 13, color: 'var(--ink)' }}>{d.nombre_producto}</div>
-                        <div style={{ fontSize: 11, color: 'var(--dim)' }}>x{d.cantidad} × {fmtMoney(d.precio_unitario)}</div>
+                        <div style={{ fontSize: 14, color: 'var(--ink)' }}>{d.nombre_producto}</div>
+                        <div style={{ fontSize: 12, color: 'var(--dim)' }}>x{d.cantidad} × {fmtMoney(d.precio_unitario)}</div>
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{fmtMoney(d.subtotal)}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{fmtMoney(d.subtotal)}</div>
                     </div>
                   ))}
                 </div>
@@ -157,8 +177,8 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
 
             {detalle.notas && (
               <div style={{ background: 'oklch(1 0 0 / .03)', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
-                <div style={{ fontSize: 10, color: 'var(--dim)', marginBottom: 4 }}>NOTAS</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{detalle.notas}</div>
+                <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 4 }}>NOTAS</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>{detalle.notas}</div>
               </div>
             )}
 
@@ -166,11 +186,14 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
             {(() => {
               const info = METODO_INFO[detalle.metodo_pago] || METODO_INFO.efectivo
               return (
-                <div style={{ background: `${info.color}0a`, border: `1px solid ${info.color}30`, borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: info.color, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 5 }}>
+                <div style={{
+                  background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                  border: '1px solid transparent', borderLeft: `3px solid ${info.color}`, borderRadius: 8, padding: '10px 12px', marginBottom: 16,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: info.color, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 5 }}>
                     {info.icon} MÉTODO DE PAGO — {METODOS[detalle.metodo_pago] || detalle.metodo_pago}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{info.msg}</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>{info.msg}</div>
                 </div>
               )
             })()}
@@ -178,18 +201,25 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
             {puedeAnular && detalle.estado === 'completada' && (
               <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
                 {!confirmarAnular ? (
-                  <button onClick={() => setConfirmarAnular(true)}
-                    style={{ width: '100%', padding: '9px', borderRadius: 9, fontSize: 13, fontWeight: 600, background: 'oklch(0.75 0.18 25 / .12)', border: '1px solid oklch(0.75 0.18 25 / .35)', color: 'oklch(0.75 0.18 25)', cursor: 'pointer' }}>
-                    Anular venta
+                  <button onClick={() => setConfirmarAnular(true)} className="clientes-glass-btn"
+                    style={{ width: '100%', padding: '9px', borderRadius: 9, background: 'transparent', border: '1px solid oklch(0.75 0.18 25 / .35)', cursor: 'pointer' }}>
+                    <div className="clientes-glass-bg" />
+                    <span className="clientes-glass-content" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 14, fontWeight: 600 }}>Anular venta</span>
                   </button>
                 ) : (
                   <div>
-                    <p style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 10, textAlign: 'center' }}>¿Confirmar anulación? Esta acción no se puede deshacer.</p>
+                    <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 10, textAlign: 'center' }}>¿Confirmar anulación? Esta acción no se puede deshacer.</p>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setConfirmarAnular(false)} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-                      <button onClick={handleAnular} disabled={anulando}
-                        style={{ flex: 1, padding: '9px', borderRadius: 9, fontSize: 13, fontWeight: 700, background: 'oklch(0.75 0.18 25 / .2)', border: '1px solid oklch(0.75 0.18 25 / .5)', color: 'oklch(0.75 0.18 25)', cursor: 'pointer', opacity: anulando ? 0.6 : 1 }}>
-                        {anulando ? 'Anulando...' : 'Confirmar anulación'}
+                      <button onClick={() => setConfirmarAnular(false)} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
+                        <div className="clientes-glass-bg" />
+                        <span className="clientes-glass-content">Cancelar</span>
+                      </button>
+                      <button onClick={handleAnular} disabled={anulando} className="clientes-glass-btn"
+                        style={{ flex: 1, padding: '9px', borderRadius: 9, background: 'transparent', border: '1px solid oklch(0.75 0.18 25 / .5)', cursor: 'pointer', opacity: anulando ? 0.6 : 1 }}>
+                        <div className="clientes-glass-bg" />
+                        <span className="clientes-glass-content" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 14, fontWeight: 700 }}>
+                          {anulando ? 'Anulando...' : 'Confirmar anulación'}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -267,26 +297,36 @@ function ModalDetalleTurno({ sesionId, onClose }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 9100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, overflowY: 'auto' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .65)', backdropFilter: 'blur(4px)' }} />
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-        style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 560, background: 'oklch(0.13 0.01 250)', border: '1px solid var(--line-s)', borderRadius: 18, padding: '24px 28px', boxShadow: '0 32px 80px oklch(0 0 0 / .6)', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}
+        style={{
+          position: 'relative', zIndex: 1, width: '100%', maxWidth: 560,
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#clientes-table-glass)', WebkitBackdropFilter: 'url(#clientes-table-glass)',
+          border: '1px solid transparent', borderRadius: 18, padding: '24px 28px',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .11), 0 0 16px 2px oklch(1 0 0 / .08), 0 32px 80px oklch(0 0 0 / .5)',
+          maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+        }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
           <div>
-            <h2 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 800, color: 'var(--ink)', letterSpacing: '.06em' }}>
+            <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 800, color: 'var(--ink)', letterSpacing: '.06em' }}>
               Turno #{sesionId}
             </h2>
-            <p style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>
+            <p style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2 }}>
               {resumen.usuario_nombre} · {fmtDate(resumen.fecha_apertura)}
               {resumen.fecha_cierre && ` → ${fmtDate(resumen.fecha_cierre)}`}
               {resumen.fecha_apertura && ` · ${fmtDuration(resumen.fecha_apertura, resumen.fecha_cierre)}`}
             </p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={16} /></button>
+          <button onClick={onClose} title="Cerrar" className="clientes-action-icon"><X size={17} color="var(--dim)" /></button>
         </div>
 
         {/* BLOQUE ARQUEO DE EFECTIVO */}
-        <div style={{ background: 'oklch(0.78 0.16 155 / .07)', border: '1px solid oklch(0.78 0.16 155 / .28)', borderRadius: 12, padding: '14px 16px', marginBottom: 12, marginTop: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'oklch(0.78 0.16 155)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+        <div style={{
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderLeft: '3px solid oklch(0.78 0.16 155)', borderRadius: 12, padding: '14px 16px', marginBottom: 12, marginTop: 16,
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'oklch(0.78 0.16 155)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>
             💵 ARQUEO DE EFECTIVO
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingBottom: 10, marginBottom: 10, borderBottom: '1px solid oklch(0.78 0.16 155 / .15)' }}>
@@ -297,34 +337,38 @@ function ModalDetalleTurno({ sesionId, onClose }) {
               ...(resumen.total_egresos > 0 ? [['− Egresos', `−${fmtMoney(resumen.total_egresos)}`]] : []),
             ].filter(([, v]) => v !== 'Bs. 0.00' || true).map(([k, v]) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: 'var(--dim)' }}>{k}</span>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{v}</span>
+                <span style={{ fontSize: 13, color: 'var(--dim)' }}>{k}</span>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>{v}</span>
               </div>
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Efectivo esperado</span>
-            <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: 'oklch(0.78 0.16 155)' }}>{fmtMoney(efectivoEsperado)}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Efectivo esperado</span>
+            <span style={{ fontSize: 17, fontWeight: 800, fontFamily: 'var(--display)', color: 'oklch(0.78 0.16 155)' }}>{fmtMoney(efectivoEsperado)}</span>
           </div>
           {montoCierre != null && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <span style={{ fontSize: 12, color: 'var(--dim)' }}>Efectivo contado</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{fmtMoney(montoCierre)}</span>
+              <span style={{ fontSize: 13, color: 'var(--dim)' }}>Efectivo contado</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{fmtMoney(montoCierre)}</span>
             </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: 10, background: `${difColor}14`, border: `1px solid ${difColor}35` }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: difColor, letterSpacing: '.06em', textTransform: 'uppercase' }}>RESULTADO</span>
-            <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--display)', color: difColor }}>{difLabel}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: difColor, letterSpacing: '.06em', textTransform: 'uppercase' }}>RESULTADO</span>
+            <span style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--display)', color: difColor }}>{difLabel}</span>
           </div>
         </div>
 
         {/* BLOQUE CONCILIACIÓN ELECTRÓNICA */}
         {otrosMetodos.length > 0 && (
-          <div style={{ background: 'oklch(0.74 0.13 250 / .06)', border: '1px solid oklch(0.74 0.13 250 / .25)', borderRadius: 12, padding: '14px 16px', marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'oklch(0.74 0.13 250)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+          <div style={{
+            background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+            border: '1px solid transparent', borderLeft: '3px solid oklch(0.74 0.13 250)', borderRadius: 12, padding: '14px 16px', marginBottom: 12,
+            boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'oklch(0.74 0.13 250)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>
               🏦 CONCILIACIÓN ELECTRÓNICA
             </div>
-            <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 10, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 10, lineHeight: 1.5 }}>
               Este dinero fue al banco. Marca cada método cuando lo verifiques en tu cuenta.
             </div>
             {otrosMetodos.map(([met, monto]) => (
@@ -335,46 +379,54 @@ function ModalDetalleTurno({ sesionId, onClose }) {
                   onChange={() => toggleVerificado(met)}
                   style={{ width: 14, height: 14, cursor: 'pointer', accentColor: 'oklch(0.78 0.16 155)', flexShrink: 0 }}
                 />
-                <span style={{ flex: 1, fontSize: 12, color: verificados[met] ? 'oklch(0.78 0.16 155)' : 'var(--muted)' }}>
+                <span style={{ flex: 1, fontSize: 13, color: verificados[met] ? 'oklch(0.78 0.16 155)' : 'var(--muted)' }}>
                   {MET_ICON[met] || ''} {met === 'qr' ? 'QR' : met.charAt(0).toUpperCase() + met.slice(1)}
-                  {verificados[met] && <span style={{ fontSize: 10, color: 'var(--dim)', marginLeft: 6 }}>✓ {verificados[met]}</span>}
+                  {verificados[met] && <span style={{ fontSize: 11, color: 'var(--dim)', marginLeft: 6 }}>✓ {verificados[met]}</span>}
                 </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: verificados[met] ? 'oklch(0.78 0.16 155)' : 'var(--dim)' }}>{fmtMoney(monto)}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: verificados[met] ? 'oklch(0.78 0.16 155)' : 'var(--dim)' }}>{fmtMoney(monto)}</span>
               </label>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 6, borderTop: '1px solid oklch(0.74 0.13 250 / .15)' }}>
-              <span style={{ fontSize: 11, color: 'var(--dim)' }}>Total electrónico</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--dim)' }}>{fmtMoney(totalElectronico)}</span>
+              <span style={{ fontSize: 12, color: 'var(--dim)' }}>Total electrónico</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--dim)' }}>{fmtMoney(totalElectronico)}</span>
             </div>
           </div>
         )}
 
         {/* Resumen del turno */}
-        <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: 'var(--dim)' }}>📊 Total del turno (efectivo + electrónico)</span>
-          <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--ink)' }}>{fmtMoney(totalTurno)}</span>
+        <div style={{
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        }}>
+          <span style={{ fontSize: 13, color: 'var(--dim)' }}>📊 Total del turno (efectivo + electrónico)</span>
+          <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--ink)' }}>{fmtMoney(totalTurno)}</span>
         </div>
 
         {/* Ventas del turno */}
         {ventas.length > 0 && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <ShoppingBag size={11} /> Ventas del turno ({ventas.length})
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <ShoppingBag size={12} /> Ventas del turno ({ventas.length})
             </div>
-            <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{
+              background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+              border: '1px solid transparent', borderRadius: 10, overflow: 'hidden',
+              boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+            }}>
               {ventas.slice(0, 8).map((v, i) => {
                 const info = METODO_INFO[v.metodo_pago] || METODO_INFO.efectivo
                 return (
                   <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: i < Math.min(ventas.length, 8) - 1 ? '1px solid oklch(1 0 0 / .04)' : 'none' }}>
-                    <span style={{ fontSize: 10, color: 'var(--dim)', minWidth: 28 }}>#{v.id}</span>
-                    <span style={{ flex: 1, fontSize: 12, color: 'var(--ink)' }}>{v.cliente_nombre || <span style={{ color: 'var(--dim)' }}>Sin cliente</span>}</span>
-                    <span style={{ fontSize: 11, color: 'var(--dim)' }}>{info.icon} {METODOS[v.metodo_pago] || v.metodo_pago}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: v.estado === 'anulada' ? 'var(--dim)' : 'oklch(0.72 0.17 155)', textDecoration: v.estado === 'anulada' ? 'line-through' : 'none' }}>{fmtMoney(v.total)}</span>
+                    <span style={{ fontSize: 11, color: 'var(--dim)', minWidth: 28 }}>#{v.id}</span>
+                    <span style={{ flex: 1, fontSize: 13, color: 'var(--ink)' }}>{v.cliente_nombre || <span style={{ color: 'var(--dim)' }}>Sin cliente</span>}</span>
+                    <span style={{ fontSize: 12, color: 'var(--dim)' }}>{info.icon} {METODOS[v.metodo_pago] || v.metodo_pago}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: v.estado === 'anulada' ? 'var(--dim)' : 'oklch(0.72 0.17 155)', textDecoration: v.estado === 'anulada' ? 'line-through' : 'none' }}>{fmtMoney(v.total)}</span>
                   </div>
                 )
               })}
               {ventas.length > 8 && (
-                <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--dim)', textAlign: 'center' }}>
+                <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--dim)', textAlign: 'center' }}>
                   +{ventas.length - 8} ventas más
                 </div>
               )}
@@ -385,13 +437,17 @@ function ModalDetalleTurno({ sesionId, onClose }) {
         {/* Movimientos manuales */}
         {movManuales.length > 0 && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>Movimientos manuales</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>Movimientos manuales</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {movManuales.map(m => (
-                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 7 }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.1em', color: TIPO_COLOR[m.tipo] || 'var(--dim)', minWidth: 44, textTransform: 'uppercase' }}>{m.tipo}</span>
-                  <span style={{ flex: 1, fontSize: 12, color: 'var(--muted)' }}>{m.concepto}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: m.tipo === 'egreso' ? 'oklch(0.75 0.18 25)' : 'oklch(0.78 0.16 155)' }}>
+                <div key={m.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                  background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                  border: '1px solid transparent', borderLeft: `3px solid ${TIPO_COLOR[m.tipo] || 'var(--dim)'}`, borderRadius: 7,
+                }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', color: TIPO_COLOR[m.tipo] || 'var(--dim)', minWidth: 44, textTransform: 'uppercase' }}>{m.tipo}</span>
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>{m.concepto}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: m.tipo === 'egreso' ? 'oklch(0.75 0.18 25)' : 'oklch(0.78 0.16 155)' }}>
                     {m.tipo === 'egreso' ? '-' : '+'}{fmtMoney(m.monto)}
                   </span>
                 </div>
@@ -403,14 +459,17 @@ function ModalDetalleTurno({ sesionId, onClose }) {
         {/* Notas del turno */}
         {notas.length > 0 && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'oklch(0.82 0.14 75)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <StickyNote size={11} /> Notas del turno
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'oklch(0.82 0.14 75)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <StickyNote size={12} /> Notas del turno
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {notas.map(n => (
-                <div key={n.id} style={{ background: 'oklch(0.82 0.14 75 / .07)', border: '1px solid oklch(0.82 0.14 75 / .2)', borderRadius: 7, padding: '8px 12px' }}>
-                  <div style={{ fontSize: 12, color: 'var(--ink)' }}>{n.texto}</div>
-                  <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>{n.usuario_nombre} · {fmtDate(n.fecha)}</div>
+                <div key={n.id} style={{
+                  background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                  border: '1px solid transparent', borderLeft: '3px solid oklch(0.82 0.14 75)', borderRadius: 7, padding: '8px 12px',
+                }}>
+                  <div style={{ fontSize: 13, color: 'var(--ink)' }}>{n.texto}</div>
+                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 3 }}>{n.usuario_nombre} · {fmtDate(n.fecha)}</div>
                 </div>
               ))}
             </div>
@@ -421,21 +480,30 @@ function ModalDetalleTurno({ sesionId, onClose }) {
         {(resumen.notas_apertura || resumen.notas_cierre) && (
           <div style={{ marginBottom: 12 }}>
             {resumen.notas_apertura && (
-              <div style={{ background: 'oklch(1 0 0 / .03)', borderRadius: 7, padding: '8px 12px', marginBottom: 6 }}>
-                <div style={{ fontSize: 10, color: 'var(--dim)', marginBottom: 3 }}>OBSERVACIONES APERTURA</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{resumen.notas_apertura}</div>
+              <div style={{
+                background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                border: '1px solid transparent', borderRadius: 7, padding: '8px 12px', marginBottom: 6,
+              }}>
+                <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 3 }}>OBSERVACIONES APERTURA</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>{resumen.notas_apertura}</div>
               </div>
             )}
             {resumen.notas_cierre && (
-              <div style={{ background: 'oklch(1 0 0 / .03)', borderRadius: 7, padding: '8px 12px' }}>
-                <div style={{ fontSize: 10, color: 'var(--dim)', marginBottom: 3 }}>OBSERVACIONES CIERRE</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{resumen.notas_cierre}</div>
+              <div style={{
+                background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                border: '1px solid transparent', borderRadius: 7, padding: '8px 12px',
+              }}>
+                <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 3 }}>OBSERVACIONES CIERRE</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>{resumen.notas_cierre}</div>
               </div>
             )}
           </div>
         )}
 
-        <button onClick={onClose} className="btn-secondary" style={{ width: '100%', marginTop: 4 }}>Cerrar</button>
+        <button onClick={onClose} className="clientes-glass-btn btn-secondary" style={{ width: '100%', marginTop: 4 }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content">Cerrar</span>
+        </button>
       </motion.div>
     </div>
   )
@@ -492,17 +560,24 @@ function HistorialCaja() {
   return (
     <div>
       {/* Filtros */}
-      <div className="gym-card" style={{ padding: '12px 16px', marginBottom: 14 }}>
+      <div style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 12, padding: '12px 16px', marginBottom: 14,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+      }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)', pointerEvents: 'none' }} />
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.88 0.01 250 / .85)', pointerEvents: 'none' }} />
             <input
               type="text"
               className="gym-input"
               placeholder="Buscar por cajero..."
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
-              style={{ paddingLeft: 30, fontSize: 13, height: 36 }}
+              style={{
+                paddingLeft: 30, fontSize: 14, height: 36,
+                background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)', color: 'oklch(0.97 0.01 250)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+              }}
             />
           </div>
 
@@ -531,38 +606,47 @@ function HistorialCaja() {
             />
           </div>
 
-          <input type="date" className="gym-input" value={filtros.desde} onChange={e => handleFiltros({ ...filtros, desde: e.target.value })} style={{ padding: '0 10px', fontSize: 12, height: 36, width: 130 }} title="Desde" />
-          <input type="date" className="gym-input" value={filtros.hasta} onChange={e => handleFiltros({ ...filtros, hasta: e.target.value })} style={{ padding: '0 10px', fontSize: 12, height: 36, width: 130 }} title="Hasta" />
+          <input type="date" className="gym-input" value={filtros.desde} onChange={e => handleFiltros({ ...filtros, desde: e.target.value })} style={{ padding: '0 10px', fontSize: 13, height: 36, width: 130 }} title="Desde" />
+          <input type="date" className="gym-input" value={filtros.hasta} onChange={e => handleFiltros({ ...filtros, hasta: e.target.value })} style={{ padding: '0 10px', fontSize: 13, height: 36, width: 130 }} title="Hasta" />
 
-          <button onClick={() => cargar(page, pageSize, busqueda, filtros)} className="btn-secondary" style={{ padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <RefreshCw size={13} />
+          <button onClick={() => cargar(page, pageSize, busqueda, filtros)} className="clientes-glass-btn btn-secondary" style={{ padding: '8px 10px' }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><RefreshCw size={14} /></span>
           </button>
 
           {(filtros.resultado !== 'todos' || filtros.estado !== 'todos' || filtros.desde || filtros.hasta || busqueda) && (
             <button onClick={() => { setBusqueda(''); const f = { desde: '', hasta: '', resultado: 'todos', estado: 'todos' }; setFiltros(f); cargar(1, pageSize, '', f) }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-              <X size={12} /> Limpiar
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
+              <X size={13} /> Limpiar
             </button>
           )}
         </div>
       </div>
 
       {/* Tabla */}
-      <div className="gym-card" style={{ overflow: 'hidden' }}>
+      <div className="gym-card clientes-glass-table" style={{ overflow: 'hidden' }}>
         {cargando ? (
           <div style={{ textAlign: 'center', padding: 60 }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
         ) : sesiones.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--dim)' }}>
-            <Wallet size={40} style={{ opacity: 0.2, margin: '0 auto 12px' }} />
-            <p style={{ fontSize: 14 }}>No hay turnos con los filtros seleccionados</p>
+            <Wallet size={43} style={{ opacity: 0.2, margin: '0 auto 12px' }} />
+            <p style={{ fontSize: 15 }}>No hay turnos con los filtros seleccionados</p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div>
+            {/* [SCROLL — pedido explícito: "la página se debe quedar
+                estática, no debe haber barra de scroll, elimínala y pon
+                una barra de scroll en la tabla, solo la tabla se moverá
+                con scroll pero no la página"] Mismo patrón que Caja.jsx
+                (.page-content:has(.ventas-page) en Ventas.css desactiva
+                el scroll de toda la página) — acá SOLO la tabla scrollea,
+                <Pagination> queda fuera de este div, siempre visible. */}
+            <div style={{ maxHeight: 'calc(100vh - 460px)', overflowY: 'auto', overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--line)' }}>
                   {['Fecha / Cajero', 'Apertura', 'Cierre', 'Efectivo inicial', 'Total efectivo', 'Electrónico', 'Resultado arqueo', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -582,35 +666,34 @@ function HistorialCaja() {
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
                       <td style={{ padding: '10px 14px' }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{s.usuario_nombre || '—'}</div>
-                        <div style={{ fontSize: 10, color: 'var(--dim)' }}>{new Date(s.fecha_apertura).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{s.usuario_nombre || '—'}</div>
+                        <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{new Date(s.fecha_apertura).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                       </td>
-                      <td style={{ padding: '10px 14px', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>
                         {new Date(s.fecha_apertura).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td style={{ padding: '10px 14px', fontSize: 11, whiteSpace: 'nowrap' }}>
-                        {abierta ? <span style={{ color: 'oklch(0.78 0.16 155)', fontSize: 10, fontWeight: 700 }}>● Abierta</span>
-                          : <span style={{ color: 'var(--muted)' }}>{new Date(s.fecha_cierre).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}</span>}
+                      <td style={{ padding: '10px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {abierta ? <span style={{ color: 'oklch(0.78 0.16 155)', fontSize: 11, fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>● Abierta</span>
+                          : <span style={{ color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{new Date(s.fecha_cierre).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}</span>}
                       </td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)' }}>{fmtMoney(s.monto_inicial)}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'oklch(0.78 0.16 155)' }}>
+                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{fmtMoney(s.monto_inicial)}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'oklch(0.78 0.16 155)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                         {fmtMoney(s.monto_calculado != null ? s.monto_inicial + (s.total_ingresos || 0) - (s.total_egresos || 0) : 0)}
                       </td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'oklch(0.74 0.13 250)' }}>—</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'oklch(0.74 0.13 250)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>—</td>
                       <td style={{ padding: '10px 14px' }}>
                         {s.fecha_cierre ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 8, background: `${difColor}12`, border: `1px solid ${difColor}30`, width: 'fit-content' }}>
-                            <span style={{ fontSize: 11, fontWeight: 800, color: difColor }}>{difLabel}</span>
-                            {!esCuadra && <span style={{ fontSize: 11, color: difColor }}>Bs.{Math.abs(dif).toFixed(2)}</span>}
+                            <span style={{ fontSize: 12, fontWeight: 800, color: difColor, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{difLabel}</span>
+                            {!esCuadra && <span style={{ fontSize: 12, color: difColor, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Bs.{Math.abs(dif).toFixed(2)}</span>}
                           </div>
                         ) : (
-                          <span style={{ fontSize: 10, color: 'var(--dim)' }}>—</span>
+                          <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)' }}>—</span>
                         )}
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        <button onClick={e => { e.stopPropagation(); setTurnoDetalle(s.id) }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <Eye size={14} />
+                        <button onClick={e => { e.stopPropagation(); setTurnoDetalle(s.id) }} title="Ver detalle" className="clientes-action-icon">
+                          <Eye size={15} color="oklch(0.88 0.01 250 / .85)" />
                         </button>
                       </td>
                     </motion.tr>
@@ -618,6 +701,7 @@ function HistorialCaja() {
                 })}
               </tbody>
             </table>
+            </div>
             <div style={{ padding: '0 14px 4px', borderTop: '1px solid var(--line)' }}>
               <Pagination
                 page={page}
@@ -726,39 +810,46 @@ export default function Ventas() {
   ]
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div className="clientes-page ventas-page" style={{ maxWidth: 1100, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <h1 className="titulo-metalico" style={{ marginBottom: 4 }}>Ventas y Caja</h1>
-          <p style={{ fontSize: 13, color: 'var(--dim)' }}>Ventas, historial de turnos y control de caja</p>
+          <p style={{ fontSize: 14, color: 'var(--dim)' }}>Ventas, historial de turnos y control de caja</p>
         </div>
         {tab === 'ventas' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 11, color: 'var(--dim)', marginRight: 4 }}>Mes KPI:</label>
-            <input type="month" value={mesKPI} onChange={e => { setMesKPI(e.target.value); cargar(page, pageSize, busqueda, filtros, e.target.value) }} className="gym-input" style={{ padding: '6px 10px', fontSize: 12, width: 140 }} />
-            <button onClick={() => cargar(page, pageSize, busqueda, filtros, mesKPI)} className="btn-secondary" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <RefreshCw size={14} />
+            <label style={{ fontSize: 12, color: 'var(--dim)', marginRight: 4 }}>Mes KPI:</label>
+            <input type="month" value={mesKPI} onChange={e => { setMesKPI(e.target.value); cargar(page, pageSize, busqueda, filtros, e.target.value) }} className="gym-input" style={{ padding: '6px 10px', fontSize: 13, width: 140 }} />
+            <button onClick={() => cargar(page, pageSize, busqueda, filtros, mesKPI)} className="clientes-glass-btn btn-secondary" style={{ padding: '8px 12px' }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><RefreshCw size={15} /></span>
             </button>
           </div>
         )}
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 12, padding: 4 }}>
+      <div style={{
+        display: 'flex', gap: 4, marginBottom: 20,
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 12, padding: 4,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}>
         {TAB_ITEMS.map(t => {
           const Icon = t.icon
           const active = tab === t.id
           return (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
-              flex: 1, padding: '8px 14px', borderRadius: 9, fontSize: 13, fontWeight: active ? 700 : 500,
-              background: active ? 'oklch(0.66 0.22 25 / .18)' : 'transparent',
-              border: active ? '1px solid oklch(0.66 0.22 25 / .35)' : '1px solid transparent',
-              color: active ? 'oklch(0.88 0.1 25)' : 'var(--dim)',
+              flex: 1, padding: '8px 14px', borderRadius: 9, fontSize: 14, fontWeight: active ? 700 : 500,
+              background: active ? 'oklch(1 0 0 / .1)' : 'transparent',
+              border: active ? '1px solid oklch(1 0 0 / .22)' : '1px solid transparent',
+              color: active ? 'oklch(0.97 0.01 250)' : 'var(--dim)',
+              textShadow: active ? '0 1px 2px oklch(0 0 0 / .6)' : 'none',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
               transition: 'all .15s',
             }}>
-              <Icon size={14} />
+              <Icon size={15} />
               {t.label}
             </button>
           )
@@ -770,11 +861,16 @@ export default function Ventas() {
         <div>
           {/* Banner filtro de sesión */}
           {sesionFiltro && (
-            <div style={{ background: 'oklch(0.74 0.13 250 / .1)', border: '1px solid oklch(0.74 0.13 250 / .3)', borderRadius: 10, padding: '8px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 12, color: 'oklch(0.74 0.13 250)' }}>📋 Mostrando ventas del turno de caja #{sesionFiltro}</span>
+            <div style={{
+              background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+              border: '1px solid transparent', borderLeft: '3px solid oklch(0.74 0.13 250)', borderRadius: 10, padding: '8px 14px', marginBottom: 14,
+              display: 'flex', alignItems: 'center', gap: 10,
+              boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+            }}>
+              <span style={{ fontSize: 13, color: 'oklch(0.74 0.13 250)' }}>📋 Mostrando ventas del turno de caja #{sesionFiltro}</span>
               <button onClick={() => { setSesionFiltro(null); cargar(1, pageSize, busqueda, filtros, mesKPI, null) }}
-                style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <X size={11} /> Ver todas las ventas
+                style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--dim)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <X size={12} /> Ver todas las ventas
               </button>
             </div>
           )}
@@ -790,11 +886,18 @@ export default function Ventas() {
           )}
 
           {/* Filtros */}
-          <div className="gym-card" style={{ padding: '14px 16px', marginBottom: 16 }}>
+          <div style={{
+            background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+            border: '1px solid transparent', borderRadius: 12, padding: '14px 16px', marginBottom: 16,
+            boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+          }}>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--dim)', pointerEvents: 'none' }} />
-                <input type="text" className="gym-input" placeholder="Buscar cliente, CI, #ID..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ paddingLeft: 32, paddingRight: 12, fontSize: 13, height: 36 }} />
+                <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.88 0.01 250 / .85)', pointerEvents: 'none' }} />
+                <input type="text" className="gym-input" placeholder="Buscar cliente, CI, #ID..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{
+                  paddingLeft: 32, paddingRight: 12, fontSize: 14, height: 36,
+                  background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)', color: 'oklch(0.97 0.01 250)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                }} />
               </div>
               {[
                 { key: 'tipo', options: [['todos','Todos los tipos'], ['membresia','Membresía'], ['productos','Productos']] },
@@ -805,32 +908,35 @@ export default function Ventas() {
                   <Select value={filtros[key]} onChange={v => handleFiltros({ ...filtros, [key]: v })} options={options.map(([v, l]) => ({ value: v, label: l }))} />
                 </div>
               ))}
-              <input type="date" className="gym-input" value={filtros.desde} onChange={e => handleFiltros({ ...filtros, desde: e.target.value })} style={{ padding: '0 10px', fontSize: 12, height: 36, width: 140 }} title="Desde" />
-              <input type="date" className="gym-input" value={filtros.hasta} onChange={e => handleFiltros({ ...filtros, hasta: e.target.value })} style={{ padding: '0 10px', fontSize: 12, height: 36, width: 140 }} title="Hasta" />
+              <input type="date" className="gym-input" value={filtros.desde} onChange={e => handleFiltros({ ...filtros, desde: e.target.value })} style={{ padding: '0 10px', fontSize: 13, height: 36, width: 140 }} title="Desde" />
+              <input type="date" className="gym-input" value={filtros.hasta} onChange={e => handleFiltros({ ...filtros, hasta: e.target.value })} style={{ padding: '0 10px', fontSize: 13, height: 36, width: 140 }} title="Hasta" />
               {(filtros.tipo !== 'todos' || filtros.estado !== 'todos' || filtros.metodo_pago !== 'todos' || filtros.desde || filtros.hasta) && (
-                <button onClick={() => handleFiltros({ tipo: 'todos', estado: 'todos', metodo_pago: 'todos', desde: '', hasta: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                  <X size={12} /> Limpiar
+                <button onClick={() => handleFiltros({ tipo: 'todos', estado: 'todos', metodo_pago: 'todos', desde: '', hasta: '' })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
+                  <X size={13} /> Limpiar
                 </button>
               )}
             </div>
           </div>
 
           {/* Tabla de ventas */}
-          <div className="gym-card" style={{ overflow: 'hidden' }}>
+          <div className="gym-card clientes-glass-table" style={{ overflow: 'hidden' }}>
             {cargando ? (
               <div style={{ textAlign: 'center', padding: 60 }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
             ) : ventas.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--dim)' }}>
-                <ShoppingBag size={40} style={{ opacity: 0.2, margin: '0 auto 12px' }} />
-                <p style={{ fontSize: 14 }}>No hay ventas con los filtros seleccionados</p>
+                <ShoppingBag size={43} style={{ opacity: 0.2, margin: '0 auto 12px' }} />
+                <p style={{ fontSize: 15 }}>No hay ventas con los filtros seleccionados</p>
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
+              <div>
+                {/* Solo la tabla scrollea — ver mismo comentario en el
+                    tab Historial de Caja más arriba. */}
+                <div style={{ maxHeight: 'calc(100vh - 560px)', overflowY: 'auto', overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--line)' }}>
                       {['#', 'Fecha', 'Cliente', 'Tipo', 'Método', 'Total', 'Estado', ''].map(h => (
-                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{h}</th>
+                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -845,20 +951,20 @@ export default function Ventas() {
                           onMouseEnter={e => e.currentTarget.style.background = 'oklch(1 0 0 / .03)'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                         >
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--dim)' }}>#{v.id}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{new Date(v.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short' })} {new Date(v.fecha).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--ink)' }}>{v.cliente_nombre || <span style={{ color: 'var(--dim)' }}>—</span>}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>#{v.id}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>{new Date(v.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short' })} {new Date(v.fecha).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 14, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{v.cliente_nombre || <span style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>—</span>}</td>
                           <td style={{ padding: '10px 14px' }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: tipoBadge.bg, color: tipoBadge.color }}>{tipoBadge.label}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: tipoBadge.bg, color: tipoBadge.color, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{tipoBadge.label}</span>
                           </td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--muted)', textTransform: 'capitalize' }}>{METODOS[v.metodo_pago] || v.metodo_pago || '—'}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: v.estado === 'anulada' ? 'var(--dim)' : 'oklch(0.72 0.17 155)', textDecoration: v.estado === 'anulada' ? 'line-through' : 'none' }}>{fmtMoney(v.total)}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', textTransform: 'capitalize' }}>{METODOS[v.metodo_pago] || v.metodo_pago || '—'}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 700, color: v.estado === 'anulada' ? 'oklch(0.88 0.01 250 / .85)' : 'oklch(0.72 0.17 155)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', textDecoration: v.estado === 'anulada' ? 'line-through' : 'none' }}>{fmtMoney(v.total)}</td>
                           <td style={{ padding: '10px 14px' }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: estadoBadge.bg, color: estadoBadge.color }}>{estadoBadge.label}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: estadoBadge.bg, color: estadoBadge.color, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{estadoBadge.label}</span>
                           </td>
                           <td style={{ padding: '10px 14px' }}>
-                            <button onClick={e => { e.stopPropagation(); setVentaDetalle(v) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                              <Eye size={13} />
+                            <button onClick={e => { e.stopPropagation(); setVentaDetalle(v) }} title="Ver detalle" className="clientes-action-icon">
+                              <Eye size={14} color="oklch(0.88 0.01 250 / .85)" />
                             </button>
                           </td>
                         </motion.tr>
@@ -866,6 +972,7 @@ export default function Ventas() {
                     })}
                   </tbody>
                 </table>
+                </div>
                 <div style={{ padding: '0 14px 4px', borderTop: '1px solid var(--line)' }}>
                   <Pagination
                     page={page} pageSize={pageSize} total={total}

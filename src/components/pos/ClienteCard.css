@@ -1,0 +1,16 @@
+/* [CORREGIDO — brillo rojo] .btn-primary (index.css, global) trae un
+   box-shadow con glow rojo (0 8px 22px oklch(0.66 0.22 25 / .22), .35
+   en :hover) — el botón "Renovar Plan"/"Asignar Plan" de ClienteCard.jsx
+   no tenía ninguna clase propia que lo aislara de eso, a diferencia del
+   resto de botones de Control de Acceso (que ya usan .ca-glass-btn/
+   .nc-glass-btn). Acá se pisa con blanco, mismo blur/offset/alpha, sin
+   tocar la regla global (.btn-primary se usa en toda la app). Selector
+   de 2 clases para ganarle con certeza a .btn-primary sin depender del
+   orden de imports — mismo criterio que .ca-glass-btn.btn-primary en
+   ControlAcceso.css. */
+.btn-primary.cc-renovar-btn {
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / .10), 0 8px 22px oklch(1 0 0 / .22);
+}
+.btn-primary.cc-renovar-btn:hover {
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / .12), 0 8px 28px oklch(1 0 0 / .35);
+}

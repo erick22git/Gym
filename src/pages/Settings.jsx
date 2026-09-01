@@ -62,7 +62,7 @@ export default function Settings() {
           </div>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.04em' }}>Acerca del Sistema</h2>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--muted)' }}>Urban Fitness Club — Sistema de Gestión v1.0</p>
+        <p style={{ fontSize: 13, color: 'var(--muted)' }}>Gimnasio — Sistema de Gestión v1.0</p>
         <p style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6 }}>Incluye módulo de Facturación Electrónica SFE Bolivia</p>
       </motion.div>
     </div>

@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Building2, Puzzle, Users, CreditCard, HardDrive, Receipt,
-  Shield, Info, ChevronRight, ArrowLeft, Lock, Save, FileText,
+  Shield, Info, ChevronRight, ArrowLeft, Lock, Save, FileText, Sparkles,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import '../Clients.css'
 import { useApp } from '../../context/AppContext'
 import { PAGES } from '../../constants'
 import GestionModulos from './GestionModulos'
@@ -12,6 +13,7 @@ import GestionUsuarios from './GestionUsuarios'
 import ConfiguracionPOS from './ConfiguracionPOS'
 import Respaldos from './Respaldos'
 import ConfiguracionRecibos from '../../modules/recibos/ConfiguracionRecibos'
+import ImportarIA from './ImportarIA'
 
 // ─── Secciones disponibles ────────────────────────────────────────────────────
 
@@ -79,6 +81,13 @@ const SECCIONES = [
     descripcion: 'Versión, créditos y ayuda',
     color: 'oklch(0.78 0.02 250)',
   },
+  {
+    id: 'ia',
+    icon: Sparkles,
+    titulo: 'IA / Importar datos',
+    descripcion: 'Asistente que lee documentos y fotos de tu inventario y los carga por vos',
+    color: 'oklch(0.72 0.18 305)',
+  },
 ]
 
 // ─── Card de sección ──────────────────────────────────────────────────────────
@@ -91,30 +100,32 @@ function SeccionCard({ sec, onClick }) {
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       style={{
-        background: 'var(--glass)',
-        border: `1px solid ${sec.color}25`,
+        position: 'relative', overflow: 'hidden',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
         borderTop: `3px solid ${sec.color}`,
         borderRadius: 14,
         padding: '20px 18px',
         cursor: 'pointer',
         display: 'flex', flexDirection: 'column', gap: 12,
         textAlign: 'left', width: '100%',
-        transition: 'border-color .2s',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .07), 0 0 10px 1px oklch(1 0 0 / .04), 0 14px 34px oklch(0 0 0 / .35)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{
           width: 42, height: 42, borderRadius: 11, flexShrink: 0,
-          background: `${sec.color}18`, border: `1px solid ${sec.color}35`,
+          background: sec.color.replace(')', ' / .15)'), border: `1px solid ${sec.color.replace(')', ' / .35)')}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Icon size={20} color={sec.color} />
         </div>
-        <ChevronRight size={16} color="var(--dim)" />
+        <ChevronRight size={16} color="oklch(0.88 0.01 250 / .85)" />
       </div>
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>{sec.titulo}</div>
-        <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>{sec.descripcion}</div>
+        <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.5 }}>{sec.descripcion}</div>
       </div>
     </motion.button>
   )
@@ -165,9 +176,14 @@ function SeccionNegocio() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 600 }}>
-      <div className="gym-card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 14, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+      }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del gimnasio *', 'gym_nombre', { placeholder: 'Urban Fitness Club' })}</div>
+          <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del gimnasio *', 'gym_nombre', { placeholder: 'Gimnasio' })}</div>
           <div style={{ gridColumn: '1/-1' }}>{inp('Dirección', 'gym_direccion', { placeholder: 'Av. Principal #123' })}</div>
           {inp('Teléfono', 'gym_telefono', { placeholder: '+591 7XXXXXXX' })}
           {inp('Email', 'gym_email', { placeholder: 'contacto@gym.com' })}
@@ -175,12 +191,13 @@ function SeccionNegocio() {
           {inp('Horario de atención', 'gym_horario', { placeholder: 'Lun-Vie 6:00-22:00' })}
         </div>
         <div style={{ paddingTop: 4, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={guardar} className="btn-primary" disabled={guardando} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Save size={14} /> {guardando ? 'Guardando...' : 'Guardar'}
+          <button onClick={guardar} className="clientes-glass-btn btn-primary" disabled={guardando}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Save size={14} /> {guardando ? 'Guardando...' : 'Guardar'}</span>
           </button>
         </div>
       </div>
-      <p style={{ fontSize: 12, color: 'var(--dim)', textAlign: 'center' }}>
+      <p style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', textAlign: 'center' }}>
         Estos datos aparecen en recibos y reportes del sistema.
       </p>
     </div>
@@ -192,21 +209,27 @@ function SeccionNegocio() {
 function SeccionFacturacion({ onNavigate }) {
   return (
     <div style={{ maxWidth: 500 }}>
-      <div className="gym-card" style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 14, padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: 'oklch(0.82 0.14 75 / .15)', border: '1px solid oklch(0.82 0.14 75 / .3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Receipt size={22} color="oklch(0.82 0.14 75)" />
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Facturación Electrónica SFE</div>
-            <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>Normativa boliviana — Sistema de Facturación Electrónica</div>
+            <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 2 }}>Normativa boliviana — Sistema de Facturación Electrónica</div>
           </div>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7 }}>
+        <p style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.7 }}>
           Configura tus credenciales SFE, NIT, certificado digital y opciones de facturación electrónica según la normativa boliviana.
         </p>
-        <button onClick={onNavigate} className="btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <Receipt size={15} /> Ir a Configuración de Facturación
+        <button onClick={onNavigate} className="clientes-glass-btn btn-primary">
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Receipt size={15} /> Ir a Configuración de Facturación</span>
         </button>
       </div>
     </div>
@@ -233,7 +256,12 @@ function SeccionSeguridad() {
 
   return (
     <div style={{ maxWidth: 460 }}>
-      <div className="gym-card" style={{ padding: '22px 24px' }}>
+      <div style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 14, padding: '22px 24px',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
           <div style={{ background: 'oklch(0.66 0.22 25 / .14)', border: '1px solid oklch(0.66 0.22 25 / .3)', borderRadius: 9, padding: 8 }}>
             <Lock size={18} color="oklch(0.75 0.18 25)" />
@@ -253,8 +281,9 @@ function SeccionSeguridad() {
             <label className="gym-label">Confirmar contraseña</label>
             <input className="gym-input" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} required />
           </div>
-          <button type="submit" className="btn-primary" style={{ marginTop: 4, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Save size={14} /> Cambiar contraseña
+          <button type="submit" className="clientes-glass-btn btn-primary" style={{ marginTop: 4, justifyContent: 'center' }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Save size={14} /> Cambiar contraseña</span>
           </button>
         </form>
       </div>
@@ -267,14 +296,19 @@ function SeccionSeguridad() {
 function SeccionSobre() {
   return (
     <div style={{ maxWidth: 500 }}>
-      <div className="gym-card" style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 14, padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 48, height: 48, borderRadius: 12, background: 'oklch(0.78 0.02 250 / .08)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Info size={22} color="var(--muted)" />
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Urban Fitness Club</div>
-            <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.08em' }}>SISTEMA DE GESTIÓN v1.0</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Gimnasio</div>
+            <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 2, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.08em' }}>SISTEMA DE GESTIÓN v1.0</div>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -285,12 +319,12 @@ function SeccionSobre() {
             ['Base de datos', 'SQLite (sql.js)'],
           ].map(([k, v]) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-              <span style={{ fontSize: 13, color: 'var(--dim)' }}>{k}</span>
+              <span style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)' }}>{k}</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{v}</span>
             </div>
           ))}
         </div>
-        <p style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.7, marginTop: 4 }}>
+        <p style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.7, marginTop: 4 }}>
           Para soporte técnico o reportar un problema, contacta al administrador del sistema.
         </p>
       </div>
@@ -308,7 +342,7 @@ export default function Configuracion() {
   const Icon = seccionActiva?.icon
 
   return (
-    <div style={{ padding: '0 2px' }}>
+    <div className="clientes-page" style={{ padding: '0 2px' }}>
       <AnimatePresence mode="wait">
         {!seccion ? (
           <motion.div key="grid" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
@@ -328,13 +362,15 @@ export default function Configuracion() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
               <button
                 onClick={() => setSeccion(null)}
-                style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--muted)', fontSize: 12, flexShrink: 0 }}
+                className="clientes-glass-btn"
+                style={{ borderRadius: 999, padding: '6px 14px', fontSize: 12, flexShrink: 0 }}
               >
-                <ArrowLeft size={14} /> Configuración
+                <div className="clientes-glass-bg" />
+                <span className="clientes-glass-content" style={{ color: 'var(--muted)' }}><ArrowLeft size={14} /> Configuración</span>
               </button>
               {Icon && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: `${seccionActiva.color}18`, border: `1px solid ${seccionActiva.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: seccionActiva.color.replace(')', ' / .15)'), border: `1px solid ${seccionActiva.color.replace(')', ' / .35)')}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Icon size={16} color={seccionActiva.color} />
                   </div>
                   <h1 className="titulo-metalico" style={{ margin: 0, fontSize: 20 }}>{seccionActiva.titulo.toUpperCase()}</h1>
@@ -352,6 +388,9 @@ export default function Configuracion() {
             {seccion === 'recibos' && <ConfiguracionRecibos />}
             {seccion === 'seguridad' && <SeccionSeguridad />}
             {seccion === 'sobre' && <SeccionSobre />}
+            {/* Mismo componente que se abre desde el TopNav (PAGES.IA_IMPORTAR)
+                — un solo componente, dos puntos de entrada, ver ImportarIA.jsx */}
+            {seccion === 'ia' && <ImportarIA />}
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,6 +1,7 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { CheckCircle, AlertTriangle, XCircle, PauseCircle, RefreshCw, Eye, Phone, CreditCard, Clock } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import './ClienteCard.css'
 
 function Avatar({ nombre, apellido, size = 80 }) {
   return (
@@ -11,7 +12,7 @@ function Avatar({ nombre, apellido, size = 80 }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: size * 0.34, fontWeight: 800, color: 'oklch(0.85 0.08 25)',
       fontFamily: 'var(--display)', letterSpacing: '.04em',
-      boxShadow: '0 0 24px oklch(0.66 0.22 25 / .25)',
+      boxShadow: '0 0 24px oklch(1 0 0 / .25)',
     }}>
       {nombre?.[0]}{apellido?.[0]}
     </div>
@@ -26,14 +27,17 @@ function BarraProgreso({ diasRestantes, duracionDias }) {
   return (
     <div style={{ marginTop: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: 'var(--dim)' }}>Progreso del plan</span>
+        <span style={{ fontSize: 11, color: '#c9cbd1' }}>Progreso del plan</span>
         <span style={{ fontSize: 11, color, fontWeight: 600 }}>{pct}% restante</span>
       </div>
       <div style={{ height: 6, background: 'oklch(1 0 0 / .08)', borderRadius: 999, overflow: 'hidden' }}>
+        {/* [CAMBIADO — Parte B.6] easeOut → easeInOut: curva de
+            aceleración/desaceleración natural en las 2 puntas, no solo
+            al llegar (antes ya no era lineal, pero solo desaceleraba). */}
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
+          transition={{ duration: 0.8, ease: 'easeInOut' }}
           style={{ height: '100%', background: color, borderRadius: 999 }}
         />
       </div>
@@ -69,10 +73,10 @@ const CONFIG_ESTADO = {
   sin_plan: {
     bg: 'oklch(0.66 0.22 25 / .04)',
     border: 'oklch(0.66 0.22 25 / .15)',
-    badge: { bg: 'oklch(1 0 0 / .06)', color: 'var(--dim)', border: 'var(--line)' },
+    badge: { bg: 'oklch(1 0 0 / .06)', color: '#c9cbd1', border: 'var(--line)' },
     label: 'SIN PLAN',
     Icon: XCircle,
-    iconColor: 'var(--dim)',
+    iconColor: '#c9cbd1',
   },
   pausada: {
     bg: 'oklch(0.74 0.13 250 / .05)',
@@ -101,47 +105,62 @@ export default function ClienteCard({ cliente, estado, ingresoRegistrado, ingres
   const fechaVence = cliente.fecha_fin
 
   return (
-    <div style={{
-      borderRadius: 16,
-      background: cfg.bg,
-      border: `1px solid ${cfg.border}`,
-      padding: 24,
-      backdropFilter: 'blur(20px)',
-      boxShadow: '0 4px 32px oklch(0 0 0 / .3)',
-    }}>
+    <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', maxWidth: 640, margin: '0 auto' }}>
+      {/* Capa de material — blur/tinte/borde, separada del contenido en
+          un elemento propio (position:absolute, sin texto adentro) para
+          que quede claro que ningún filter/backdrop-filter llega a
+          heredarse hacia abajo. El contenido real vive en el div de
+          abajo, con su propio z-index encima y su propio padding (antes
+          el padding estaba en este mismo box, junto con el fondo). */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 0,
+        borderRadius: 16,
+        background: cfg.bg,
+        border: `1px solid ${cfg.border}`,
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0 4px 32px oklch(0 0 0 / .3)',
+        pointerEvents: 'none',
+      }} />
+
+      <div style={{ position: 'relative', zIndex: 1, padding: 20 }}>
       {/* Header con avatar e info */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        <Avatar nombre={cliente.nombre} apellido={cliente.apellido} size={80} />
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+        <Avatar nombre={cliente.nombre} apellido={cliente.apellido} size={64} />
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
             <h2 style={{
-              fontSize: 22, fontWeight: 800, fontFamily: 'var(--display)',
+              fontSize: 19, fontWeight: 800, fontFamily: 'var(--display)',
               letterSpacing: '.04em', color: 'var(--ink)', margin: 0,
             }}>
               {cliente.nombre} {cliente.apellido}
             </h2>
+            {/* [NUEVO — Fase 2 animaciones, punto 5] Transición de color
+                simple, CSS puro — antes el cambio de estado (ej. de
+                POR VENCER a VENCIDO) era un salto brusco de color. */}
             <span style={{
               fontSize: 10, fontWeight: 700, letterSpacing: '.1em',
               padding: '4px 10px', borderRadius: 999,
               background: cfg.badge.bg, color: cfg.badge.color, border: `1px solid ${cfg.badge.border}`,
+              transition: 'background 200ms, color 200ms, border-color 200ms',
             }}>
               {cfg.label}
             </span>
           </div>
 
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#c9cbd1', display: 'flex', alignItems: 'center', gap: 4 }}>
               <CreditCard size={12} />
               CI: {cliente.carnet} {cliente.extension_ci || ''}
             </span>
             {cliente.codigo && (
-              <span style={{ fontSize: 12, color: 'var(--dim)' }}>
+              <span style={{ fontSize: 12, color: '#c9cbd1' }}>
                 Código: {cliente.codigo}
               </span>
             )}
             {cliente.telefono && (
-              <span style={{ fontSize: 12, color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 12, color: '#c9cbd1', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Phone size={12} />
                 {cliente.telefono}
               </span>
@@ -151,17 +170,17 @@ export default function ClienteCard({ cliente, estado, ingresoRegistrado, ingres
           {/* Plan */}
           {cliente.plan_nombre && (
             <div style={{
-              marginTop: 12,
+              marginTop: 10,
               background: 'oklch(1 0 0 / .04)',
               border: '1px solid var(--line)',
-              borderRadius: 10, padding: '10px 14px',
+              borderRadius: 10, padding: '9px 12px',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--display)', letterSpacing: '.04em' }}>
                   {cliente.plan_nombre}
                 </span>
                 {fechaVence && (
-                  <span style={{ fontSize: 11, color: 'var(--dim)' }}>
+                  <span style={{ fontSize: 11, color: '#c9cbd1' }}>
                     Vence: {formatFecha(fechaVence)}
                     {diasRestantes >= 0 ? ` (${diasRestantes} días)` : ''}
                   </span>
@@ -173,24 +192,29 @@ export default function ClienteCard({ cliente, estado, ingresoRegistrado, ingres
             </div>
           )}
 
-          {/* Mensaje de ingreso */}
-          {ingresoRegistrado && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              style={{
-                marginTop: 10, display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 14px', borderRadius: 8,
-                background: 'oklch(0.78 0.16 155 / .12)',
-                border: '1px solid oklch(0.78 0.16 155 / .3)',
-              }}
-            >
-              <CheckCircle size={16} color="var(--green)" />
-              <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 600 }}>
-                Bienvenido/a — Ingreso registrado · {ingresoHora}
-              </span>
-            </motion.div>
-          )}
+          {/* Mensaje de ingreso — [NUEVO, Parte B.7] agrega salida (antes
+              desaparecía de golpe al cambiar de cliente) — fade out
+              simple, SHORT. La entrada (opacity+y:6→0) no se tocó. */}
+          <AnimatePresence>
+            {ingresoRegistrado && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                style={{
+                  marginTop: 10, display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 14px', borderRadius: 8,
+                  background: 'oklch(0.78 0.16 155 / .12)',
+                  border: '1px solid oklch(0.78 0.16 155 / .3)',
+                }}
+              >
+                <CheckCircle size={16} color="var(--green)" />
+                <span style={{ fontSize: 13, color: 'var(--green)', fontWeight: 600 }}>
+                  Bienvenido/a — Ingreso registrado · {ingresoHora}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {estado === 'vencida' && (
             <div style={{
@@ -228,11 +252,11 @@ export default function ClienteCard({ cliente, estado, ingresoRegistrado, ingres
       </div>
 
       {/* Acciones */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
         {(estado === 'vencida' || estado === 'sin_plan' || estado === 'por_vencer') && (puedeRenovar || puedeCobrar) && (
           <button
             onClick={onRenovar}
-            className="btn-primary"
+            className="btn-primary cc-renovar-btn"
             style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13 }}
           >
             <RefreshCw size={15} />
@@ -259,6 +283,7 @@ export default function ClienteCard({ cliente, estado, ingresoRegistrado, ingres
             Ver Perfil
           </button>
         )}
+      </div>
       </div>
     </div>
   )

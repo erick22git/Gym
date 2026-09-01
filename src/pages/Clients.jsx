@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext'
 import { PAGES } from '../constants'
 import NuevoClienteWizard from '../components/pos/NuevoClienteWizard'
 import { useConfirm } from '../components/ui/ConfirmDialog'
+import './Clients.css'
 
 const EMPTY = { carnet: '', nombre: '', apellido: '', telefono: '', email: '', fecha_nacimiento: '' }
 
@@ -121,16 +122,27 @@ export default function Clients() {
 
   const f = (k) => e => setForm(p => ({ ...p, [k]: e.target.value }))
 
+  // [NUEVO] Advertencia suave (no bloqueante) por dígitos faltantes —
+  // CI boliviano válido desde 6 dígitos, celular siempre 8. Solo se
+  // muestra con contenido tipeado (un campo vacío no es "le faltan
+  // dígitos", es simplemente vacío) — nunca impide guardar, ver
+  // guardar() más abajo, que no depende de estos checks.
+  const ciFaltanDigitos = form.carnet.trim().length > 0 && form.carnet.trim().length < 6
+  const telFaltanDigitos = form.telefono.trim().length > 0 && form.telefono.trim().length < 8
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="clientes-page" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Encabezado */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Users size={20} color="oklch(0.66 0.22 25)" />
           <h1 className="titulo-metalico" style={{ margin: 0 }}>Clientes</h1>
         </div>
-        <button className="btn-primary" onClick={() => abrirModal()} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-          <Plus size={15} /> Nuevo cliente
+        <button className="clientes-glass-btn btn-primary" onClick={() => abrirModal()} style={{ fontSize: 13 }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content">
+            <Plus size={15} /> Nuevo cliente
+          </span>
         </button>
       </div>
 
@@ -151,24 +163,30 @@ export default function Clients() {
         {FILTROS.map(fl => (
           <button
             key={fl.id}
+            className="clientes-glass-btn"
             onClick={() => handleFiltro(fl.id)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
-              background: filtro === fl.id ? 'oklch(0.66 0.22 25 / .18)' : 'oklch(0.13 0.01 250 / .6)',
-              color: filtro === fl.id ? 'oklch(0.76 0.20 25)' : 'oklch(0.78 0.02 250 / .5)',
-              border: `1px solid ${filtro === fl.id ? 'oklch(0.66 0.22 25 / .35)' : 'oklch(1 0 0 / .07)'}`,
+              padding: '5px 14px', borderRadius: 999, cursor: 'pointer', fontSize: 12,
+              // Sin background propio — pedido explícito de que sea
+              // transparente, sin ningún color de fondo. El estado
+              // activo/inactivo lo marca solo el color de letra.
+              // Antes rojo para el filtro activo — pedido explícito de
+              // que al "presionarlo" (seleccionarlo) sea blanco, no rojo.
+              background: 'transparent',
+              color: filtro === fl.id ? 'oklch(0.97 0.01 250)' : 'oklch(0.88 0.01 250 / .85)',
+              textShadow: '0 1px 2px rgba(0,0,0,0.6)',
               fontWeight: filtro === fl.id ? 600 : 400,
               transition: 'all .15s',
             }}
           >
-            {fl.label}
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">{fl.label}</span>
           </button>
         ))}
       </div>
 
       {/* Tabla */}
-      <div className="gym-card" style={{ overflow: 'hidden' }}>
+      <div className="gym-card clientes-glass-table" style={{ overflow: 'hidden' }}>
         <table className="gym-table">
           <thead>
             <tr>
@@ -185,6 +203,14 @@ export default function Clients() {
               const activo = estaActivo(c)
               const vence = porVencer(c)
               const cumple = esCumpleanios(c)
+              // Rediseño "premium" del badge de estado — un objeto por
+              // fila en vez de repetir el ternario 3 veces (fondo, borde,
+              // punto) como estaba antes.
+              const estadoBadge = activo && !vence
+                ? { color: 'oklch(0.78 0.16 155)', label: 'Activa' }
+                : vence
+                  ? { color: 'oklch(0.78 0.18 80)', label: 'Por vencer' }
+                  : { color: 'oklch(0.66 0.22 25)', label: 'Vencida' }
               return (
                 <motion.tr
                   key={c.id}
@@ -195,13 +221,22 @@ export default function Clients() {
                 >
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {/* Avatar — rediseñado: gradiente + anillo + glow en
+                          vez de un tinte plano casi invisible (.12/.05 de
+                          alpha antes). */}
                       <div style={{
-                        width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-                        background: activo ? 'oklch(0.68 0.18 200 / .12)' : 'oklch(1 0 0 / .05)',
-                        border: `1px solid ${activo ? 'oklch(0.68 0.18 200 / .3)' : 'oklch(1 0 0 / .08)'}`,
+                        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                        background: activo
+                          ? 'linear-gradient(135deg, oklch(0.68 0.18 200 / .40), oklch(0.68 0.18 200 / .16))'
+                          : 'linear-gradient(135deg, oklch(1 0 0 / .14), oklch(1 0 0 / .05))',
+                        border: `1px solid ${activo ? 'oklch(0.68 0.18 200 / .55)' : 'oklch(1 0 0 / .18)'}`,
+                        boxShadow: activo
+                          ? 'inset 0 1px 0 rgba(255, 255, 255, .25), 0 0 10px oklch(0.68 0.18 200 / .3)'
+                          : 'inset 0 1px 0 rgba(255, 255, 255, .12)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 12, fontWeight: 700,
-                        color: activo ? 'oklch(0.68 0.18 200)' : 'oklch(0.78 0.02 250 / .4)',
+                        fontSize: 13, fontWeight: 800,
+                        color: activo ? 'oklch(0.92 0.09 200)' : 'oklch(0.85 0.02 250)',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, .6)',
                       }}>
                         {(c.nombre?.[0] || '?').toUpperCase()}
                       </div>
@@ -213,41 +248,72 @@ export default function Clients() {
                       </div>
                     </div>
                   </td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'oklch(0.78 0.02 250 / .6)' }}>{c.carnet}</td>
-                  <td style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .55)' }}>{c.telefono || c.email || '—'}</td>
+                  {/* Carnet/Contacto — antes alpha .6/.55 (se leían
+                      difuminados); pasados a color sólido, sin alpha. La
+                      sombra la da la regla .clientes-glass-table .gym-table
+                      td en Clients.css, se hereda sola. */}
+                  <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'oklch(0.88 0.01 250)' }}>{c.carnet}</td>
+                  <td style={{ fontSize: 12, color: 'oklch(0.88 0.01 250)' }}>{c.telefono || c.email || '—'}</td>
                   <td>
+                    {/* Badge de estado — rediseño "premium": pill
+                        (borderRadius:999) + gradiente en vez de tinte
+                        plano + punto con glow + halo/inset de vidrio,
+                        en vez del recuadro chato de antes. */}
                     <span style={{
-                      display: 'inline-block', padding: '2px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600, letterSpacing: '.06em',
-                      background: activo && !vence ? 'oklch(0.78 0.16 155 / .12)' : vence ? 'oklch(0.78 0.18 80 / .12)' : 'oklch(0.66 0.22 25 / .12)',
-                      color: activo && !vence ? 'oklch(0.78 0.16 155)' : vence ? 'oklch(0.78 0.18 80)' : 'oklch(0.66 0.22 25)',
-                      border: `1px solid ${activo && !vence ? 'oklch(0.78 0.16 155 / .3)' : vence ? 'oklch(0.78 0.18 80 / .3)' : 'oklch(0.66 0.22 25 / .3)'}`,
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '4px 10px 4px 8px', borderRadius: 999,
+                      fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
+                      background: `linear-gradient(135deg, ${estadoBadge.color.replace(')', ' / .32)')}, ${estadoBadge.color.replace(')', ' / .10)')})`,
+                      color: estadoBadge.color,
+                      border: `1px solid ${estadoBadge.color.replace(')', ' / .5)')}`,
+                      boxShadow: `inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 10px ${estadoBadge.color.replace(')', ' / .25)')}`,
+                      textShadow: '0 1px 2px rgba(0, 0, 0, .6)',
                     }}>
-                      {activo && !vence ? 'Activa' : vence ? 'Por vencer' : 'Vencida'}
+                      <span style={{
+                        width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                        background: estadoBadge.color,
+                        boxShadow: `0 0 6px ${estadoBadge.color}`,
+                      }} />
+                      {estadoBadge.label}
                     </span>
                   </td>
-                  <td style={{ fontSize: 12, color: vence ? 'oklch(0.78 0.18 80)' : 'oklch(0.78 0.02 250 / .5)' }}>
+                  <td style={{ fontSize: 12, color: vence ? 'oklch(0.78 0.18 80)' : 'oklch(0.88 0.01 250)' }}>
                     {c.vigencia || '—'}
                   </td>
                   <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    {/* [ÍCONOS DE ACCIÓN — pedido explícito, "no deben ser
+                        como botones"] Se saca .clientes-glass-btn/
+                        .clientes-glass-bg (vidrio/marco) — quedan sueltos,
+                        sin fondo ni borde. .clientes-action-icon
+                        (Clients.css) les da el mismo tipo de movimiento
+                        (rebote al pasar/tocar) que tenían los botones,
+                        más filter:drop-shadow propio (SVG, no texto —
+                        text-shadow no les hace nada) y color sólido sin
+                        alpha (antes /.7-.8, "más fuerte su color sin
+                        opacidad"). */}
+                    <div style={{ display: 'flex', gap: 2 }}>
                       <button
-                        className="btn-ghost btn-sm"
+                        className="clientes-action-icon"
                         title="Ver perfil"
                         onClick={() => navigate(PAGES.PERFIL_CLIENTE, { clienteId: c.id })}
-                        style={{ color: 'oklch(0.68 0.18 200 / .7)' }}
+                        style={{ color: 'oklch(0.68 0.18 200)' }}
                       >
-                        <Eye size={13} />
+                        <Eye size={15} />
                       </button>
-                      <button className="btn-ghost btn-sm" title="Editar" onClick={() => abrirModal(c)}><Edit2 size={13} /></button>
+                      <button className="clientes-action-icon" title="Editar" onClick={() => abrirModal(c)} style={{ color: 'oklch(0.92 0.01 250)' }}>
+                        <Edit2 size={15} />
+                      </button>
                       <button
-                        className="btn-ghost btn-sm"
+                        className="clientes-action-icon"
                         title={activo && !vence ? 'Renovar anticipado' : vence ? 'Renovar plan' : 'Asignar / renovar plan'}
                         onClick={() => setRenovarClienteId(c.id)}
-                        style={{ color: 'oklch(0.78 0.16 155 / .8)' }}
+                        style={{ color: 'oklch(0.78 0.16 155)' }}
                       >
-                        <RefreshCw size={13} />
+                        <RefreshCw size={15} />
                       </button>
-                      <button className="btn-ghost btn-sm" style={{ color: 'oklch(0.66 0.22 25 / .7)' }} title="Eliminar" onClick={() => eliminar(c.id)}><Trash2 size={13} /></button>
+                      <button className="clientes-action-icon" title="Eliminar" onClick={() => eliminar(c.id)} style={{ color: 'oklch(0.75 0.20 25)' }}>
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                   </td>
                 </motion.tr>
@@ -255,7 +321,7 @@ export default function Clients() {
             })}
             {clientesMostrados.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: 48, color: 'oklch(0.78 0.02 250 / .3)', fontSize: 13 }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: 48, color: 'oklch(0.88 0.01 250 / .85)', fontSize: 13, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                   {busqueda ? 'Sin resultados para la búsqueda' : 'Sin clientes en este filtro'}
                 </td>
               </tr>
@@ -288,16 +354,38 @@ export default function Clients() {
       <Modal open={modal} onClose={() => setModal(false)} title={editando ? 'Editar cliente' : 'Nuevo cliente'}>
         <form onSubmit={guardar} className="flex flex-col gap-4">
           <div className="form-grid">
-            <div><label className="gym-label">Carnet *</label><input className="gym-input" required value={form.carnet} onChange={f('carnet')} placeholder="CI o ID" /></div>
+            <div>
+              <label className="gym-label">Carnet *</label>
+              <input className="gym-input" required value={form.carnet} onChange={f('carnet')} placeholder="CI o ID" />
+              {ciFaltanDigitos && (
+                <span style={{ color: '#eab308', fontSize: '12px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  ⚠ Ojo, te faltan dígitos
+                </span>
+              )}
+            </div>
             <div><label className="gym-label">Nombre *</label><input className="gym-input" required value={form.nombre} onChange={f('nombre')} /></div>
             <div><label className="gym-label">Apellido *</label><input className="gym-input" required value={form.apellido} onChange={f('apellido')} /></div>
-            <div><label className="gym-label">Teléfono</label><input className="gym-input" value={form.telefono} onChange={f('telefono')} /></div>
+            <div>
+              <label className="gym-label">Teléfono</label>
+              <input className="gym-input" value={form.telefono} onChange={f('telefono')} />
+              {telFaltanDigitos && (
+                <span style={{ color: '#eab308', fontSize: '12px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  ⚠ Ojo, te faltan dígitos
+                </span>
+              )}
+            </div>
             <div><label className="gym-label">Email</label><input className="gym-input" type="email" value={form.email} onChange={f('email')} /></div>
             <div><label className="gym-label">Fecha nacimiento</label><input className="gym-input" type="date" value={form.fecha_nacimiento} onChange={f('fecha_nacimiento')} /></div>
           </div>
           <div className="flex gap-3" style={{ marginTop: 8 }}>
-            <button type="button" className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancelar</button>
-            <button type="submit" className="btn-primary flex-1">Guardar</button>
+            <button type="button" className="clientes-glass-btn btn-secondary flex-1" onClick={() => setModal(false)}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content">Cancelar</span>
+            </button>
+            <button type="submit" className="clientes-glass-btn btn-primary flex-1">
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content">Guardar</span>
+            </button>
           </div>
         </form>
       </Modal>

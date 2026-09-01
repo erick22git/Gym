@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Save, Upload, QrCode, Settings2, ToggleLeft, ToggleRight, Printer, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
+import '../Clients.css'
 
 const METODOS_DISPONIBLES = [
   { id: 'efectivo', label: 'Efectivo', emoji: '💵' },
@@ -16,7 +17,12 @@ function Section({ title, children, delay = 0 }) {
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay }}
-      className="gym-card" style={{ padding: '20px 22px', marginBottom: 16 }}
+      style={{
+        padding: '20px 22px', marginBottom: 16,
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 14,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}
     >
       <h3 style={{ fontFamily: 'var(--display)', fontSize: 13, fontWeight: 700, letterSpacing: '.1em', color: 'var(--muted)', marginBottom: 16, textTransform: 'uppercase' }}>
         {title}
@@ -28,7 +34,7 @@ function Section({ title, children, delay = 0 }) {
 
 export default function ConfiguracionPOS() {
   const [config, setConfig] = useState({
-    gym_nombre: 'Urban Fitness Club',
+    gym_nombre: 'Gimnasio',
     gym_direccion: '',
     gym_telefono: '',
     gym_email: '',
@@ -51,7 +57,7 @@ export default function ConfiguracionPOS() {
     window.api.pos.getConfig().then(data => {
       if (data) {
         setConfig({
-          gym_nombre: data.gym_nombre || 'Urban Fitness Club',
+          gym_nombre: data.gym_nombre || 'Gimnasio',
           gym_direccion: data.gym_direccion || '',
           gym_telefono: data.gym_telefono || '',
           gym_email: data.gym_email || '',
@@ -150,20 +156,21 @@ export default function ConfiguracionPOS() {
   if (cargando) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--dim)' }}>Cargando...</div>
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto' }}>
+    <div className="clientes-page" style={{ maxWidth: 700, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 className="titulo-metalico" style={{ marginBottom: 4 }}>Punto de Venta y Pagos</h1>
           <p style={{ fontSize: 13, color: 'var(--dim)' }}>Configuración del punto de venta y métodos de cobro</p>
         </div>
-        <button onClick={guardar} className="btn-primary" disabled={guardando} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <Save size={15} /> {guardando ? 'Guardando...' : 'Guardar'}
+        <button onClick={guardar} className="clientes-glass-btn btn-primary" disabled={guardando}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Save size={15} /> {guardando ? 'Guardando...' : 'Guardar'}</span>
         </button>
       </div>
 
       <Section title="Datos del establecimiento" delay={0}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del gimnasio', 'gym_nombre', { placeholder: 'Urban Fitness Club' })}</div>
+          <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del gimnasio', 'gym_nombre', { placeholder: 'Gimnasio' })}</div>
           {inp('Dirección', 'gym_direccion')}
           {inp('Teléfono', 'gym_telefono')}
           {inp('Email', 'gym_email', { placeholder: 'contacto@gym.com' })}
@@ -189,8 +196,9 @@ export default function ConfiguracionPOS() {
                 <QrCode size={40} color="var(--dim)" />
               )}
             </div>
-            <button onClick={seleccionarQR} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-              <Upload size={13} /> Cargar QR
+            <button onClick={seleccionarQR} className="clientes-glass-btn btn-secondary" style={{ fontSize: 12 }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content"><Upload size={13} /> Cargar QR</span>
             </button>
           </div>
         </div>
@@ -206,13 +214,14 @@ export default function ConfiguracionPOS() {
                 type="button"
                 onClick={() => toggleMetodo(m.id)}
                 style={{
-                  padding: '10px 16px', borderRadius: 10,
-                  background: activo ? 'oklch(0.66 0.22 25 / .15)' : 'var(--glass)',
-                  border: `1px solid ${activo ? 'var(--red)' : 'var(--line)'}`,
+                  padding: '10px 16px', borderRadius: 999,
+                  background: activo ? 'oklch(0.66 0.22 25 / .15)' : 'oklch(0.13 0.02 250 / .34)',
+                  border: activo ? '1px solid transparent' : '1px solid var(--line)',
+                  borderLeft: activo ? '3px solid var(--red)' : undefined,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
-                  color: activo ? 'var(--ink)' : 'var(--dim)',
+                  color: activo ? 'oklch(0.97 0.01 250)' : 'oklch(0.88 0.01 250 / .85)',
                   fontSize: 13, fontWeight: activo ? 600 : 400,
-                  transition: 'all .2s',
+                  transition: 'all .2s', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
                 }}
               >
                 <span>{m.emoji}</span>
@@ -229,16 +238,18 @@ export default function ConfiguracionPOS() {
             <button
               onClick={detectarImpresoras}
               disabled={detectando}
-              className="btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: 7 }}
+              className="clientes-glass-btn btn-secondary"
             >
-              {detectando
-                ? <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
-                : <Printer size={13} />}
-              {detectando ? 'Detectando...' : 'Detectar impresoras'}
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content">
+                {detectando
+                  ? <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                  : <Printer size={13} />}
+                {detectando ? 'Detectando...' : 'Detectar impresoras'}
+              </span>
             </button>
             {impresoras.length > 0 && (
-              <span style={{ fontSize: 12, color: 'var(--dim)' }}>{impresoras.length} impresora{impresoras.length !== 1 ? 's' : ''} encontrada{impresoras.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>{impresoras.length} impresora{impresoras.length !== 1 ? 's' : ''} encontrada{impresoras.length !== 1 ? 's' : ''}</span>
             )}
           </div>
 
@@ -253,16 +264,17 @@ export default function ConfiguracionPOS() {
                     onClick={() => setImpresoraSeleccionada(imp.name)}
                     style={{
                       padding: '10px 14px', borderRadius: 9, cursor: 'pointer',
-                      border: `1px solid ${isSelected ? 'var(--red)' : 'var(--line)'}`,
-                      background: isSelected ? 'oklch(0.66 0.22 25 / .12)' : 'var(--glass)',
+                      border: isSelected ? '1px solid transparent' : '1px solid var(--line)',
+                      borderLeft: isSelected ? '3px solid var(--red)' : undefined,
+                      background: isSelected ? 'oklch(0.66 0.22 25 / .12)' : 'oklch(0.13 0.02 250 / .34)',
                       display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s',
                     }}
                   >
-                    <Printer size={14} color={isSelected ? 'oklch(0.76 0.20 25)' : 'var(--dim)'} />
+                    <Printer size={14} color={isSelected ? 'oklch(0.76 0.20 25)' : 'oklch(0.88 0.01 250 / .85)'} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: isSelected ? 'var(--ink)' : 'var(--muted)' }}>{imp.name}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: isSelected ? 'oklch(0.97 0.01 250)' : 'var(--muted)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{imp.name}</div>
                       {imp.description && imp.description !== imp.name && (
-                        <div style={{ fontSize: 11, color: 'var(--dim)' }}>{imp.description}</div>
+                        <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{imp.description}</div>
                       )}
                     </div>
                     {isDefault && (
@@ -282,15 +294,17 @@ export default function ConfiguracionPOS() {
               <button
                 onClick={probarImpresora}
                 disabled={probando}
-                className="btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: 7 }}
+                className="clientes-glass-btn btn-secondary"
               >
-                {probando
-                  ? <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
-                  : <Printer size={13} />}
-                {probando ? 'Enviando...' : 'Imprimir página de prueba'}
+                <div className="clientes-glass-bg" />
+                <span className="clientes-glass-content">
+                  {probando
+                    ? <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                    : <Printer size={13} />}
+                  {probando ? 'Enviando...' : 'Imprimir página de prueba'}
+                </span>
               </button>
-              <span style={{ fontSize: 12, color: 'var(--dim)' }}>en {impresoraSeleccionada}</span>
+              <span style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>en {impresoraSeleccionada}</span>
             </div>
           )}
 
@@ -306,7 +320,7 @@ export default function ConfiguracionPOS() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Descuento máximo personalizado</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Descuento máximo personalizado</div>
               <div style={{ fontSize: 11, color: 'var(--dim)' }}>Porcentaje máximo que se puede aplicar manualmente</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -322,10 +336,10 @@ export default function ConfiguracionPOS() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>Sonidos al registrar ingreso</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Sonidos al registrar ingreso</div>
               <div style={{ fontSize: 11, color: 'var(--dim)' }}>Reproducir efecto de sonido al confirmar</div>
             </div>
-            <button type="button" onClick={() => set('sonidos_activos', !config.sonidos_activos)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <button type="button" onClick={() => set('sonidos_activos', !config.sonidos_activos)} className="clientes-action-icon" style={{ padding: 0 }}>
               {config.sonidos_activos ? <ToggleRight size={32} color="var(--green)" /> : <ToggleLeft size={32} color="var(--dim)" />}
             </button>
           </div>

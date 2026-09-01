@@ -2,9 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, Check, Plus, Loader2 } from 'lucide-react'
 
-export function Select({ value, onChange, options, placeholder = '— Seleccionar —', onAdd, addLabel }) {
+export function Select({ value, onChange, options, placeholder = '— Seleccionar —', onAdd, addLabel, triggerClassName = '', dropdownClassName = '' }) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0, maxHeight: 280 })
   const [adding, setAdding] = useState(false)
   const [addText, setAddText] = useState('')
   const [addLoading, setAddLoading] = useState(false)
@@ -12,10 +12,32 @@ export function Select({ value, onChange, options, placeholder = '— Selecciona
   const addInputRef = useRef(null)
   const selected = options.find(o => String(o.value) === String(value))
 
+  // [CORREGIDO — dropdown cortado sin scroll visible] Antes siempre
+  // abría hacia abajo (top:rect.bottom+4) sin mirar cuánto espacio
+  // quedaba — si el trigger estaba cerca del borde inferior de la
+  // ventana, el panel (position:fixed, hasta 280px de alto) se
+  // extendía más allá de la ventana. Como <body> tiene overflow:hidden
+  // (ver index.css), esa parte no tenía forma de verse ni de
+  // scrollearse hasta ella. Ahora mide el espacio libre arriba/abajo
+  // del trigger y decide de qué lado abrir, capando maxHeight al
+  // espacio real disponible de ESE lado (nunca más de 280px).
+  const DESIRED_MAX_HEIGHT = 280
+  const VIEWPORT_MARGIN = 8
+
   function toggle() {
     if (!open) {
       const rect = triggerRef.current.getBoundingClientRect()
-      setPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 180) })
+      const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN
+      const spaceAbove = rect.top - VIEWPORT_MARGIN
+      const openUp = spaceBelow < 160 && spaceAbove > spaceBelow
+      const maxHeight = Math.max(120, Math.min(DESIRED_MAX_HEIGHT, openUp ? spaceAbove : spaceBelow))
+      setPos({
+        left: rect.left,
+        width: Math.max(rect.width, 180),
+        maxHeight,
+        top: openUp ? undefined : rect.bottom + 4,
+        bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,
+      })
       setAdding(false)
       setAddText('')
     }
@@ -53,7 +75,7 @@ export function Select({ value, onChange, options, placeholder = '— Selecciona
 
   return (
     <>
-      <button ref={triggerRef} className="custom-select-trigger" onClick={toggle} type="button">
+      <button ref={triggerRef} className={`custom-select-trigger${triggerClassName ? ' ' + triggerClassName : ''}`} onClick={toggle} type="button">
         <span style={{ color: selected ? 'var(--ink)' : 'var(--dim)' }}>
           {selected?.label ?? placeholder}
         </span>
@@ -64,8 +86,11 @@ export function Select({ value, onChange, options, placeholder = '— Selecciona
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 99990 }} onClick={close} />
           <div
-            className="custom-select-dropdown"
-            style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 99991 }}
+            className={`custom-select-dropdown${dropdownClassName ? ' ' + dropdownClassName : ''}`}
+            style={{
+              position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width,
+              maxHeight: pos.maxHeight, overflowY: 'auto', zIndex: 99991,
+            }}
           >
             {options.map(opt => (
               <div

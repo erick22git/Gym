@@ -192,8 +192,18 @@ export default function Memberships() {
 
       setPaso('comprobante')
 
-      // Precargar VistaRecibo
+      // Persistir recibo en BD para que aparezca en el perfil del cliente (ojo)
       if (recibosActivo) {
+        window.api.recibos.guardar({
+          numero: ventaData.numero,
+          venta_id: ventaData.id,
+          cliente_nombre: ventaData.cliente_nombre,
+          cliente_doc: ventaData.cliente_doc,
+          items: ventaData.items,
+          total: ventaData.total,
+          metodo_pago: ventaData.metodo_pago,
+          cajero: ventaData.cajero,
+        }).catch(() => {})
         getVistaRecibo().then(comp => setVistaReciboComp(() => comp))
       }
     } finally {

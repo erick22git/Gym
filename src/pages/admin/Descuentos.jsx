@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, Check, X, ToggleLeft, ToggleRight } from 'lucide-r
 import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
+import '../Clients.css'
 
 function ModalDescuento({ desc, onSave, onClose }) {
   const [form, setForm] = useState(desc ? {
@@ -34,7 +35,7 @@ function ModalDescuento({ desc, onSave, onClose }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 200, background: 'oklch(0 0 0 / .7)',
+      position: 'fixed', inset: 0, zIndex: 200, background: 'oklch(0 0 0 / .25)',
       backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }}>
       <motion.div
@@ -42,15 +43,17 @@ function ModalDescuento({ desc, onSave, onClose }) {
         animate={{ scale: 1, opacity: 1 }}
         style={{
           width: '100%', maxWidth: 440,
-          background: 'oklch(0.11 0.01 250)', border: '1px solid var(--line-s)',
-          borderRadius: 18, overflow: 'hidden',
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#clientes-table-glass)', WebkitBackdropFilter: 'url(#clientes-table-glass)',
+          border: '1px solid transparent', borderRadius: 18, overflow: 'hidden',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), 0 0 12px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .4)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         }}
       >
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 800, letterSpacing: '.06em', margin: 0 }}>
             {desc ? 'Editar Descuento' : 'Nuevo Descuento'}
           </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={18} /></button>
+          <button onClick={onClose} className="clientes-action-icon" title="Cerrar"><X size={18} color="var(--dim)" /></button>
         </div>
         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
@@ -81,9 +84,13 @@ function ModalDescuento({ desc, onSave, onClose }) {
           </label>
         </div>
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between' }}>
-          <button className="btn-secondary" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary" onClick={handleSave} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Check size={14} /> {desc ? 'Guardar' : 'Crear'}
+          <button className="clientes-glass-btn btn-secondary" onClick={onClose}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
+          <button className="clientes-glass-btn btn-primary" onClick={handleSave}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Check size={14} /> {desc ? 'Guardar' : 'Crear'}</span>
           </button>
         </div>
       </motion.div>
@@ -130,24 +137,29 @@ export default function Descuentos() {
   function onSave() { cerrar(); cargar() }
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto' }}>
+    <div className="clientes-page" style={{ maxWidth: 700, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 className="titulo-metalico" style={{ marginBottom: 4 }}>Descuentos</h1>
           <p style={{ fontSize: 13, color: 'var(--dim)' }}>Descuentos disponibles al cobrar membresías</p>
         </div>
         {puedeCobrar && (
-          <button onClick={abrirNuevo} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Plus size={16} /> Nuevo Descuento
+          <button onClick={abrirNuevo} className="clientes-glass-btn btn-primary">
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Plus size={16} /> Nuevo Descuento</span>
           </button>
         )}
       </div>
 
-      <div className="gym-card" style={{ overflow: 'hidden' }}>
+      <div style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 18, overflow: 'hidden',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}>
         {cargando ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--dim)' }}>Cargando...</div>
+          <div style={{ padding: 40, textAlign: 'center', color: 'oklch(0.88 0.01 250 / .85)' }}>Cargando...</div>
         ) : descuentos.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--dim)' }}>No hay descuentos configurados</div>
+          <div style={{ padding: 40, textAlign: 'center', color: 'oklch(0.88 0.01 250 / .85)' }}>No hay descuentos configurados</div>
         ) : descuentos.map((d, i) => (
           <motion.div
             key={d.id}
@@ -158,6 +170,7 @@ export default function Descuentos() {
               padding: '14px 18px',
               borderBottom: i < descuentos.length - 1 ? '1px solid var(--line)' : 'none',
               opacity: d.activo ? 1 : 0.5,
+              textShadow: '0 1px 2px rgba(0,0,0,0.6)',
             }}
           >
             <div style={{
@@ -166,32 +179,33 @@ export default function Descuentos() {
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               border: `1px solid ${d.activo ? 'oklch(0.66 0.22 25 / .3)' : 'var(--line)'}`,
             }}>
-              <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: d.activo ? 'var(--red)' : 'var(--dim)' }}>
+              <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: d.activo ? 'var(--red)' : 'oklch(0.88 0.01 250 / .85)' }}>
                 {d.tipo === 'porcentaje' ? `${d.valor}%` : `${d.valor}`}
               </span>
-              <span style={{ fontSize: 9, color: 'var(--dim)', letterSpacing: '.06em' }}>
+              <span style={{ fontSize: 9, color: 'oklch(0.88 0.01 250 / .85)', letterSpacing: '.06em' }}>
                 {d.tipo === 'porcentaje' ? 'DESC' : 'Bs.'}
               </span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>{d.nombre}</div>
-              <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+              <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)' }}>
                 {d.tipo === 'porcentaje' ? `${d.valor}% de descuento` : `Bs. ${d.valor} de descuento fijo`}
-                {!d.activo && <span style={{ marginLeft: 8, color: 'var(--dim)' }}>· INACTIVO</span>}
+                {!d.activo && <span style={{ marginLeft: 8 }}>· INACTIVO</span>}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <button onClick={() => toggleActivo(d)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }} title={d.activo ? 'Desactivar' : 'Activar'}>
-                {d.activo ? <ToggleRight size={22} color="var(--green)" /> : <ToggleLeft size={22} color="var(--dim)" />}
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+              <button onClick={() => toggleActivo(d)} className="clientes-action-icon" title={d.activo ? 'Desactivar' : 'Activar'}>
+                {d.activo ? <ToggleRight size={22} color="var(--green)" /> : <ToggleLeft size={22} color="oklch(0.88 0.01 250 / .85)" />}
               </button>
               {puedeCobrar && (
-                <button onClick={() => abrirEditar(d)} className="btn-secondary" style={{ padding: '5px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Edit2 size={12} /> Editar
+                <button onClick={() => abrirEditar(d)} className="clientes-glass-btn btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }}>
+                  <div className="clientes-glass-bg" />
+                  <span className="clientes-glass-content"><Edit2 size={12} /> Editar</span>
                 </button>
               )}
               {puedeCobrar && (
-                <button onClick={() => handleDelete(d)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)', padding: 4 }}>
-                  <Trash2 size={15} />
+                <button onClick={() => handleDelete(d)} className="clientes-action-icon" title="Eliminar">
+                  <Trash2 size={15} color="oklch(0.88 0.01 250 / .85)" />
                 </button>
               )}
             </div>

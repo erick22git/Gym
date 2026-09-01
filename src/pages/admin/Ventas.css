@@ -1,0 +1,11 @@
+/* [SCROLL — pedido explícito: "la página se debe quedar estática, no
+   debe haber la barra de scroll... pon una barra de scroll en la tabla,
+   solo la tabla se moverá con scroll pero no la página"] Mismo patrón
+   que .page-content:has(.caja-page) en Caja.css: desactiva el scroll
+   general de la página SOLO cuando la página activa es Ventas — el
+   scroll real vive en el div interno de cada tabla (maxHeight +
+   overflowY:auto, ver Ventas.jsx), que deja <Pagination> siempre
+   visible debajo. */
+.page-content:has(.ventas-page) {
+  overflow-y: hidden;
+}

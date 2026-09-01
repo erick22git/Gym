@@ -86,7 +86,11 @@ body {
 .app-layout {
   position: fixed; inset: 0; z-index: 1;
   display: grid;
-  grid-template-rows: 44px 1fr;
+  /* 78px (antes 64px) — "Control de Acceso" pasó a 2 líneas de texto
+     (--menu-height:72px, ver variables.css), necesita más alto que
+     cuando todos los ítems eran una sola línea. Ver responsive.css
+     para el alto de esta fila en tablet/mobile. */
+  grid-template-rows: 78px 1fr;
   padding: 14px;
   gap: 14px;
 }
@@ -114,7 +118,7 @@ body {
 /* ── Atmospheric background ── */
 .bg-atmospheric {
   position: fixed; inset: 0; z-index: 0;
-  background: url('/logo.jpg') center/cover no-repeat, #060709;
+  background: url('/logo.png') center/cover no-repeat, #060709;
 }
 .bg-atmospheric::before {
   content: "";
@@ -135,41 +139,381 @@ body {
   pointer-events: none;
 }
 
-/* ── Titlebar (glass pill) ── */
+/* ── Titlebar — vidrio ESTÁTICO vía cadena de filtros SVG puros
+   (public/filters-menu-glass.svg: pack-upper + liquid-glass-new +
+   fresnel, feDiffuseLighting/feDisplacementMap), NO el motor GlassEngine
+   con seguimiento de cursor (glass-engine/core/cursor.js + glass.js —
+   ese sigue siendo el del login, sin cambios). Se sacó useGlassButton()
+   de TitleBar.jsx a propósito: era la fuente del glow/parpadeo que
+   reaccionaba a la proximidad del mouse (--border-intensity, confirmado
+   con getComputedStyle en vivo). Este material no tiene ningún JS por
+   detrás — blur/refracción/luz quedan fijos siempre. ── */
 .titlebar {
-  display: flex; align-items: center; gap: 14px;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 14px;
   padding: 0 16px;
-  border-radius: 14px;
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
-  backdrop-filter: blur(28px) saturate(140%);
-  border: 1px solid var(--line);
-  box-shadow:
-    inset 0 1px 0 oklch(1 0 0 / .08),
-    0 1px 0 oklch(0 0 0 / .4);
   -webkit-app-region: drag;
   user-select: none;
   flex-shrink: 0;
+  /* .titlebar es un item de grid (fila de .app-layout) — CSS Grid le da
+     min-width:auto por default, que se niega a achicar el item por
+     debajo del ancho intrínseco de SU CONTENIDO (acá, el glass-menu de
+     TopNav sin scrollear, ~1145px con los 13 ítems). Sin este 0, el
+     .topnav de adentro nunca llega a activar su overflow-x:auto porque
+     .titlebar ya creció de más — empujando campana/avatar/controles de
+     ventana fuera del viewport en vez de quedarse fijos a la derecha
+     (bug real encontrado probando tablet 800px con Playwright). */
+  min-width: 0;
+  /* Barra RECTANGULAR de esquinas grandes — nunca 9999px (eso es el
+     dock circular de la referencia, explícitamente descartado). */
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, .4),
+    var(--shadow-medium),
+    var(--shadow-inner),
+    var(--shadow-inner-dark);
+  /* CERO color de fondo — a propósito. Se probó un lavado plano
+     (rgba(255,255,255,.07)) para que se notara más contra el fondo
+     casi negro de la app; quedó revertido porque eso es exactamente lo
+     que NO se quiere: la barra tiene que leerse como vidrio transparente
+     (se ve el fondo real de la página A TRAVÉS de ella, con distorsión
+     solo cerca del borde), no como un panel con un tinte propio. Toda
+     la "presencia" del material sale ÚNICAMENTE de ::before/::after de
+     abajo (bit-packing + liquid-glass-new + fresnel) — si la distorsión
+     se ve débil, el ajuste correcto es subir scale/stdDeviation DENTRO
+     de public/filters-menu-glass.svg, nunca agregar background acá. */
+  background: transparent;
 }
-.titlebar-brand {
-  display: flex; align-items: center; gap: 12px;
-  font-family: var(--display);
-  font-weight: 800;
-  letter-spacing: .16em;
-  font-size: 13px;
+/* ::before — primera pasada: empaqueta el backdrop muestreado a un
+   espacio de color de 7 bits (#pack-upper) para que la cadena pesada
+   de #liquid-glass-new (feDiffuseLighting+feDisplacementMap) lo lea sin
+   perder precisión. Pintado DETRÁS de ::after, en el mismo z-index
+   "auto" que backdrop-filter puede volver a muestrear. */
+.titlebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: url(#pack-upper);
+  -webkit-backdrop-filter: url(#pack-upper);
 }
-.titlebar-brand-logo {
-  width: 30px; height: 30px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px oklch(0 0 0 /.6));
+/* ::after — la cadena real de vidrio líquido + el borde fresnel, TAL
+   CUAL el patrón original del Paso 3 (sin blur() extra agregado — eso
+   se probó y se revirtió: un blur plano no es "más distorsión", es
+   "más panel opaco", contrario a lo que se pide acá). Si la distorsión
+   necesita más presencia, se ajusta scale/stdDeviation DENTRO del
+   filtro SVG (public/filters-menu-glass.svg), no acá. */
+.titlebar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: url(#liquid-glass-new) url(#fresnel) drop-shadow(0 0 10px rgba(0, 0, 0, .3));
+  -webkit-backdrop-filter: url(#liquid-glass-new) url(#fresnel) drop-shadow(0 0 10px rgba(0, 0, 0, .3));
 }
-.titlebar-logo-icon {
-  width: 30px; height: 30px;
-  display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, oklch(0.66 0.22 25 / .3), oklch(0.45 0.18 25 / .2));
-  border: 1px solid oklch(0.66 0.22 25 / .4);
+/* Contenido (TopNav, campana, usuario, controles de ventana) SIEMPRE
+   encima del material — nunca blureado/afectado por el filtro, solo el
+   fondo lo está (regla permanente: vidrio = exclusivo del fondo). */
+.titlebar > * {
+  position: relative;
+  z-index: 1;
+}
+/* [ELIMINADO] .titlebar > .titlebar-glass-mask — ver el comentario
+   completo en TitleBar.jsx (donde vivía el div) para el diagnóstico:
+   prueba de fondo rojo probó matemáticamente que mix-blend-mode:
+   plus-lighter no estaba mezclando esta capa con lo real de atrás
+   (blend aditivo puro no puede convertir rojo en negro) — Chromium la
+   pintaba opaca, tapando todo. Sin esta capa, ::before/::after solos
+   sí dejan pasar el fondo real (mismo test con rojo: pasa casi intacto). */
+/* .glass-menu (mecánica CORE, menu.css) trae su PROPIO fondo/blur/
+   refracción (::before) y su propio box-shadow+border-radius:999px —
+   pensado para vivir como superficie de vidrio independiente. Ahora
+   que vive DENTRO de un .titlebar que ya es vidrio, esa segunda capa
+   se veía como una "isla" con un empalme/costura visible justo donde
+   terminaba el menú y empezaba la campana/usuario (confirmado
+   visualmente: dos tintes/bordes redondeados distintos superpuestos).
+   No se toca menu.css (CORE) — se neutraliza acá, override de mayor
+   especificidad, SOLO para cuando el menú vive dentro de esta barra. */
+.titlebar .glass-menu {
+  box-shadow: none;
+  border-radius: 0;
+}
+.titlebar .glass-menu::before {
+  display: none;
+}
+/* Burbuja del ítem activo (.glass-selector) — GlassMaterial (glass.js
+   CORE) crea SIEMPRE sus 3 capas estándar (.glass-layer--fill con
+   --glass-tint, specular, rainbow) dentro de .glass-material, sin
+   importar el canal — menu.css agrega ADEMÁS su propia capa
+   consolidada (.glass-material::before) para la burbuja, pero nunca
+   oculta las 3 capas estándar de abajo. Las dos se pintaban a la vez
+   → eso era el "blanco sólido" reportado (fill+specular+overlay de
+   menu.css sumados). Se ocultan acá las 3 estándar (no se toca
+   menu.css) y el tinte pasa a vivir SOLO en el ::before de menu.css,
+   aclarado (blanco, no el tinte oscuro del resto de la barra — así
+   se diferencia como "el resaltado") pero traslúcido, nunca opaco. */
+.glass-selector .glass-layer--fill,
+.glass-selector .glass-layer--specular,
+.glass-selector .glass-layer--rainbow {
+  display: none;
+}
+/* .titlebar antepuesto (no solo .glass-selector .glass-material::before)
+   a propósito: esta hoja (index.css) carga ANTES que menu.css en
+   main.jsx, así que con la MISMA especificidad que la regla original
+   de menu.css el override perdía por orden de carga — hacía falta una
+   clase más para ganar sin depender del orden de imports.
+   CERO relleno de color acá — el ::before de menu.css (CORE) trae por
+   defecto background:rgba(255,255,255,.04); se pisa a transparent para
+   que la burbuja no tenga NINGÚN color propio. Lo que queda vivo es
+   backdrop-filter:url(#glassLensDistortion) blur(2px) saturate(160%)
+   (CORE, sin tocar) — esa sí es distorsión real, no color.
+   box-shadow TAMBIÉN se pisa a "none" acá y se pasa entero a
+   .glass-selector (regla siguiente) — motivo: .glass-material (CORE,
+   glass.js) tiene su PROPIO transform:scale() para el squeeze táctil,
+   independiente del transform de .glass-selector (posición/stretch,
+   menu.js). Dos elementos con transforms animados por separado pueden
+   quedar en capas de GPU distintas y desincronizarse un frame entre sí
+   durante movimiento rápido — visualmente eso se ve como un "doble
+   borde" fantasma. Consolidando TODO el box-shadow (glow exterior +
+   bisel especular) en el mismo elemento que ya tiene el borde nuevo
+   (.glass-selector) se elimina esa segunda capa de sombra
+   independiente por completo. */
+.titlebar .glass-selector .glass-material::before {
+  background: transparent;
+  box-shadow: none;
+}
+/* Único indicador visual de la burbuja — borde + TODO el box-shadow
+   consolidados acá (glow exterior + bisel especular, migrados desde
+   .glass-material::before de arriba). Vive en .glass-selector (el
+   contenedor exterior) porque su border-radius lo recalcula menu.js en
+   cada frame (applyTransform) para compensar el stretch/squash —
+   poniendo todo el efecto visual acá sigue automáticamente esa misma
+   forma sin código extra, y al vivir en UN SOLO elemento con UN SOLO
+   transform animado, no puede desincronizarse de sí mismo. */
+/* .glass-root agregado al selector (además de .titlebar .glass-selector)
+   a propósito: .glass-selector.glass-root{box-shadow:none} en menu.css
+   (CORE) tiene la MISMA especificidad (0,0,2,0) que esta regla tenía
+   antes, y menu.css carga DESPUÉS de este archivo en main.jsx — en un
+   empate, gana el que carga último, así que box-shadow terminaba
+   computando "none" pese a estar declarado acá. .glass-selector SIEMPRE
+   tiene la clase .glass-root (la pone GlassMaterial, CORE, ver
+   glass.js), así que agregarla acá no cambia a qué elemento apunta —
+   solo sube la especificidad a (0,0,3,0) para ganar sin depender del
+   orden de imports. */
+.titlebar .glass-selector.glass-root {
+  border: 1px solid rgba(255, 255, 255, .18);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 20, .25),
+    inset 1px 1px .5px rgba(255, 255, 255, .4),
+    inset -1px -1px .5px rgba(255, 255, 255, .12);
+  /* #bubble-glass (public/filters-menu-glass.svg) — copia de
+     #dropdown-glass (mismo feTurbulence+feGaussianBlur) con más scale
+     de feDisplacementMap, para que la distorsión alcance más hacia el
+     centro sin subir el scale del filtro compartido con
+     .user-dropdown-panel. Vive acá (no en .glass-material::before,
+     CORE) siguiendo el mismo criterio ya establecido arriba para
+     border/box-shadow: .glass-material tiene su PROPIO transform
+     (squeeze táctil) independiente del de .glass-selector, así que
+     todo lo visual que deba seguir el transform de POSICIÓN/stretch
+     de la burbuja (no el squeeze) se consolida acá. */
+  backdrop-filter: url(#bubble-glass);
+  -webkit-backdrop-filter: url(#bubble-glass);
+}
+/* Aberración cromática sutil en el contorno (tipo WhatsApp) — anillo
+   delgado con gradiente cónico, recortado a un borde fino vía mask
+   (content-box vs. padding-box con xor/exclude), no relleno. Separado
+   del ::before del material (glass-material, CORE) y del backdrop-
+   filter de arriba — un ::after propio, sin transform ni box-shadow/
+   border own, así que no reintroduce el "doble borde fantasma" (ese
+   bug era por DOS elementos con transforms independientes pintando
+   chrome duplicado; este ::after no tiene transform propio, hereda el
+   de .glass-selector sin animarse aparte). */
+.titlebar .glass-selector.glass-root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  padding: 3px;
+  background: conic-gradient(
+    from 90deg,
+    rgba(255, 90, 90, 0.18),
+    rgba(255, 220, 100, 0.08),
+    rgba(120, 255, 180, 0.08),
+    rgba(100, 180, 255, 0.18),
+    rgba(200, 120, 255, 0.10),
+    rgba(255, 90, 90, 0.18)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: blur(1.5px);
+  opacity: 0.6;
+}
+.titlebar-bell {
+  position: relative;
+  width: 34px; height: 34px;
   border-radius: 8px;
-  color: var(--red-soft);
+  background: transparent;
+  border: 1px solid transparent;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  /* Overshoot (el pico >1 en la curva) da un "pop" elástico natural al
+     crecer en hover — vuelve a 1 con la MISMA curva al salir. :active
+     de abajo pisa esto con su propia transición más corta/lineal, solo
+     mientras dura el press — nunca reemplaza el vidrio (.bell-inner),
+     solo escala el botón contenedor completo (ícono+badge adentro
+     escalan gratis, son hijos). */
+  transition: border-color .15s, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.titlebar-bell:hover {
+  transform: scale(1.12);
+}
+.titlebar-bell:active {
+  transform: scale(.90);
+  transition: transform 100ms ease-out;
+}
+/* "Hundimiento" físico — SOLO box-shadow inset, nunca background-color
+   (regla explícita de esta fase). En reposo: bisel claro sutil, como
+   una superficie de vidrio con un borde pulido. En hover: se invierte
+   a un inset oscuro, como si la luz entrara desde otro ángulo al
+   presionar/acercarse — sensación de profundidad sin pintar nada
+   sólido encima del vidrio compartido de la barra. Vive en su propia
+   capa (.bell-inner) para que el scale de arriba no la deforme de
+   forma rara — escala junto con el botón, como una sola pieza. */
+.titlebar-bell .bell-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: box-shadow 300ms ease;
+  box-shadow:
+    inset 0 0 0.05em 0.2em rgba(255, 255, 255, .1),
+    inset 0.025em 0.05em 0.1em 0 rgba(255, 255, 255, .4);
+}
+.titlebar-bell:hover .bell-inner {
+  box-shadow:
+    inset 0.1em 0.15em 0.05em 0 rgba(0, 0, 0, .3),
+    inset -0.025em -0.03em 0.05em 0.025em rgba(0, 0, 0, .2);
+}
+/* Ícono — SIEMPRE encima de .bell-inner (contenido sólido, nunca
+   parte del material). Ya no tiene su propio scale de hover (lo tenía
+   antes): ahora crece junto con TODO el botón (.titlebar-bell:hover
+   de arriba), así que un scale aparte acá duplicaría el crecimiento
+   sin necesidad. Solo queda como wrapper de posicionamiento para el
+   balanceo (bell-ring-animate, abajo). */
+.titlebar-bell .bell-icon-wrap {
+  position: relative;
+  display: flex;
+}
+/* Balanceo al llegar una alerta nueva — cubic-bezier elástico
+   (rebota y se amortigua, no un ease-out plano) + pivote desde arriba
+   (transform-origin), como una campana real colgada de un gancho, no
+   girando desde su propio centro geométrico. Disparada por JS
+   agregando/quitando esta clase (ver TitleBar.jsx) — nunca en loop. */
+@keyframes bell-ring {
+  0%   { transform: rotate(0deg); }
+  15%  { transform: rotate(14deg); }
+  30%  { transform: rotate(-10deg); }
+  45%  { transform: rotate(8deg); }
+  60%  { transform: rotate(-6deg); }
+  75%  { transform: rotate(3deg); }
+  85%  { transform: rotate(-1deg); }
+  100% { transform: rotate(0deg); }
+}
+.titlebar-bell .bell-ring-animate {
+  animation: bell-ring 650ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  transform-origin: top center;
+}
+/* Tarjeta de "Administrador del Sistema" — antes tenía fondo/borde
+   sólido inline (oklch(1 0 0 / .04-.08)), se veía como un bloque
+   aparte del resto de la barra de vidrio. Mismo tratamiento que
+   .titlebar-bell: transparente en reposo, solo un resaltado sutil en
+   hover/abierto — deja ver el material de vidrio compartido detrás. */
+.titlebar-user-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 4px 10px 4px 6px;
+  cursor: pointer;
+  transition: background-color .15s;
+}
+.titlebar-user-btn:hover,
+.titlebar-user-btn[data-open] {
+  background-color: rgba(255, 255, 255, .08);
+}
+/* ── Dropdown de usuario (UserDropdownPortal, TitleBar.jsx) — vidrio
+   real, mismos filtros SVG que ya usa .titlebar (public/filters-menu-
+   glass.svg: pack-upper + liquid-glass-new + fresnel), ids reutilizados
+   tal cual, sin duplicar.
+   A PROPÓSITO no incluye la capa de máscara de bit-packing
+   (filter:url(#round) url(#pack-lower) + mix-blend-mode:plus-lighter)
+   que sí se probó para el fondo de .titlebar — se diagnosticó y se
+   sacó de ahí con prueba de fondo rojo: mix-blend-mode:plus-lighter no
+   estaba mezclando esa capa con lo real de atrás (matemáticamente
+   imposible que un blend aditivo puro oscurezca rojo a negro),
+   Chromium la pintaba OPACA en vez de mezclarla, tapando todo lo que
+   hubiera detrás. Es una limitación real del navegador con esta
+   combinación filter+mix-blend-mode, no algo exclusivo de .titlebar —
+   agregarla acá reproduciría el mismo bug. Sin esa capa, ::before+
+   ::after solos SÍ dejan pasar el fondo real (mismo test, confirmado). */
+.user-dropdown-panel {
+  position: relative;
+  isolation: isolate;
+  /* [CAMBIO DE SISTEMA, v2] El blur(20px) plano (vuelta anterior) SÍ
+     funcionaba pero era un blur uniforme sin la sensación de vidrio real
+     (sin distorsión). #dropdown-glass (public/filters-menu-glass.svg)
+     da eso: toma SourceGraphic tal cual (nada de pack-upper/pack-lower,
+     por eso no choca con backdrop-filter anidado como liquid-glass-new)
+     y lo desenfoca + deforma con un mapa de desplazamiento generado por
+     feTurbulence (sin fetch externo, app offline). */
+  background: transparent;
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px oklch(0 0 0 / .8), inset 0 1px 0 oklch(1 0 0 / .1);
+}
+/* [DESACTIVADO — ver arriba] sistema anterior de bit-packing
+   (pack-upper + liquid-glass-new + fresnel), comentado en vez de
+   borrado por si hace falta revertir. NO reincorporar un
+   .user-dropdown-mask con mix-blend-mode:plus-lighter tampoco — esa
+   combinación se probó rota por separado (Chromium la pinta opaca en
+   vez de mezclarla).
+.user-dropdown-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: url(#pack-upper);
+  -webkit-backdrop-filter: url(#pack-upper);
+}
+.user-dropdown-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: url(#liquid-glass-new) url(#fresnel) drop-shadow(0 4px 16px rgba(0, 0, 0, .3));
+  -webkit-backdrop-filter: url(#liquid-glass-new) url(#fresnel) drop-shadow(0 4px 16px rgba(0, 0, 0, .3));
+}
+*/
+/* Contenido (nombre, badge de rol, links) SIEMPRE encima del material
+   — nunca blureado/afectado por el filtro, regla permanente de vidrio
+   exclusivo del fondo. */
+.user-dropdown-panel > .user-dropdown-content {
+  position: relative;
+  z-index: 1;
 }
 .titlebar-session {
   -webkit-app-region: no-drag;
@@ -228,115 +572,257 @@ body {
 .winbtn.cls { background: oklch(0.66 0.22 25 /.55); border-color: oklch(0.66 0.22 25 /.4); }
 .winbtn.cls:hover { background: oklch(0.66 0.22 25 / .9); }
 
-/* ── Sidebar ── */
-.sidebar {
-  display: flex; flex-direction: column; gap: 12px;
-  padding: 16px;
-  border-radius: 18px;
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
-  backdrop-filter: blur(28px) saturate(140%);
-  border: 1px solid var(--line);
-  position: relative; overflow: hidden;
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / .08), 0 30px 60px oklch(0 0 0 /.4);
+/* ── TopNav (antes sidebar vertical, ahora menú horizontal en el titlebar) ── */
+.topnav {
+  display: flex; align-items: center; gap: 4px;
+  flex: 1; min-width: 0;
+  height: 100%;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-app-region: no-drag;
 }
-.sidebar::before {
-  content: ""; position: absolute; inset: -1px;
-  border-radius: inherit;
-  background: var(--glass-edge);
-  pointer-events: none; mix-blend-mode: screen; opacity: .6;
-}
-
-/* Logo box */
-.sidebar-logo {
+.topnav::-webkit-scrollbar { height: 4px; }
+.topnav::-webkit-scrollbar-thumb { background: oklch(1 0 0 / .1); border-radius: 8px; }
+/* ── Glass Menu — CONSUMIDOR (adaptado a TopNav.jsx) ──
+   Mecánica (.glass-menu/.glass-selector) en src/glass-engine/menu.css,
+   sin tocar. Esto es solo el contenido: tamaño de ícono/texto, colores.
+   El estado activo ahora lo indica la burbuja de vidrio que sigue al
+   ítem (menu.js) — reemplaza el resaltado rojo sólido que tenía antes,
+   por eso el color activo es blanco, no el acento rojo del resto de la
+   app. REGLA DE LETRA GRANDE Y SÓLIDA (ver prompt de esta fase):
+   opacity:1 siempre, colores 100% sólidos (nunca rgba con alpha bajo
+   para simular gris), font-weight 700 — el blur/transparencia del
+   vidrio vive únicamente en la capa de material (menu.css), nunca acá. */
+.menu-item {
   position: relative;
-  height: 118px; border-radius: 12px;
-  overflow: hidden;
-  background: oklch(0.08 0.02 250 / .9);
-  border: 1px solid oklch(0.66 0.22 25 / .40);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 1px oklch(1 0 0 /.04) inset, 0 12px 24px oklch(0 0 0 /.6), 0 0 28px oklch(0.66 0.22 25 / .15);
+  z-index: 2;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--menu-item-width);
+  height: calc(var(--menu-height) - (var(--menu-padding) * 2));
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--glass-radius);
+  background: transparent;
+  color: #c9cbd1;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s ease-out;
 }
-.sidebar-logo .ring {
-  position: absolute; inset: 8px;
-  border: 1px dashed oklch(1 0 0 / .12);
+/* Envuelve ícono+texto — el zoom de hover/activo escala este bloque
+   ENTERO (no solo el ícono), así crece proporcional sin desalinear
+   el texto respecto al ícono. El botón (.menu-item) mantiene su
+   tamaño/hitbox de click fijo; solo el CONTENIDO visual crece. */
+.menu-item-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  /* --content-shift-x: 0px por defecto (ver fallback en var() abajo)
+     — .content-control-acceso (más abajo) lo sube a 6px SOLO para ese
+     ítem. Se combina con scale() en la MISMA propiedad transform en
+     cada estado (reposo/hover/press/disabled) para que el bloque
+     ícono+texto se corra sin pisar el zoom ya existente. */
+  transform: translateX(var(--content-shift-x, 0px)) scale(1);
+  transition: transform 200ms ease-out;
+}
+.menu-item:hover:not(:disabled) .menu-item-content,
+.menu-item.active .menu-item-content {
+  transform: translateX(var(--content-shift-x, 0px)) scale(1.15);
+}
+/* Regla permanente: ícono/texto SIEMPRE 100% sólido, nunca afectado
+   por el vidrio de la burbuja — se probó una excepción puntual acá
+   (clon superpuesto con filter + mask) y se revirtió por verse
+   duplicado visualmente. filter:none explícito para dejar constancia
+   de que esto es intencional, no un olvido. */
+.menu-item.active .menu-item-content {
+  filter: none;
+}
+.menu-item .icon {
+  position: relative;
+  display: flex;
+  line-height: 1;
+}
+.menu-item .icon svg {
+  width: 17px; height: 17px;
+  stroke: currentColor;
+}
+.menu-item .icon .menu-item-lock {
+  position: absolute;
+  top: -3px; right: -6px;
+  width: 9px; height: 9px;
+  color: #c9cbd1;
+}
+/* [AJUSTE PUNTUAL] Solo "Control de Acceso" (ver hook
+   content-control-acceso en TopNav.jsx) — mueve ícono+texto COMO
+   BLOQUE (vía --content-shift-x, leído en .menu-item-content y sus
+   estados de arriba) para centrarlo dentro de la burbuja, que quedó
+   con su propio centro ~6px a la derecha del contenido tras el fix
+   de posición/tamaño anterior. Reemplaza el ajuste anterior que
+   movía solo el ícono (desalineaba ícono vs. texto); ahora los dos
+   se mueven juntos, así que siguen alineados entre sí. */
+.menu-item-content.content-control-acceso {
+  --content-shift-x: 6px;
+}
+.menu-item span:last-child {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  /* pre-line: interpreta el \n literal de item.menuLabel (ej. "Control
+     de Acceso" → 2 líneas) como salto de línea real — items sin \n
+     (la mayoría) se comportan igual que antes, una sola línea. */
+  white-space: pre-line;
+  line-height: 1.15;
+  text-align: center;
+}
+.menu-item.active { color: #ffffff; }
+.menu-item:hover:not(.active):not(:disabled) { color: #e4e5e9; }
+.menu-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, .5);
+  outline-offset: 2px;
+}
+.menu-item:disabled { cursor: not-allowed; color: #63656c; }
+.menu-item:disabled .menu-item-lock { color: #85868d; }
+.menu-item:disabled .menu-item-content { transform: scale(1); }
+/* Feedback de "press" al click (además del zoom de hover/activo, no
+   lo reemplaza): mismo selector-count que las reglas de hover/activo
+   de arriba (2 clases/pseudo-clases) — al estar DESPUÉS en la hoja,
+   gana por orden de cascada mientras :active está aplicado (el botón
+   presionado), y al soltar vuelve sola a la regla de hover o .active
+   que corresponda — CSS puro, sin JS. */
+.menu-item:active:not(:disabled) .menu-item-content {
+  transform: translateX(var(--content-shift-x, 0px)) scale(.95);
+  transition: transform 100ms ease-out;
+}
+.menu-divider {
+  width: 1px;
+  height: calc(var(--menu-height) - 24px);
+  flex-shrink: 0;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, .1);
+}
+/* Tooltip flotante de los ítems del menú (ver MenuTooltip en TopNav.jsx —
+   portal a document.body, position:fixed calculada en JS). Fondo tinte
+   oscuro semi-sólido (0.85, no el material glass translúcido de la
+   barra) a propósito: es un elemento flotante temporal que necesita
+   leerse siempre, no material permanente — mismo criterio que ya se usó
+   en UserDropdownPortal. z-index alto para estar por encima de
+   cualquier otra cosa de la barra/página. */
+.menu-tooltip {
+  z-index: 10000;
+  background: rgba(10, 12, 15, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, .12);
   border-radius: 8px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 12px;
   pointer-events: none;
 }
-.sidebar-logo img {
-  width: 78%; height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 0 12px oklch(0.66 0.22 25 / .4));
-}
-.sidebar-logo-icon {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  color: var(--red-soft);
-}
-.sidebar-logo-text {
-  font-family: var(--display);
-  font-size: 10px; font-weight: 800; letter-spacing: .22em;
-  text-transform: uppercase;
-  background: linear-gradient(180deg, #ffffff, #c2c6cc 55%, #f0f1f4);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
 
-/* Nav */
-.sidebar-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.sidebar-section {
-  font-size: 10px; letter-spacing: .22em; font-weight: 600;
-  color: var(--dim); text-transform: uppercase;
-  padding: 8px 6px 4px; margin-top: 4px;
-}
-.sidebar-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 9px 12px;
-  border-radius: 10px;
-  font-size: 13px; font-weight: 600;
-  text-decoration: none;
+/* ── Hamburguesa (mobile <600px, reemplaza a .topnav — ver
+   src/styles/responsive.css para el toggle por breakpoint) ── */
+.topnav-hamburger {
+  display: none; /* mostrado solo en mobile, ver responsive.css */
+  align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  flex-shrink: 0;
+  border-radius: 8px;
   border: 1px solid transparent;
   cursor: pointer;
   background: transparent;
-  width: 100%; text-align: left;
-  transition: filter .15s, border-color .15s, background-color .15s;
-  color: transparent;
-  background: linear-gradient(180deg, #f5f6f8, #c2c6cc 55%, #efeff2);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-color: transparent;
-}
-.sidebar-item .nav-ico {
-  flex-shrink: 0; width: 16px; height: 16px;
-  -webkit-text-fill-color: initial;
   color: var(--dim);
+  -webkit-app-region: no-drag;
+  transition: filter .15s, background-color .15s, color .15s;
 }
-.sidebar-item:hover {
+.topnav-hamburger:hover {
+  background-color: oklch(1 0 0 / .045);
+  color: var(--muted);
+}
+
+/* ── Drawer lateral (mobile) — mismo tratamiento oscuro que el resto
+   del menú, ver TopNav.jsx → NavDrawer ── */
+.drawer-overlay {
+  position: fixed; inset: 0;
+  z-index: 10000;
+  background: oklch(0 0 0 / .6);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.drawer-panel {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  z-index: 10001;
+  width: min(78vw, 300px);
+  display: flex; flex-direction: column;
+  background: oklch(0.10 0.01 265 / .97);
+  -webkit-backdrop-filter: blur(30px) saturate(140%);
+  backdrop-filter: blur(30px) saturate(140%);
+  border-right: 1px solid var(--line-s);
+  box-shadow: 30px 0 60px oklch(0 0 0 / .5);
+}
+.drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.drawer-title {
+  font-family: var(--display);
+  font-size: 13px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.drawer-close {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+  transition: background-color .15s, color .15s;
+}
+.drawer-close:hover { background-color: oklch(1 0 0 / .06); color: var(--muted); }
+.drawer-nav {
+  flex: 1; overflow-y: auto;
+  padding: 10px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.drawer-item {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 13.5px; font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: filter .15s, border-color .15s, background-color .15s;
+}
+.drawer-item .nav-ico { flex-shrink: 0; color: var(--dim); }
+.drawer-item:hover {
   background-color: oklch(1 0 0 / .045);
   filter: brightness(1.15);
 }
-.sidebar-item:hover .nav-ico { color: var(--muted); }
-.sidebar-item.active {
+.drawer-item:hover .nav-ico { color: var(--muted); }
+.drawer-item.active {
   background-color: oklch(0.66 0.22 25 / .14);
   border-color: oklch(0.66 0.22 25 / .45);
+  color: var(--ink);
   box-shadow: inset 0 1px 0 oklch(1 0 0 /.08), 0 6px 18px oklch(0.66 0.22 25 / .18);
-  filter: drop-shadow(0 0 6px oklch(0.95 0 0 /.25));
 }
-.sidebar-item.active .nav-ico { color: var(--red-soft); }
-.sidebar-footer {
-  margin-top: auto;
-  padding: 12px; border-radius: 12px;
-  background: oklch(1 0 0 / .04);
-  border: 1px solid var(--line);
-  display: flex; align-items: center; gap: 10px;
-  flex-shrink: 0;
-}
-.sidebar-avatar {
-  width: 34px; height: 34px; border-radius: 50%;
-  background: linear-gradient(135deg, oklch(0.66 0.22 25), oklch(0.45 0.18 25));
-  display: grid; place-items: center;
-  font-size: 12px; font-weight: 700; letter-spacing: .05em;
-  color: white; flex-shrink: 0;
+.drawer-item.active .nav-ico { color: var(--red-soft); }
+.drawer-divider {
+  height: 1px; flex-shrink: 0;
+  background: oklch(1 0 0 / .08);
+  margin: 6px 4px;
 }
 
 /* ── Glass card ── */
@@ -725,14 +1211,32 @@ body {
   display: block;
 }
 
-/* ── Custom Select ── */
+/* ── Custom Select ──
+   [AUDITADO — pedido explícito: "que su fondo sea distorsionado
+   transparente, si era blanco lo eliminas, el contenido con sombra"]
+   Este componente (src/components/ui/Select.jsx) se renderiza vía
+   createPortal directo a document.body — NO es descendiente de ninguna
+   página, así que no hay forma de scopear el arreglo con un ancestro
+   .clientes-page como en otros arreglos de esta sesión. Es GLOBAL:
+   afecta a todo lugar de la app donde se use <Select> (el wizard de
+   Nuevo Cliente/Renovar que se abre desde Clientes, y cualquier otro
+   uso futuro), no solo a Clientes.
+   - .custom-select-trigger: tenía background:oklch(1 0 0 / .04), un
+     tinte BLANCO — sacado, ahora transparente + backdrop-filter real
+     (turbulencia, #dropdown-glass) en vez de sin filtro alguno.
+   - .custom-select-dropdown: tenía background sólido casi negro +
+     blur() plano (sin distorsión real) — pasado a transparente +
+     #dropdown-glass.
+   - Sombra de texto agregada al trigger y a cada opción. */
 .custom-select-trigger {
   width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 9px 14px;
-  background: oklch(1 0 0 / .04);
+  background: transparent;
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
   border: 1px solid var(--line);
   border-radius: 10px;
   color: var(--ink);
@@ -741,21 +1245,21 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   text-align: left;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 .custom-select-trigger:hover {
-  background: oklch(1 0 0 / .07);
   border-color: var(--line-s);
 }
 .custom-select-trigger:focus {
   outline: none;
-  border-color: oklch(0.66 0.22 25 / .6);
-  box-shadow: 0 0 0 3px oklch(0.66 0.22 25 / .12);
+  border-color: oklch(1 0 0 / .4);
+  box-shadow: 0 0 0 3px oklch(1 0 0 / .12);
 }
 .custom-select-dropdown {
   position: fixed;
-  background: oklch(0.12 0.015 250);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  background: transparent;
+  backdrop-filter: url(#dropdown-glass);
+  -webkit-backdrop-filter: url(#dropdown-glass);
   border: 1px solid var(--line-s);
   border-radius: 10px;
   box-shadow: 0 20px 60px oklch(0 0 0 / .85), inset 0 1px 0 oklch(1 0 0 / .08);
@@ -773,17 +1277,21 @@ body {
   color: var(--ink);
   font-size: 13px;
   transition: background 0.12s;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 .select-option:hover { background: oklch(1 0 0 / .07); }
 .select-option.selected {
-  background: oklch(0.66 0.22 25 / .15);
-  color: oklch(0.92 0.06 25);
+  background: oklch(1 0 0 / .1);
+  color: oklch(0.97 0.01 250);
 }
 
-/* ── Alert pulse (crítica) ── */
+/* ── Alert pulse (crítica) — campana de notificaciones, paleta blanca,
+   sin rojo (ver TitleBar.jsx). pulse-red solo lo usa .badge-pulse, que
+   solo lo usa el badge de la campana — seguro recolorear sin afectar
+   otra cosa. */
 @keyframes pulse-red {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.66 0.22 25 / .4); }
-  50%       { box-shadow: 0 0 0 6px oklch(0.66 0.22 25 / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .4); }
+  50%       { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
 }
 .badge-pulse { animation: pulse-red 2s ease-in-out infinite; }
 
@@ -810,20 +1318,22 @@ body {
   gap: 4px;
 }
 
-/* ── Responsive ── */
+/* ── Responsive (LEGACY — breakpoints sueltos de una época anterior:
+   768px/480px/380px en vez de los oficiales del proyecto, ver
+   src/styles/responsive.css). .app-layout/.main-layout ya se movieron
+   a responsive.css con los breakpoints oficiales (tablet 600-1023,
+   mobile <600). El resto de selectores de acá (.titulo-metalico,
+   .gym-card, .form-grid, .stat-value, .btn-primary/.btn-secondary,
+   .gym-input) quedan pendientes de migrar página por página en fases
+   siguientes — no tocar estos breakpoints sueltos para páginas nuevas,
+   usar siempre los oficiales. ── */
 @media (max-width: 768px) {
-  .app-layout { padding: 8px; gap: 8px; }
-  .main-layout { gap: 8px; }
   .titulo-metalico { font-size: 20px; letter-spacing: .08em; }
-  .sidebar { padding: 12px; gap: 8px; }
-  .sidebar-logo { height: 80px; }
-  .titlebar-brand span { display: none; }
   .gym-card { border-radius: 14px; }
   .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
-  .app-layout { padding: 6px; gap: 6px; }
   .page-content { gap: 12px; }
   .titulo-metalico { font-size: 17px; }
   .stat-value { font-size: 24px; }
@@ -842,14 +1352,24 @@ body {
   .login-grid-2 { grid-template-columns: 1fr; }
 }
 
-/* ── Responsive 380px (celular pequeño) ── */
+/* Dashboard — fila 2 (cumpleaños/inactivos/top clientes/planes activos):
+   4 columnas iguales se quedan sin espacio por debajo de los ~600px del
+   breakpoint mobile oficial (2 de las 4 tarjetas terminaban recortadas
+   fuera del viewport, sin scroll horizontal) — pasa a 2 columnas ahí.
+   [CAMBIO] Las primeras 3 (listas cortas de nombres) se comprimieron
+   (0.8fr cada una) para darle más ancho a "Planes activos" (1.8fr, la
+   única con un gráfico) — pedido explícito. */
+.dashboard-row2 { display: grid; grid-template-columns: 0.8fr 0.8fr 0.8fr 1.8fr; gap: 10px; }
+@media (max-width: 600px) {
+  .dashboard-row2 { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Responsive 380px (celular pequeño, LEGACY — ver nota arriba) ── */
 @media (max-width: 380px) {
-  .app-layout { padding: 4px; gap: 4px; }
   .page-content { gap: 10px; }
   .titulo-metalico { font-size: 15px; letter-spacing: .06em; }
   .gym-card { border-radius: 12px; }
   .btn-primary, .btn-secondary { font-size: 11px; padding: 7px 12px; }
   .stat-value { font-size: 22px; }
-  .sidebar { padding: 8px; }
   .gym-input { font-size: 12px; padding: 8px 12px; }
 }

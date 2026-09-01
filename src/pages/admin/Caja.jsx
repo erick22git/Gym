@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from 'framer-motion'
+import CountUp from 'react-countup'
 import {
   Wallet, Plus, Minus, X, Check, Lock, Unlock, RefreshCw,
   Clock, TrendingUp, TrendingDown, ChevronRight, History,
@@ -10,6 +11,90 @@ import { useAuth } from '../../context/AuthContext'
 import { useApp } from '../../context/AppContext'
 import { PAGES } from '../../constants'
 import Pagination from '../../components/ui/Pagination'
+import './Caja.css'
+import '../Clients.css'
+
+// Botón con el MISMO criterio de física ya usado en Control de Acceso:
+// hover con elevación mínima (SHORT), press con scale (MICRO). Wrapper
+// delgado sobre motion.button para no repetir estas props en cada botón
+// de la página.
+//
+// [NUEVO — uniformado con "Nueva Venta"] Los 3 aspectos pedidos
+// (jiggle al hover, font-weight, sombra) se aplican ACÁ, una sola vez,
+// para que los 18 botones de esta página los reciban automáticamente.
+//
+// Jiggle: mismos 11 puntos de escala / 1.4s / cubic-bezier(0.36,0.07,
+// 0.19,0.97) que @keyframes nueva-venta-jiggle (ControlAcceso.css) —
+// los mismos números exactos, pero disparados vía scaleX/scaleY de
+// Framer Motion (useAnimationControls + onHoverStart) en vez de un
+// `animation` CSS crudo. Nueva Venta corre el jiggle en un DIV
+// aparte del botón precisamente porque un `animation` CSS de
+// `transform` en el MISMO elemento que ya tiene whileHover:{y:-2}
+// pelearía por esa propiedad cada frame (el lift se perdería/
+// parpadearía). Acá no hay wrapper por botón (18 botones, varios
+// dentro de filas flex — envolver cada uno es riesgo de layout), así
+// que se anima con el propio motor de Motion: compone y (lift) +
+// scaleX/scaleY (jiggle) en un solo transform sin pisarse.
+const JIGGLE_SCALE_X = [1, 0.82, 1.15, 0.90, 1.08, 0.95, 1.04, 0.98, 1.02, 0.99, 1]
+const JIGGLE_SCALE_Y = [1, 1.18, 0.85, 1.10, 0.92, 1.05, 0.96, 1.02, 0.98, 1.01, 1]
+const JIGGLE_TIMES   = [0, .10, .20, .30, .40, .50, .60, .70, .80, .90, 1]
+const JIGGLE_EASE = [0.36, 0.07, 0.19, 0.97]
+const JIGGLE_DURATION = 1.4
+
+// Sombra "cantidad Nueva Venta" — mismos 3 valores exactos que ese
+// botón (drop-shadow de .nueva-venta-glass-bg, box-shadow inset de esa
+// misma capa, text-shadow de .nueva-venta-content). Van inline (no en
+// una clase CSS) para que ganen siempre sobre cualquier clase que cada
+// botón ya traiga (.btn-primary, .btn-secondary, .caja-danger-btn,
+// etc.) sin depender del orden del bundle ni tocar esas clases
+// globales compartidas con el resto de la app.
+const NUEVA_VENTA_SHADOW_STYLE = {
+  filter: 'drop-shadow(0px 0px 42px rgba(0, 0, 0, 0.58))',
+  boxShadow: 'inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32)',
+  textShadow: '0 2px 6px rgba(0, 0, 0, 0.85)',
+}
+
+function CajaBtn({ children, className, style, disabled, ...props }) {
+  const reduceMotion = useReducedMotion()
+  const controls = useAnimationControls()
+
+  const handleHoverStart = useCallback((e) => {
+    props.onHoverStart?.(e)
+    if (reduceMotion) return
+    controls.start({
+      scaleX: JIGGLE_SCALE_X,
+      scaleY: JIGGLE_SCALE_Y,
+      transition: { duration: JIGGLE_DURATION, ease: JIGGLE_EASE, times: JIGGLE_TIMES },
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduceMotion, controls])
+
+  return (
+    <motion.button
+      className={`caja-btn-uniform${className ? ' ' + className : ''}`}
+      style={{ ...style, ...NUEVA_VENTA_SHADOW_STYLE, fontWeight: 700 }}
+      disabled={disabled}
+      animate={controls}
+      whileHover={disabled ? undefined : { y: -2 }}
+      whileTap={disabled ? undefined : { scale: 0.97, transition: { duration: 0.12, ease: 'easeOut' } }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      {...props}
+      onHoverStart={disabled ? undefined : handleHoverStart}
+    >
+      {children}
+    </motion.button>
+  )
+}
+
+// CountUp corto para montos — decimals:2 (Bs.), duración breve (no es
+// un dashboard con números grandes, es un conteo "corto" como pide la
+// Parte 3.3). preserveValue evita que reinicie desde 0 en cada
+// keystroke del arqueo — anima desde el valor anterior, no desde cero.
+function Monto({ value, decimals = 2, prefix = 'Bs. ' }) {
+  return (
+    <CountUp end={value || 0} duration={0.6} decimals={decimals} separator="," decimal="." prefix={prefix} preserveValue />
+  )
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -74,29 +159,33 @@ function ModalMovimiento({ tipo, onClose, onSaved, usuario }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .6)', backdropFilter: 'blur(4px)' }} />
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .68)', backdropFilter: 'blur(4px)' }} />
       <motion.div
+        className="caja-glass-shell"
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         style={{
           position: 'relative', zIndex: 1, width: 380,
-          background: 'oklch(0.14 0.015 250)', border: `1px solid ${color}40`,
+          // [MARCO — pedido explícito, "que no tenga marco"] Borde sólido
+          // sacado, reemplazado por el mismo halo difuminado que ya usan
+          // las cajas del Dashboard, sumado al glow de color existente.
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: `0 24px 60px oklch(0 0 0 / .5), 0 0 40px ${color}10`,
+          boxShadow: `inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .5), 0 0 40px ${color}10`,
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color, letterSpacing: '.06em' }}>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 19, fontWeight: 700, color, letterSpacing: '.06em' }}>
             {tipo === 'ingreso' ? 'Registrar Ingreso' : 'Registrar Egreso'}
           </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}>
-            <X size={18} />
+          <button onClick={onClose} title="Cerrar" className="clientes-action-icon">
+            <X size={21} color="rgba(220, 220, 225, 0.9)" />
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Concepto</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Concepto</label>
             <input
               className="gym-input"
               value={concepto}
@@ -106,7 +195,7 @@ function ModalMovimiento({ tipo, onClose, onSaved, usuario }) {
             />
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Monto (Bs.)</label>
+            <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>Monto (Bs.)</label>
             <input
               className="gym-input"
               type="number" min="0.01" step="0.01"
@@ -117,15 +206,20 @@ function ModalMovimiento({ tipo, onClose, onSaved, usuario }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-          <button onClick={guardar} disabled={guardando} style={{
-            flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-            background: `${color}20`, border: `1px solid ${color}50`, color,
+          <CajaBtn onClick={onClose} className="btn-secondary clientes-glass-btn" style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </CajaBtn>
+          <CajaBtn onClick={guardar} disabled={guardando} className="clientes-glass-btn" style={{
+            flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 15, fontWeight: 700,
+            border: `1px solid ${color}50`,
             cursor: guardando ? 'not-allowed' : 'pointer', opacity: guardando ? .6 : 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}>
-            <Check size={14} /> {guardando ? 'Guardando...' : 'Confirmar'}
-          </button>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color }}>
+              <Check size={16} /> {guardando ? 'Guardando...' : 'Confirmar'}
+            </span>
+          </CajaBtn>
         </div>
       </motion.div>
     </div>
@@ -187,33 +281,34 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .6)', backdropFilter: 'blur(4px)' }} />
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .68)', backdropFilter: 'blur(4px)' }} />
       <motion.div
+        className="caja-glass-shell"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0 }}
         style={{
           position: 'relative', zIndex: 1, width: '100%', maxWidth: 480,
-          background: 'oklch(0.14 0.015 250)', border: '1px solid oklch(0.66 0.22 25 / .4)',
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .5)',
           maxHeight: '92vh', overflowY: 'auto',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         }}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <Lock size={18} color="oklch(0.75 0.18 25)" />
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.85 0.12 25)', letterSpacing: '.06em' }}>
+          <Lock size={21} color="oklch(0.75 0.18 25)" />
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 19, fontWeight: 700, color: 'oklch(0.85 0.12 25)', letterSpacing: '.06em' }}>
             Arqueo y Cierre de Turno
           </h2>
         </div>
-        <p style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 20 }}>
+        <p style={{ fontSize: 14, color: 'rgba(220, 220, 225, 0.9)', marginBottom: 20 }}>
           Turno de <strong style={{ color: 'var(--ink)' }}>{resumen?.usuario_nombre || usuario?.nombre_completo || '—'}</strong> · {fmtDate(sesion?.fecha_apertura)}
         </p>
 
         {/* ── BLOQUE EFECTIVO ── */}
         <div style={{ background: 'oklch(0.78 0.16 155 / .07)', border: '1px solid oklch(0.78 0.16 155 / .28)', borderRadius: 12, padding: '14px 16px', marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'oklch(0.78 0.16 155)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.78 0.16 155)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>
             💵 EFECTIVO — Conteo físico
           </div>
 
@@ -225,12 +320,12 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
             {egresosManuales > 0 && <Row label="− Egresos" value={`−${fmtMoney(egresosManuales)}`} valueColor="oklch(0.75 0.18 25)" />}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>EFECTIVO ESPERADO</span>
-            <span style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--display)', color: 'oklch(0.78 0.16 155)' }}>{fmtMoney(efectivoEsperado)}</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>EFECTIVO ESPERADO</span>
+            <span style={{ fontSize: 21, fontWeight: 800, fontFamily: 'var(--display)', color: 'oklch(0.78 0.16 155)' }}><Monto value={efectivoEsperado} /></span>
           </div>
 
           {/* Input conteo */}
-          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
             Efectivo contado (Bs.)
           </label>
           <input
@@ -239,35 +334,48 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
             value={montoCierre}
             onChange={e => setMontoCierre(e.target.value)}
             autoFocus
-            style={{ fontSize: 16, fontFamily: 'var(--display)', marginBottom: 10 }}
+            style={{ fontSize: 19, fontFamily: 'var(--display)', marginBottom: 10 }}
           />
 
-          {/* Resultado del arqueo */}
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '10px 14px', borderRadius: 10,
-            background: `${difColor}14`, border: `1px solid ${difColor}35`,
-          }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: difColor, letterSpacing: '.08em', textTransform: 'uppercase' }}>RESULTADO</div>
-              <div style={{ fontSize: 10, color: 'var(--dim)' }}>Solo aplica al efectivo físico</div>
-            </div>
-            <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: difColor }}>
-              {diferencia >= 0 ? '+' : ''}{fmtMoney(diferencia)}
-              <span style={{ fontSize: 11, marginLeft: 6 }}>{difLabel}</span>
-            </span>
-          </div>
+          {/* Resultado del arqueo — [NUEVO, Parte 3.4] pequeña confirmación
+              visual sutil (fade+scale, sin rebote) cuando CAMBIA la
+              categoría (cuadra/sobrante/faltante) — key=categoría, no el
+              monto exacto, así no re-anima en cada dígito tecleado, solo
+              cuando el resultado realmente cambia de "tipo". */}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={esCuadra ? 'cuadra' : esSobrante ? 'sobrante' : 'faltante'}
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '10px 14px', borderRadius: 10,
+                background: `${difColor}14`, border: `1px solid ${difColor}35`,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: difColor, letterSpacing: '.08em', textTransform: 'uppercase' }}>RESULTADO</div>
+                <div style={{ fontSize: 12, color: 'rgba(220, 220, 225, 0.9)' }}>Solo aplica al efectivo físico</div>
+              </div>
+              <span style={{ fontSize: 19, fontWeight: 800, fontFamily: 'var(--display)', color: difColor }}>
+                {diferencia >= 0 ? '+' : ''}<Monto value={diferencia} />
+                <span style={{ fontSize: 13, marginLeft: 6 }}>{difLabel}</span>
+              </span>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* ── BLOQUE PAGOS ELECTRÓNICOS ── */}
         {otrosMetodos.length > 0 && (
           <div style={{ background: 'oklch(0.74 0.13 250 / .06)', border: '1px solid oklch(0.74 0.13 250 / .25)', borderRadius: 12, padding: '14px 16px', marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'oklch(0.74 0.13 250)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.74 0.13 250)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
                 🏦 PAGOS ELECTRÓNICOS
               </span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 10, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 13, color: 'rgba(220, 220, 225, 0.9)', marginBottom: 10, lineHeight: 1.5 }}>
               Este dinero ya está en tu cuenta bancaria. <strong style={{ color: 'oklch(0.74 0.13 250)' }}>NO se cuenta en caja física</strong>, solo verifica con el banco.
             </div>
             {otrosMetodos.map(([met, monto]) => (
@@ -279,15 +387,15 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
                     onChange={e => setVerificados(v => ({ ...v, [met]: e.target.checked }))}
                     style={{ width: 14, height: 14, cursor: 'pointer', accentColor: 'oklch(0.74 0.13 250)' }}
                   />
-                  <span style={{ fontSize: 12, color: verificados[met] ? 'oklch(0.78 0.16 155)' : 'var(--muted)' }}>
+                  <span style={{ fontSize: 14, color: verificados[met] ? 'oklch(0.78 0.16 155)' : 'var(--muted)' }}>
                     {MET_ICON[met] || ''} {met === 'qr' ? 'QR' : met === 'tarjeta' ? 'Tarjeta' : met === 'transferencia' ? 'Transferencia' : met}
-                    {verificados[met] && <span style={{ marginLeft: 4, fontSize: 10 }}>✓ Verificado con banco</span>}
+                    {verificados[met] && <span style={{ marginLeft: 4, fontSize: 12 }}>✓ Verificado con banco</span>}
                   </span>
                 </label>
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--dim)' }}>{fmtMoney(monto)}</span>
+                <span style={{ fontSize: 15, fontWeight: 600, color: 'rgba(220, 220, 225, 0.9)' }}>{fmtMoney(monto)}</span>
               </div>
             ))}
-            <div style={{ fontSize: 10, color: 'oklch(0.74 0.13 250 / .7)', marginTop: 6, paddingTop: 8, borderTop: '1px solid oklch(0.74 0.13 250 / .15)' }}>
+            <div style={{ fontSize: 12, color: 'oklch(0.74 0.13 250 / .7)', marginTop: 6, paddingTop: 8, borderTop: '1px solid oklch(0.74 0.13 250 / .15)' }}>
               ℹ️ Estos montos NO generan faltante — son pagos directos al banco.
             </div>
           </div>
@@ -295,24 +403,24 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
 
         {/* Resumen total */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, marginBottom: 14 }}>
-          <span style={{ fontSize: 12, color: 'var(--dim)' }}>Total recaudado (todos los métodos)</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{fmtMoney(saldoTotal)}</span>
+          <span style={{ fontSize: 14, color: 'rgba(220, 220, 225, 0.9)' }}>Total recaudado (todos los métodos)</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{fmtMoney(saldoTotal)}</span>
         </div>
 
         {/* Resumen anti-confusión antes de cerrar */}
         <div style={{ background: 'oklch(0.14 0.02 250)', border: '1px solid oklch(1 0 0 / .1)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--dim)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>RESUMEN DEL TURNO</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(220, 220, 225, 0.9)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>RESUMEN DEL TURNO</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 12, color: 'var(--dim)' }}>💵 Efectivo en caja física</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'oklch(0.78 0.16 155)' }}>{fmtMoney(efectivoEsperado)}</span>
+            <span style={{ fontSize: 14, color: 'rgba(220, 220, 225, 0.9)' }}>💵 Efectivo en caja física</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'oklch(0.78 0.16 155)' }}>{fmtMoney(efectivoEsperado)}</span>
           </div>
           {otrosMetodos.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span style={{ fontSize: 12, color: 'var(--dim)' }}>🏦 Pagos al banco (QR/Tarjeta/Transfer.)</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'oklch(0.74 0.13 250)' }}>{fmtMoney(otrosMetodos.reduce((s, [, v]) => s + v, 0))}</span>
+              <span style={{ fontSize: 14, color: 'rgba(220, 220, 225, 0.9)' }}>🏦 Pagos al banco (QR/Tarjeta/Transfer.)</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'oklch(0.74 0.13 250)' }}>{fmtMoney(otrosMetodos.reduce((s, [, v]) => s + v, 0))}</span>
             </div>
           )}
-          <div style={{ paddingTop: 6, marginTop: 4, borderTop: '1px solid oklch(1 0 0 / .06)', fontSize: 11, color: 'var(--dim)', lineHeight: 1.5 }}>
+          <div style={{ paddingTop: 6, marginTop: 4, borderTop: '1px solid oklch(1 0 0 / .06)', fontSize: 13, color: 'rgba(220, 220, 225, 0.9)', lineHeight: 1.5 }}>
             {esCuadra
               ? <span style={{ color: 'oklch(0.78 0.16 155)' }}>✓ La caja cuadra perfectamente.</span>
               : esSobrante
@@ -324,23 +432,28 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
 
         {/* Observaciones */}
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
             Observaciones (opcional)
           </label>
           <input className="gym-input" value={notas} onChange={e => setNotas(e.target.value)} placeholder="Observaciones del cierre..." />
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-          <button onClick={cerrar} disabled={cerrando} style={{
-            flex: 2, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-            background: 'oklch(0.66 0.22 25 / .2)', border: '1px solid oklch(0.66 0.22 25 / .5)',
-            color: 'oklch(0.85 0.12 25)', cursor: cerrando ? 'not-allowed' : 'pointer',
+          <CajaBtn onClick={onClose} className="btn-secondary clientes-glass-btn" style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </CajaBtn>
+          <CajaBtn onClick={cerrar} disabled={cerrando} className="clientes-glass-btn" style={{
+            flex: 2, padding: '9px 16px', borderRadius: 9, fontSize: 15, fontWeight: 700,
+            border: '1px solid oklch(0.66 0.22 25 / .5)',
+            cursor: cerrando ? 'not-allowed' : 'pointer',
             opacity: cerrando ? .6 : 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}>
-            <Lock size={14} /> {cerrando ? 'Cerrando...' : 'Cerrar Turno e Imprimir Corte'}
-          </button>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'oklch(0.85 0.12 25)' }}>
+              <Lock size={16} /> {cerrando ? 'Cerrando...' : 'Cerrar Turno e Imprimir Corte'}
+            </span>
+          </CajaBtn>
         </div>
       </motion.div>
     </div>
@@ -350,8 +463,8 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
 function Row({ label, value, valueColor }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: 12, color: 'var(--dim)' }}>{label}</span>
-      <span style={{ fontSize: 12, color: valueColor || 'var(--muted)' }}>{value}</span>
+      <span style={{ fontSize: 14, color: 'rgba(220, 220, 225, 0.9)' }}>{label}</span>
+      <span style={{ fontSize: 14, color: valueColor || 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{value}</span>
     </div>
   )
 }
@@ -360,6 +473,7 @@ function Row({ label, value, valueColor }) {
 
 function Historial({ onVolver }) {
   const { navigate } = useApp()
+  const reduceMotion = useReducedMotion()
   const [sesiones, setSesiones] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -400,97 +514,158 @@ function Historial({ onVolver }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <button onClick={onVolver} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-          ← Volver
-        </button>
-        <h2 style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.08em' }}>HISTORIAL DE CAJA</h2>
-        <span style={{ fontSize: 11, color: 'var(--dim)' }}>{total} sesiones</span>
+        <CajaBtn onClick={onVolver} className="btn-secondary clientes-glass-btn" style={{ fontSize: 14 }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content">← Volver</span>
+        </CajaBtn>
+        <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.08em' }}>HISTORIAL DE CAJA</h2>
+        <span style={{ fontSize: 13, color: 'rgba(220, 220, 225, 0.9)' }}>{total} sesiones</span>
       </div>
+      {/* [SCROLL — pedido explícito, "no está dando la barra de scroll"]
+          Este listado no tenía overflow propio: .page-content:has(.caja-page)
+          (Caja.css) desactiva el scroll general de la página cuando se
+          está en Caja, y acá no había ningún overflow-y:auto que lo
+          reemplazara — con varias sesiones expandidas, el contenido
+          quedaba cortado sin forma de llegar a él ni a la <Pagination>
+          de abajo (que YA existe con Anterior/Siguiente/números de
+          página — el problema era que quedaba fuera de vista, no que
+          faltara). Mismo patrón que .caja-movimientos-list (overflow-y:
+          auto) para esta lista. */}
+      <div style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', overflowX: 'hidden', paddingRight: 4 }}>
       {sesiones.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 48, color: 'var(--dim)' }}>No hay sesiones registradas</div>
-      ) : sesiones.map(s => {
+        <div style={{ textAlign: 'center', padding: 48, color: 'rgba(220, 220, 225, 0.9)' }}>No hay sesiones registradas</div>
+      ) : sesiones.map((s, i) => {
         const abierta = s.estado === 'abierta'
         return (
-          <div key={s.id} style={{ marginBottom: 8 }}>
+          <motion.div
+            key={s.id}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut', delay: Math.min(i, 8) * 0.04 }}
+            style={{ marginBottom: 8 }}
+          >
             <div
+              className="caja-glass-block"
               onClick={() => toggleExpandir(s.id)}
               style={{
-                background: 'var(--glass)', border: `1px solid ${abierta ? 'oklch(0.78 0.16 155 / .4)' : 'var(--line)'}`,
+                // [MARCO — pedido explícito] Borde (verde si "abierta",
+                // var(--line) si no) sacado — el estado sigue siendo
+                // visible por el punto de color + el texto "ABIERTA" de
+                // abajo.
+                // [OPACIDAD — dos vueltas] El fondo BLANCO (oklch(1 0 0/.13))
+                // era el "filtro que lo vuelve blanco" reportado, así que
+                // se sacó del todo. Pedido explícito después: sí necesita
+                // ALGUNA capa de opacidad ("para evitar que no se pueda
+                // ver", el mismo motivo por el que las cards de Dashboard
+                // tienen su capa de tinte) — pero neutra/oscura, no blanca.
+                // Se usa el mismo tinte oscuro que ya trae .caja-glass-shell
+                // por CSS (oklch(0.14 0.015 250 / .28)) para que la fila y
+                // el panel expandido de abajo queden parejos.
+                background: 'oklch(0.14 0.015 250 / .28)',
+                // [DISTORSIÓN — pedido explícito, "bájale un poco más a
+                // historial"] Filtro propio #historial-glass (public/
+                // filters-menu-glass.svg), más bajo que el #top-clientes-
+                // glass compartido de .caja-glass-block — se override acá
+                // en vez de tocar la clase, que sigue sirviendo al resto
+                // de Caja.
+                backdropFilter: 'url(#historial-glass)',
+                WebkitBackdropFilter: 'url(#historial-glass)',
                 borderRadius: expandido === s.id ? '10px 10px 0 0' : 10, padding: '12px 16px',
                 display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+                boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05)',
+                // [SOMBRA DE LETRA — pedido explícito] text-shadow se
+                // hereda — poniéndolo acá alcanza a TODOS los textos hijos
+                // (fecha, usuario, montos) sin tocar cada span. Más fuerte
+                // que el 0 1px 2px/.6 general de .caja-page (Caja.css).
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.85)',
               }}
             >
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: abierta ? 'oklch(0.78 0.16 155)' : 'var(--dim)', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                  {fmtDate(s.fecha_apertura)} {abierta && <span style={{ marginLeft: 8, fontSize: 10, color: 'oklch(0.78 0.16 155)', fontWeight: 700 }}>ABIERTA</span>}
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
+                  {fmtDate(s.fecha_apertura)} {abierta && <span style={{ marginLeft: 8, fontSize: 12, color: 'oklch(0.78 0.16 155)', fontWeight: 700 }}>ABIERTA</span>}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+                <div style={{ fontSize: 13, color: 'rgba(220, 220, 225, 0.9)' }}>
                   {s.usuario_nombre} · Apertura: {fmtMoney(s.monto_inicial)}
                   {s.fecha_cierre && ` · Cierre: ${fmtDate(s.fecha_cierre)}`}
                   {s.fecha_cierre && ` · Duración: ${fmtDuration(s.fecha_apertura, s.fecha_cierre)}`}
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                {s.monto_cierre != null && <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--ink)' }}>{fmtMoney(s.monto_cierre)}</div>}
+                {s.monto_cierre != null && <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--ink)' }}>{fmtMoney(s.monto_cierre)}</div>}
                 {s.diferencia != null && Math.abs(s.diferencia) > 0.01 && (
-                  <div style={{ fontSize: 11, color: s.diferencia > 0 ? 'oklch(0.82 0.14 75)' : 'oklch(0.75 0.18 25)' }}>
+                  <div style={{ fontSize: 13, color: s.diferencia > 0 ? 'oklch(0.82 0.14 75)' : 'oklch(0.75 0.18 25)' }}>
                     {s.diferencia > 0 ? '+' : ''}{fmtMoney(s.diferencia)} efectivo
                   </div>
                 )}
                 {s.notas_count > 0 && (
-                  <div style={{ fontSize: 10, color: 'oklch(0.82 0.14 75)', display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
-                    <StickyNote size={9} /> {s.notas_count} nota{s.notas_count > 1 ? 's' : ''}
+                  <div style={{ fontSize: 12, color: 'oklch(0.82 0.14 75)', display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
+                    <StickyNote size={11} /> {s.notas_count} nota{s.notas_count > 1 ? 's' : ''}
                   </div>
                 )}
               </div>
-              <ChevronRight size={14} color="var(--dim)" style={{ transform: expandido === s.id ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
+              <ChevronRight size={16} color="rgba(220, 220, 225, 0.9)" style={{ transform: expandido === s.id ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
             </div>
             <AnimatePresence>
               {expandido === s.id && movimientos[s.id] && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                  style={{ overflow: 'hidden', background: 'oklch(0.11 0.01 250)', border: '1px solid var(--line)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}
+                  className="caja-glass-shell"
+                  style={{
+                    overflow: 'hidden', borderRadius: '0 0 10px 10px',
+                    // Mismo filtro más bajo que la fila de arriba, y mismo
+                    // refuerzo de text-shadow (hereda a los montos/fechas
+                    // de cada movimiento).
+                    backdropFilter: 'url(#historial-glass)',
+                    WebkitBackdropFilter: 'url(#historial-glass)',
+                    boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05)',
+                    textShadow: '0 2px 4px rgba(0, 0, 0, 0.85)',
+                  }}
                 >
                   <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {movimientos[s.id].map(m => (
                       <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 4px' }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.1em', color: TIPO_COLOR[m.tipo] || 'var(--dim)', minWidth: 52, textTransform: 'uppercase' }}>{m.tipo}</span>
-                        <span style={{ flex: 1, fontSize: 12, color: 'var(--muted)' }}>{m.concepto}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: m.tipo === 'egreso' ? 'oklch(0.75 0.18 25)' : 'oklch(0.78 0.16 155)' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: TIPO_COLOR[m.tipo] || 'rgba(220, 220, 225, 0.9)', minWidth: 52, textTransform: 'uppercase' }}>{m.tipo}</span>
+                        <span className="caja-emphasis" style={{ flex: 1, fontSize: 14, color: 'oklch(0.88 0.01 250 / .85)' }}>{m.concepto}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: m.tipo === 'egreso' ? 'oklch(0.75 0.18 25)' : 'oklch(0.78 0.16 155)' }}>
                           {m.tipo === 'egreso' ? '-' : '+'}{fmtMoney(m.monto)}
                         </span>
-                        <span style={{ fontSize: 10, color: 'var(--dim)' }}>{fmtDate(m.created_at)}</span>
+                        <span style={{ fontSize: 12, color: 'rgba(220, 220, 225, 0.9)' }}>{fmtDate(m.created_at)}</span>
                       </div>
                     ))}
                     {/* Notas del turno */}
                     {notasSesion[s.id]?.length > 0 && (
                       <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px solid oklch(0.82 0.14 75 / .15)' }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, color: 'oklch(0.82 0.14 75)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 4 }}>Notas del turno</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'oklch(0.82 0.14 75)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 4 }}>Notas del turno</div>
                         {notasSesion[s.id].map(n => (
-                          <div key={n.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12, color: 'var(--muted)' }}>
-                            <StickyNote size={11} color="oklch(0.82 0.14 75)" style={{ flexShrink: 0, marginTop: 1 }} />
+                          <div key={n.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 14, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
+                            <StickyNote size={13} color="oklch(0.82 0.14 75)" style={{ flexShrink: 0, marginTop: 1 }} />
                             <span>{n.texto}</span>
-                            <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--dim)' }}>{fmtDate(n.fecha)}</span>
+                            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(220, 220, 225, 0.9)' }}>{fmtDate(n.fecha)}</span>
                           </div>
                         ))}
                       </div>
                     )}
                     {/* Ver ventas del turno */}
                     <div style={{ paddingTop: 6, marginTop: 4, borderTop: '1px solid oklch(1 0 0 / .06)' }}>
-                      <button
+                      <CajaBtn
                         onClick={e => { e.stopPropagation(); localStorage.setItem('ventas_sesion_filter', s.id); navigate(PAGES.VENTAS) }}
-                        style={{ fontSize: 11, color: 'oklch(0.74 0.13 250)', background: 'oklch(0.74 0.13 250 / .08)', border: '1px solid oklch(0.74 0.13 250 / .2)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        className="caja-btn-ventas clientes-glass-btn"
+                        style={{ fontSize: 13, border: '1px solid oklch(0.74 0.13 250 / .2)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
                       >
-                        <ShoppingBag size={10} /> Ver ventas de este turno
-                      </button>
+                        <div className="clientes-glass-bg" />
+                        <span className="clientes-glass-content" style={{ color: 'oklch(0.74 0.13 250)' }}>
+                          <ShoppingBag size={12} /> Ver ventas de este turno
+                        </span>
+                      </CajaBtn>
                     </div>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </motion.div>
         )
       })}
+      </div>
       <Pagination
         page={page}
         pageSize={pageSize}
@@ -531,24 +706,25 @@ function ModalNota({ sesionId, onClose, onSaved, usuario }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .6)', backdropFilter: 'blur(4px)' }} />
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .68)', backdropFilter: 'blur(4px)' }} />
       <motion.div
+        className="caja-glass-shell"
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         style={{
           position: 'relative', zIndex: 1, width: 400,
-          background: 'oklch(0.14 0.015 250)', border: '1px solid oklch(0.82 0.14 75 / .3)',
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .5)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 15, fontWeight: 700, color: 'oklch(0.82 0.14 75)', letterSpacing: '.06em' }}>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 18, fontWeight: 700, color: 'oklch(0.82 0.14 75)', letterSpacing: '.06em' }}>
             Agregar Nota al Turno
           </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}>
-            <X size={16} />
+          <button onClick={onClose} title="Cerrar" className="clientes-action-icon">
+            <X size={19} color="rgba(220, 220, 225, 0.9)" />
           </button>
         </div>
         <textarea
@@ -558,18 +734,23 @@ function ModalNota({ sesionId, onClose, onSaved, usuario }) {
           placeholder="Ej: Se retiró Bs. 100 para compra, cliente pagó adelantado..."
           rows={4}
           autoFocus
-          style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: 13, boxSizing: 'border-box' }}
+          style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit', fontSize: 15, boxSizing: 'border-box' }}
         />
         <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-          <button onClick={guardar} disabled={guardando} style={{
-            flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-            background: 'oklch(0.82 0.14 75 / .2)', border: '1px solid oklch(0.82 0.14 75 / .4)',
-            color: 'oklch(0.82 0.14 75)', cursor: guardando ? 'not-allowed' : 'pointer', opacity: guardando ? .6 : 1,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          <CajaBtn onClick={onClose} className="btn-secondary clientes-glass-btn" style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </CajaBtn>
+          <CajaBtn onClick={guardar} disabled={guardando} className="clientes-glass-btn" style={{
+            flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 15, fontWeight: 700,
+            border: '1px solid oklch(0.82 0.14 75 / .4)',
+            cursor: guardando ? 'not-allowed' : 'pointer', opacity: guardando ? .6 : 1,
           }}>
-            <Check size={14} /> {guardando ? 'Guardando...' : 'Guardar nota'}
-          </button>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'oklch(0.82 0.14 75)' }}>
+              <Check size={16} /> {guardando ? 'Guardando...' : 'Guardar nota'}
+            </span>
+          </CajaBtn>
         </div>
       </motion.div>
     </div>
@@ -579,6 +760,7 @@ function ModalNota({ sesionId, onClose, onSaved, usuario }) {
 // ─── Vista Caja Cerrada ───────────────────────────────────────────────────────
 
 function CajaCerrada({ onAbierta, usuario }) {
+  const reduceMotion = useReducedMotion()
   const [montoInicial, setMontoInicial] = useState('0')
   const [notas, setNotas] = useState('')
   const [abriendo, setAbriendo] = useState(false)
@@ -604,24 +786,30 @@ function CajaCerrada({ onAbierta, usuario }) {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
-      <div style={{
-        width: 400, background: 'var(--glass)', border: '1px solid oklch(0.78 0.16 155 / .3)',
+    <motion.div initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+      <div className="caja-glass-block" style={{
+        width: 400,
+        // [OPACIDAD — pedido explícito, "quítale lo blanco, ponle un poco
+        // de opacidad para que se note"] Antes oklch(1 0 0/.13), blanco.
+        // Reemplazado por un tinte oscuro/neutro (mismo criterio que
+        // Historial: oklch(0.14 .../.28)) — se nota sin lavar la card.
+        background: 'oklch(0.14 0.015 250 / .28)',
         borderRadius: 20, padding: '36px 40px', textAlign: 'center',
-        boxShadow: '0 0 60px oklch(0.78 0.16 155 / .08)',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05), 0 0 60px oklch(0.78 0.16 155 / .08)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
       }}>
         <div style={{ width: 64, height: 64, borderRadius: 16, background: 'oklch(0.78 0.16 155 / .12)', border: '1px solid oklch(0.78 0.16 155 / .3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-          <Wallet size={28} color="oklch(0.78 0.16 155)" />
+          <Wallet size={33} color="oklch(0.78 0.16 155)" />
         </div>
-        <h2 style={{ fontFamily: 'var(--display)', fontSize: 20, fontWeight: 800, color: 'var(--ink)', marginBottom: 8, letterSpacing: '.06em' }}>
+        <h2 style={{ fontFamily: 'var(--display)', fontSize: 24, fontWeight: 800, color: 'var(--ink)', marginBottom: 8, letterSpacing: '.06em' }}>
           CAJA CERRADA
         </h2>
-        <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 28 }}>
+        <p style={{ fontSize: 15, color: 'rgba(220, 220, 225, 0.9)', marginBottom: 28 }}>
           Abre la caja para registrar movimientos
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', marginBottom: 24 }}>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
               Monto inicial (Bs.)
             </label>
             <input
@@ -629,19 +817,22 @@ function CajaCerrada({ onAbierta, usuario }) {
               type="number" min="0" step="0.01"
               value={montoInicial}
               onChange={e => setMontoInicial(e.target.value)}
-              style={{ textAlign: 'center', fontSize: 18, fontFamily: 'var(--display)' }}
+              style={{ textAlign: 'center', fontSize: 21, fontFamily: 'var(--display)' }}
             />
           </div>
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.08em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>
               Notas (opcional)
             </label>
             <input className="gym-input" value={notas} onChange={e => setNotas(e.target.value)} placeholder="Observaciones..." />
           </div>
         </div>
-        <button onClick={abrir} disabled={abriendo} className="btn-primary" style={{ width: '100%', padding: '12px', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <Unlock size={16} /> {abriendo ? 'Abriendo...' : 'Abrir Caja'}
-        </button>
+        <CajaBtn onClick={abrir} disabled={abriendo} className="clientes-glass-btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: 16 }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content">
+            <Unlock size={19} /> {abriendo ? 'Abriendo...' : 'Abrir Caja'}
+          </span>
+        </CajaBtn>
       </div>
     </motion.div>
   )
@@ -652,6 +843,7 @@ function CajaCerrada({ onAbierta, usuario }) {
 function CajaAbierta({ sesion, onCerrada, onRefresh }) {
   const { usuario } = useAuth()
   const { navigate } = useApp()
+  const reduceMotion = useReducedMotion()
   const [resumen, setResumen] = useState(null)
   const [notas, setNotas] = useState([])
   const [modal, setModal] = useState(null) // null | 'ingreso' | 'egreso' | 'cerrar' | 'nota'
@@ -685,106 +877,215 @@ function CajaAbierta({ sesion, onCerrada, onRefresh }) {
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
         {[
-          { label: 'Efectivo esperado', value: fmtMoney(efectivoEsperado), color: 'oklch(0.78 0.16 155)', desc: `Apertura: ${fmtMoney(resumen.monto_inicial)}` },
-          { label: 'Total ingresos', value: fmtMoney(resumen.total_ingresos), color: 'oklch(0.72 0.17 155)', desc: 'Todos los métodos' },
-          { label: 'Digital / Sin efectivo', value: fmtMoney(digital), color: 'oklch(0.74 0.13 250)', desc: 'QR / Tarjeta / Transfer.' },
-          { label: 'Total egresos', value: fmtMoney(resumen.total_egresos), color: 'oklch(0.75 0.18 25)', desc: 'Gastos del turno' },
-        ].map(c => (
-          <motion.div key={c.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            style={{ background: `${c.color}0c`, border: `1px solid ${c.color}30`, borderRadius: 12, padding: '14px 16px' }}
+          { label: 'Efectivo esperado', value: efectivoEsperado, color: 'oklch(0.78 0.16 155)', desc: `Apertura: ${fmtMoney(resumen.monto_inicial)}` },
+          { label: 'Total ingresos', value: resumen.total_ingresos, color: 'oklch(0.72 0.17 155)', desc: 'Todos los métodos' },
+          { label: 'Digital / Sin efectivo', value: digital, color: 'oklch(0.74 0.13 250)', desc: 'QR / Tarjeta / Transfer.' },
+          { label: 'Total egresos', value: resumen.total_egresos, color: 'oklch(0.75 0.18 25)', desc: 'Gastos del turno' },
+        ].map((c, i) => (
+          <motion.div key={c.label} className="caja-glass-block"
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut', delay: i * 0.04 }}
+            style={{
+              // [FONDO — pedido explícito, "aumentalo mucho más"] Mismo
+              // radial-gradient de KPICard.jsx, alphas subidas bastante
+              // por encima de las de Dashboard (.17/.06 → .45/.18) — acá
+              // se pidió explícitamente mucho más presencia de color que
+              // en las KPI del Dashboard, no la misma intensidad.
+              background: `radial-gradient(circle at center, ${c.color.replace(')', ' / 0.45)')} 0%, ${c.color.replace(')', ' / 0.18)')} 50%, transparent 80%)`,
+              borderRadius: 12, padding: '14px 16px',
+              boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05)',
+              // [CENTRADO — pedido explícito] textAlign se hereda a los 3
+              // divs hijos (label/valor/desc), los centra a los tres de
+              // una sin tocarlos uno por uno.
+              textAlign: 'center',
+              // [SOMBRA — pedido explícito] Mismo criterio: se hereda a
+              // los 3 hijos sin tocarlos uno por uno.
+              textShadow: '0 2px 4px rgba(0, 0, 0, 0.85)',
+            }}
           >
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.14em', color: c.color, textTransform: 'uppercase', marginBottom: 6 }}>{c.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--display)', color: c.color, lineHeight: 1, marginBottom: 4 }}>{c.value}</div>
-            <div style={{ fontSize: 11, color: 'var(--dim)' }}>{c.desc}</div>
+            {/* [LETRA — pedido explícito] Antes color: c.color (texto del
+                mismo tono que el fondo) — ahora blanco fijo en label y
+                valor, el color de cada card queda solo en el fondo. */}
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'oklch(0.97 0.01 250)', textTransform: 'uppercase', marginBottom: 6 }}>{c.label}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, fontFamily: 'var(--display)', color: 'oklch(0.97 0.01 250)', lineHeight: 1, marginBottom: 4 }}><Monto value={c.value} /></div>
+            <div style={{ fontSize: 13, color: 'oklch(0.97 0.01 250 / .75)' }}>{c.desc}</div>
           </motion.div>
         ))}
       </div>
 
-      {/* Nota educativa permanente */}
-      <div style={{ background: 'oklch(0.74 0.13 250 / .06)', border: '1px solid oklch(0.74 0.13 250 / .2)', borderRadius: 10, padding: '8px 14px', marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-        <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>
-        <span style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.6 }}>
+      {/* Nota educativa permanente — [NUEVO, Parte 3.1] sigue en la cadena
+          de revelado progresivo (después de las 4 KPI cards, que ya
+          terminan su propio stagger en i*0.04 hasta 0.12). */}
+      <motion.div className="caja-glass-block"
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut', delay: 0.16 }}
+        style={{
+          background: 'oklch(0.74 0.13 250 / .13)', borderRadius: 10, padding: '8px 14px', marginBottom: 14,
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+          // [DISTORSIÓN — pedido explícito, "bájale la distorsión a esas
+          // dos barras"] Override del #top-clientes-glass compartido de
+          // .caja-glass-block, mismo filtro suave que Historial.
+          backdropFilter: 'url(#historial-glass)',
+          WebkitBackdropFilter: 'url(#historial-glass)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+        }}>
+        {/* [REVERTIDO — pedido explícito: "esto no tenías que hacerlo
+            grande"] Excluida del aumento del 10% que se aplicó al resto
+            de Caja — vuelve a su tamaño original. */}
+        <span style={{ fontSize: 15, flexShrink: 0 }}>ℹ️</span>
+        <span style={{ fontSize: 12, color: 'rgba(220, 220, 225, 0.9)', lineHeight: 1.6 }}>
           <strong style={{ color: 'oklch(0.78 0.16 155)' }}>Solo el efectivo se cuenta físicamente.</strong>{' '}
           Los pagos por QR, tarjeta y transferencia van directo a tu cuenta bancaria — NO están en la caja física y nunca pueden "faltar" de ella.
         </span>
-      </div>
+      </motion.div>
 
       {/* Info sesión */}
-      <div style={{ background: 'var(--glass)', border: '1px solid oklch(0.78 0.16 155 / .25)', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <motion.div className="caja-glass-block"
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut', delay: 0.2 }}
+        style={{
+          background: 'oklch(1 0 0 / .13)', borderRadius: 12, padding: '12px 16px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 12,
+          // [DISTORSIÓN — pedido explícito] Mismo override que la barra
+          // de arriba.
+          backdropFilter: 'url(#historial-glass)',
+          WebkitBackdropFilter: 'url(#historial-glass)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+        }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'oklch(0.78 0.16 155)', boxShadow: '0 0 8px oklch(0.78 0.16 155)' }} />
-        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+        {/* [REVERTIDO — pedido explícito] Misma exclusión que la barra de
+            arriba, vuelve a su tamaño original. */}
+        <span style={{ fontSize: 13, color: 'var(--muted)' }}>
           Abierta por <strong style={{ color: 'var(--ink)' }}>{resumen.usuario_nombre}</strong> · {fmtDate(resumen.fecha_apertura)} · Tiempo: <strong style={{ color: 'var(--ink)' }}>{fmtDuration(resumen.fecha_apertura, null)}</strong>
         </span>
-      </div>
+      </motion.div>
 
       {/* Acciones */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-        <button onClick={() => setModal('ingreso')} style={{ flex: 1, minWidth: 140, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'oklch(0.78 0.16 155 / .12)', border: '1px solid oklch(0.78 0.16 155 / .35)', color: 'oklch(0.78 0.16 155)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all .2s' }}>
-          <TrendingUp size={15} /> Registrar ingreso
-        </button>
-        <button onClick={() => setModal('egreso')} style={{ flex: 1, minWidth: 140, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'oklch(0.75 0.18 25 / .12)', border: '1px solid oklch(0.75 0.18 25 / .35)', color: 'oklch(0.75 0.18 25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all .2s' }}>
-          <TrendingDown size={15} /> Registrar egreso
-        </button>
-        <button onClick={() => setModal('nota')} style={{ padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'oklch(0.82 0.14 75 / .12)', border: '1px solid oklch(0.82 0.14 75 / .35)', color: 'oklch(0.82 0.14 75)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all .2s' }}>
-          <MessageSquarePlus size={14} /> Nota
-        </button>
-        <button onClick={() => setModal('cerrar')} style={{ padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, background: 'oklch(0.66 0.22 25 / .15)', border: '1px solid oklch(0.66 0.22 25 / .4)', color: 'oklch(0.85 0.12 25)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, transition: 'all .2s' }}>
-          <Lock size={14} /> Cerrar Caja
-        </button>
-      </div>
+      <motion.div
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut', delay: 0.24 }}
+        style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        <CajaBtn onClick={() => setModal('ingreso')} className="caja-btn-ingreso clientes-glass-btn" style={{ flex: 1, minWidth: 140, padding: '10px 16px', borderRadius: 10, fontSize: 15, border: '1px solid oklch(0.78 0.16 155 / .35)', cursor: 'pointer' }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content" style={{ color: 'oklch(0.78 0.16 155)' }}>
+            <TrendingUp size={18} /> Registrar ingreso
+          </span>
+        </CajaBtn>
+        <CajaBtn onClick={() => setModal('egreso')} className="caja-btn-egreso clientes-glass-btn" style={{ flex: 1, minWidth: 140, padding: '10px 16px', borderRadius: 10, fontSize: 15, border: '1px solid oklch(0.75 0.18 25 / .35)', cursor: 'pointer' }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content" style={{ color: 'oklch(0.75 0.18 25)' }}>
+            <TrendingDown size={18} /> Registrar egreso
+          </span>
+        </CajaBtn>
+        <CajaBtn onClick={() => setModal('nota')} className="caja-btn-nota clientes-glass-btn" style={{ padding: '10px 14px', borderRadius: 10, fontSize: 15, border: '1px solid oklch(0.82 0.14 75 / .35)', cursor: 'pointer' }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content" style={{ color: 'oklch(0.82 0.14 75)' }}>
+            <MessageSquarePlus size={16} /> Nota
+          </span>
+        </CajaBtn>
+        <CajaBtn onClick={() => setModal('cerrar')} className="caja-btn-cerrar clientes-glass-btn" style={{ padding: '10px 20px', borderRadius: 10, fontSize: 15, border: '1px solid oklch(0.66 0.22 25 / .4)', cursor: 'pointer' }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content" style={{ color: 'oklch(0.85 0.12 25)' }}>
+            <Lock size={16} /> Cerrar Caja
+          </span>
+        </CajaBtn>
+      </motion.div>
 
       {/* Navegación cruzada */}
       <div style={{ marginBottom: 20 }}>
-        <button
+        <CajaBtn
           onClick={() => { localStorage.setItem('ventas_sesion_filter', sesion.id); navigate(PAGES.VENTAS) }}
-          style={{ fontSize: 12, color: 'oklch(0.74 0.13 250)', background: 'oklch(0.74 0.13 250 / .08)', border: '1px solid oklch(0.74 0.13 250 / .25)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          className="caja-btn-ventas clientes-glass-btn"
+          style={{ fontSize: 14, border: '1px solid oklch(0.74 0.13 250 / .25)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
         >
-          <ShoppingBag size={12} /> Ver ventas de este turno
-        </button>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content" style={{ color: 'oklch(0.74 0.13 250)' }}>
+            <ShoppingBag size={14} /> Ver ventas de este turno
+          </span>
+        </CajaBtn>
       </div>
 
       {/* Notas del turno */}
       {notas.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'oklch(0.82 0.14 75)', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 10 }}>
-            <StickyNote size={12} style={{ marginRight: 5, verticalAlign: 'middle' }} />
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 700, color: 'oklch(0.82 0.14 75)', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 10 }}>
+            <StickyNote size={14} style={{ marginRight: 5, verticalAlign: 'middle' }} />
             Notas del turno
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {notas.map(n => (
-              <div key={n.id} style={{ background: 'oklch(0.82 0.14 75 / .07)', border: '1px solid oklch(0.82 0.14 75 / .2)', borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <StickyNote size={13} color="oklch(0.82 0.14 75)" style={{ flexShrink: 0, marginTop: 1 }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: 'var(--ink)' }}>{n.texto}</div>
-                  <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>
-                    {n.usuario_nombre || 'Sistema'} · {fmtDate(n.fecha)}
+            {/* [NUEVO, Parte 3.7] entrada con stagger — también sirve de
+                confirmación visual breve cuando se agrega una nota nueva
+                (además del toast ya existente en ModalNota.guardar()):
+                la nota entra animada al refrescar la lista, no aparece
+                de golpe. */}
+            <AnimatePresence initial={false}>
+              {notas.map((n, i) => (
+                <motion.div key={n.id}
+                  className="caja-glass-block"
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeOut', delay: Math.min(i, 6) * 0.04 }}
+                  style={{
+                    background: 'oklch(0.82 0.14 75 / .14)', borderRadius: 8, padding: '8px 12px',
+                    display: 'flex', gap: 10, alignItems: 'flex-start',
+                    boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                  }}>
+                  <StickyNote size={15} color="oklch(0.82 0.14 75)" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, color: 'var(--ink)' }}>{n.texto}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(220, 220, 225, 0.9)', marginTop: 3 }}>
+                      {n.usuario_nombre || 'Sistema'} · {fmtDate(n.fecha)}
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       )}
 
       {/* Movimientos */}
-      <div>
-        <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 12 }}>
+      <div className="caja-movimientos">
+        <h3 style={{ fontFamily: 'var(--display)', fontSize: 14, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 12 }}>
           Movimientos de la sesión
         </h3>
         {resumen.movimientos?.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 32, color: 'var(--dim)', fontSize: 13 }}>No hay movimientos aún</div>
+          <div style={{ textAlign: 'center', padding: 32, color: 'rgba(220, 220, 225, 0.9)', fontSize: 15 }}>No hay movimientos aún</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {[...(resumen.movimientos || [])].reverse().map(m => (
-              <div key={m.id} style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 9, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.1em', color: TIPO_COLOR[m.tipo] || 'var(--dim)', minWidth: 56, textTransform: 'uppercase' }}>{m.tipo}</span>
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>{m.concepto}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: m.tipo === 'egreso' ? 'oklch(0.75 0.18 25)' : 'oklch(0.78 0.16 155)' }}>
-                  {m.tipo === 'egreso' ? '-' : '+'}{fmtMoney(m.monto)}
-                </span>
-                <span style={{ fontSize: 11, color: 'var(--dim)', minWidth: 90, textAlign: 'right' }}>{fmtDate(m.created_at)}</span>
-              </div>
-            ))}
+          <div className="caja-movimientos-list" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {/* [NUEVO, Parte 3.6] entrada con stagger corto — mismo
+                criterio que resultados de búsqueda en Control de Acceso. */}
+            <AnimatePresence initial={false}>
+              {[...(resumen.movimientos || [])].reverse().map((m, i) => (
+                <motion.div key={m.id}
+                  className="caja-glass-block"
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeOut', delay: Math.min(i, 8) * 0.04 }}
+                  style={{
+                    // [OPACIDAD — corregido] Mismo fix que en Historial:
+                    // fondo blanco sacado (era el "filtro que lo vuelve
+                    // blanco" reportado), queda solo backdrop-filter + halo,
+                    // igual que Dashboard.jsx.
+                    background: 'oklch(0.13 0.02 250 / .2)', borderRadius: 9, padding: '10px 14px',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                  }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: TIPO_COLOR[m.tipo] || 'rgba(220, 220, 225, 0.9)', minWidth: 56, flexShrink: 0, textTransform: 'uppercase' }}>{m.tipo}</span>
+                  <span className="caja-emphasis caja-movimiento-concepto" style={{ flex: 1, fontSize: 15, color: 'oklch(0.88 0.01 250 / .85)' }}>{m.concepto}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, flexShrink: 0, color: m.tipo === 'egreso' ? 'oklch(0.75 0.18 25)' : 'oklch(0.78 0.16 155)' }}>
+                    {m.tipo === 'egreso' ? '-' : '+'}<Monto value={m.monto} />
+                  </span>
+                  <span style={{ fontSize: 13, color: 'rgba(220, 220, 225, 0.9)', minWidth: 90, flexShrink: 0, textAlign: 'right' }}>{fmtDate(m.created_at)}</span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>
@@ -818,6 +1119,7 @@ function CajaAbierta({ sesion, onCerrada, onRefresh }) {
 
 export default function Caja() {
   const { usuario } = useAuth()
+  const reduceMotion = useReducedMotion()
   const [vista, setVista] = useState('caja') // 'caja' | 'historial'
   const [sesion, setSesion] = useState(null)
   const [cargando, setCargando] = useState(true)
@@ -834,39 +1136,59 @@ export default function Caja() {
   const onCerrada = () => setRev(r => r + 1)
   const onAbierta = () => setRev(r => r + 1)
 
+  // [NUEVO, Parte 3.2] key identifica cada "estado" de la vista —
+  // cambiar de vista (caja/historial) o de sesión (cerrada/abierta,
+  // vía onCerrada/onAbierta → rev → cargar() → sesion cambia de
+  // null↔objeto) dispara una transición fade+scale clara en vez del
+  // swap instantáneo que había antes.
+  const vistaKey = cargando ? 'cargando' : vista === 'historial' ? 'historial' : sesion ? 'abierta' : 'cerrada'
+
   return (
-    <div style={{ padding: '0 2px' }}>
+    <div className="caja-page clientes-page" style={{ padding: '0 2px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 className="titulo-metalico" style={{ marginBottom: 6 }}>CAJA DIARIA</h1>
-          <p style={{ fontSize: 13, color: 'var(--dim)' }}>
+          <p style={{ fontSize: 15, color: 'rgba(220, 220, 225, 0.9)' }}>
             {sesion ? <span style={{ color: 'oklch(0.78 0.16 155)' }}>● Sesión activa</span> : <span>● Caja cerrada</span>}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setVista(vista === 'historial' ? 'caja' : 'historial')} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-            <History size={13} /> {vista === 'historial' ? 'Volver' : 'Historial'}
-          </button>
+          <CajaBtn onClick={() => setVista(vista === 'historial' ? 'caja' : 'historial')} className="btn-secondary clientes-glass-btn" style={{ fontSize: 14 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">
+              <History size={15} /> {vista === 'historial' ? 'Volver' : 'Historial'}
+            </span>
+          </CajaBtn>
           {vista === 'caja' && (
-            <button onClick={() => setRev(r => r + 1)} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-              <RefreshCw size={13} />
+            <button onClick={() => setRev(r => r + 1)} title="Actualizar" className="clientes-action-icon">
+              <RefreshCw size={15} color="var(--muted)" />
             </button>
           )}
         </div>
       </div>
 
-      {cargando ? (
-        <div style={{ textAlign: 'center', padding: 80 }}>
-          <div className="spinner" style={{ margin: '0 auto 14px' }} />
-          <p style={{ fontSize: 13, color: 'var(--dim)' }}>Cargando...</p>
-        </div>
-      ) : vista === 'historial' ? (
-        <Historial onVolver={() => setVista('caja')} />
-      ) : sesion ? (
-        <CajaAbierta sesion={sesion} onCerrada={onCerrada} onRefresh={cargar} />
-      ) : (
-        <CajaCerrada onAbierta={onAbierta} usuario={usuario} />
-      )}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={vistaKey}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+        >
+          {cargando ? (
+            <div style={{ textAlign: 'center', padding: 80 }}>
+              <div className="spinner" style={{ margin: '0 auto 14px' }} />
+              <p style={{ fontSize: 15, color: 'rgba(220, 220, 225, 0.9)' }}>Cargando...</p>
+            </div>
+          ) : vista === 'historial' ? (
+            <Historial onVolver={() => setVista('caja')} />
+          ) : sesion ? (
+            <CajaAbierta sesion={sesion} onCerrada={onCerrada} onRefresh={cargar} />
+          ) : (
+            <CajaCerrada onAbierta={onAbierta} usuario={usuario} />
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }

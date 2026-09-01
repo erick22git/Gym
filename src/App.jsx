@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppProvider, useApp } from './context/AppContext'
 import { PAGES } from './constants'
 import TitleBar from './components/layout/TitleBar'
-import Sidebar from './components/layout/Sidebar'
 import Login from './pages/Login'
 import CambiarPasswordModal from './pages/CambiarPassword'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import ErrorBoundary from './components/ui/ErrorBoundary'
+import VideoBackground from './components/background/VideoBackground'
 import { Minus, Maximize2, Minimize2, X } from 'lucide-react'
 
 import Attendance from './pages/Attendance'
@@ -34,9 +34,11 @@ import Papelera from './pages/admin/Papelera'
 import GestionModulos from './pages/admin/GestionModulos'
 import Reportes from './pages/admin/Reportes'
 import Ventas from './pages/admin/Ventas'
+import Casilleros from './pages/admin/Casilleros'
 import Auditoria from './pages/admin/Auditoria'
 import Respaldos from './pages/admin/Respaldos'
 import Configuracion from './pages/admin/Configuracion'
+import ImportarIA from './pages/admin/ImportarIA'
 
 function Placeholder({ nombre }) {
   return (
@@ -69,11 +71,13 @@ const PAGE_COMPONENTS = {
   [PAGES.INVENTARIO]:            Inventario,
   [PAGES.PAPELERA]:              Papelera,
   [PAGES.VENTAS]:                Ventas,
+  [PAGES.CASILLEROS]:            Casilleros,
   [PAGES.REPORTES]:              Reportes,
   [PAGES.AUDITORIA]:             Auditoria,
   [PAGES.GESTION_MODULOS]:       GestionModulos,
   [PAGES.RESPALDOS]:             Respaldos,
   [PAGES.CONFIGURACION]:         Configuracion,
+  [PAGES.IA_IMPORTAR]:           ImportarIA,
 }
 
 function PageContainer() {
@@ -101,11 +105,10 @@ function PageContainer() {
 function AppInner() {
   return (
     <>
-      <div className="bg-atmospheric" />
+      <VideoBackground />
       <div className="app-layout">
         <TitleBar />
         <div className="main-layout">
-          <Sidebar />
           <PageContainer />
         </div>
       </div>
@@ -162,37 +165,114 @@ function MinimalWindowBar() {
   )
 }
 
+// ─── Sincronización modo login↔app con el resize de la ventana ─────────────
+// El resize nativo (win.setSize en main.cjs) es instantáneo, pero el swap
+// de layout (Login <-> AppInner) y el reflow de React no lo son — si pasan
+// desacoplados se ve un instante de "pantalla dividida" (tamaño nuevo +
+// layout viejo, o viceversa). Acá el swap de `displayMode` (lo que decide
+// qué layout se pinta) y la llamada a enterAppMode/enterLoginMode quedan
+// tapados por una cortina opaca: cortina opaca (sin transición) → 2 rAF
+// para asegurar que ya pintó → recién ahí swap + resize → breve espera a
+// que la ventana/layout se asienten → fade-out de la cortina.
+const CURTAIN_HOLD_MS = 120
+const CURTAIN_FADE_MS = 220
+
+function useWindowModeCurtain(usuario, cargando) {
+  const [displayMode, setDisplayMode] = useState(null) // 'login' | 'app' | null
+  const [curtainOpaque, setCurtainOpaque] = useState(false)
+  const [curtainInstant, setCurtainInstant] = useState(false)
+  const prevModeRef = useRef(null)
+
+  useEffect(() => {
+    if (cargando) return
+    const nextMode = usuario ? 'app' : 'login'
+
+    if (prevModeRef.current === null) {
+      // Primera resolución tras el loading — todavía no se pintó ningún
+      // layout, no hace falta cortina para esto.
+      prevModeRef.current = nextMode
+      setDisplayMode(nextMode)
+      if (nextMode === 'app') window.api?.enterAppMode?.()
+      return
+    }
+
+    if (prevModeRef.current === nextMode) return
+    prevModeRef.current = nextMode
+
+    let cancelado = false
+    setCurtainInstant(true)
+    setCurtainOpaque(true)
+
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelado) return
+        setDisplayMode(nextMode)
+        if (nextMode === 'app') window.api?.enterAppMode?.()
+        else window.api?.enterLoginMode?.()
+
+        setTimeout(() => {
+          if (cancelado) return
+          setCurtainInstant(false)
+          setCurtainOpaque(false)
+        }, CURTAIN_HOLD_MS)
+      })
+    })
+
+    return () => { cancelado = true; cancelAnimationFrame(raf1) }
+  }, [usuario, cargando])
+
+  return { displayMode, curtainOpaque, curtainInstant }
+}
+
+function ModeCurtain({ opaque, instant }) {
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 999999,
+        background: '#060709',
+        opacity: opaque ? 1 : 0,
+        transition: instant ? 'none' : `opacity ${CURTAIN_FADE_MS}ms ease`,
+        pointerEvents: opaque ? 'auto' : 'none',
+      }}
+    />
+  )
+}
+
 function AppRoot() {
   const { usuario, cargando } = useAuth()
+  const { displayMode, curtainOpaque, curtainInstant } = useWindowModeCurtain(usuario, cargando)
 
-  if (cargando) return (
+  if (cargando || displayMode === null) return (
     <>
       <MinimalWindowBar />
       <LoadingScreen />
     </>
   )
 
-  if (!usuario) return (
-    <>
-      <MinimalWindowBar />
-      <Login />
-    </>
-  )
-
   return (
-    <AppProvider>
-      <AppInner />
-      {/* Modal de cambio obligatorio de contraseña en primer login */}
-      <AnimatePresence>
-        {usuario.primer_login && (
-          <CambiarPasswordModal
-            obligatorio
-            usuario={usuario}
-            onCerrar={() => {}}
-          />
-        )}
-      </AnimatePresence>
-    </AppProvider>
+    <>
+      {displayMode === 'login' ? (
+        <>
+          <MinimalWindowBar />
+          <Login />
+        </>
+      ) : (
+        <AppProvider>
+          <AppInner />
+          {/* Modal de cambio obligatorio de contraseña en primer login */}
+          <AnimatePresence>
+            {usuario?.primer_login && (
+              <CambiarPasswordModal
+                obligatorio
+                usuario={usuario}
+                onCerrar={() => {}}
+              />
+            )}
+          </AnimatePresence>
+        </AppProvider>
+      )}
+      <ModeCurtain opaque={curtainOpaque} instant={curtainInstant} />
+    </>
   )
 }
 

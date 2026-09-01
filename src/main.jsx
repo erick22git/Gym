@@ -2,10 +2,21 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Toaster } from 'react-hot-toast'
 import App from './App'
+import GlassMenuFilters from './components/GlassMenuFilters'
 import './index.css'
+import './glass-engine/variables.css'
+import './glass-engine/glass.css'
+import './glass-engine/menu.css'
+// responsive.css SIEMPRE al final — sus @media sobrescriben tokens/
+// reglas de los archivos de arriba (--menu-height de variables.css,
+// .app-layout de index.css, etc.) con la MISMA especificidad; si
+// cargara antes, esas bases (sin @media, siempre activas) ganarían
+// por orden de aparición pese a que el breakpoint sí matchea.
+import './styles/responsive.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <GlassMenuFilters />
     <App />
     <Toaster
       position="top-right"

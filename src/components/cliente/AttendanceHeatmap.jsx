@@ -2,11 +2,18 @@ import { useMemo } from 'react'
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
+// [MEJORADO — pedido explícito: "mejoralo en cuanto colores y todo"]
+// Antes escala de rojo (oklch(...25), el mismo tono que "vencida"/
+// "peligro" en el resto de la app) — para un heatmap de ASISTENCIA
+// (algo positivo) lee raro usar el color de alerta. Cambiado a la
+// escala verde que la app ya usa para "activa"/éxito (oklch(0.78 0.16
+// 155), el mismo verde de los badges "Activa" en Membresías) — mismo
+// criterio de intensidad progresiva, semántica coherente con el resto.
 function getColor(count) {
-  if (!count) return 'oklch(0.18 0.01 250)'
-  if (count === 1) return 'oklch(0.50 0.14 25 / .5)'
-  if (count === 2) return 'oklch(0.58 0.18 25 / .7)'
-  return 'oklch(0.66 0.22 25)'
+  if (!count) return 'oklch(0.17 0.015 250)'
+  if (count === 1) return 'oklch(0.45 0.11 155 / .6)'
+  if (count === 2) return 'oklch(0.60 0.15 155 / .85)'
+  return 'oklch(0.78 0.16 155)'
 }
 
 export default function AttendanceHeatmap({ data = [], dias = 90 }) {
@@ -55,7 +62,7 @@ export default function AttendanceHeatmap({ data = [], dias = 90 }) {
       <div style={{ display: 'flex', gap: GAP, marginBottom: GAP, paddingLeft: 0 }}>
         {DAYS.map(d => (
           <div key={d} style={{
-            width: CELL, fontSize: 9, color: 'oklch(0.78 0.02 250 / .35)',
+            width: CELL, fontSize: 9, color: 'oklch(0.85 0.01 250 / .6)',
             textAlign: 'center', flexShrink: 0,
           }}>{d[0]}</div>
         ))}
@@ -72,10 +79,14 @@ export default function AttendanceHeatmap({ data = [], dias = 90 }) {
                 style={{
                   width: CELL,
                   height: CELL,
-                  borderRadius: 3,
-                  background: cell ? getColor(cell.count) : 'oklch(0.18 0.01 250)',
+                  borderRadius: 4,
+                  background: cell ? getColor(cell.count) : 'oklch(0.17 0.015 250)',
+                  // Brillo sutil solo en las celdas con más visitas (3+)
+                  // — un toque "premium" sin exagerar, el resto de
+                  // celdas se queda plano.
+                  boxShadow: cell?.count >= 3 ? '0 0 6px oklch(0.78 0.16 155 / .5)' : 'none',
                   opacity: cell === null ? 0 : 1,
-                  transition: 'background 0.2s',
+                  transition: 'background 0.2s, box-shadow 0.2s',
                 }}
               />
             ))}
@@ -85,11 +96,11 @@ export default function AttendanceHeatmap({ data = [], dias = 90 }) {
 
       {/* Leyenda */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, justifyContent: 'flex-end' }}>
-        <span style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)' }}>Menos</span>
+        <span style={{ fontSize: 10, color: 'oklch(0.85 0.01 250 / .6)' }}>Menos</span>
         {[0, 1, 2, 3].map(n => (
-          <div key={n} style={{ width: CELL, height: CELL, borderRadius: 3, background: getColor(n) }} />
+          <div key={n} style={{ width: CELL, height: CELL, borderRadius: 4, background: getColor(n) }} />
         ))}
-        <span style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)' }}>Más</span>
+        <span style={{ fontSize: 10, color: 'oklch(0.85 0.01 250 / .6)' }}>Más</span>
       </div>
     </div>
   )

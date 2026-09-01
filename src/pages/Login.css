@@ -1,0 +1,306 @@
+/* [LOGIN — CONSUMIDOR] Contraste sobre el card de vidrio líquido.
+   Todo scopeado a .login-glass-card — NO se tocan las definiciones
+   globales de .gym-input/.gym-label/.btn-primary (el resto de la app
+   corre esas clases sobre fondos sólidos, donde ya se leen bien). Aquí
+   el fondo del card es translúcido (glass-engine, ver
+   src/glass-engine/), así que texto/bordes/fondos necesitan más
+   cuerpo para no lavarse contra el blur. */
+
+.login-glass-card {
+  --dim: #8a8a92; /* placeholder de .gym-input, ver index.css */
+  /* [RESPONSIVE] Un solo punto de control para el tamaño de texto y
+     del logo del card — los media queries de abajo solo tocan estas
+     2 variables. El JSX multiplica cada fontSize inline por
+     var(--login-font-scale) vía calc(), en vez de tener un valor de
+     px distinto por breakpoint por cada texto. */
+  --login-font-scale: 1;
+  --login-logo-scale: 1;
+  /* Ahora vive DENTRO de .login-flip-front/back (ver Login.jsx) y
+     debe llenar esa cara entera (height:100%, la cara ya tiene su
+     alto fijo por breakpoint) para que .login-card-body pueda
+     centrarse verticalmente adentro — ver .glass-content acá abajo,
+     que hace de puente flex entre esta caja y esa. */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* .glass-content (CORE, glass.css) es el hijo que GlassMaterial arma
+   con el contenido real — no se le puede pisar z-index/position (son
+   parte del contrato del motor), pero SÍ se le puede pedir que actúe
+   como puente flex para centrar .login-card-body dentro de la altura
+   completa de la cara. min-height:0 es necesario para que un hijo
+   flex en columna no se niegue a encogerse por debajo de su alto de
+   contenido (el típico bug de flex/grid ya documentado en este
+   proyecto). */
+.login-glass-card > .glass-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.login-glass-card .gym-label {
+  color: #d0d0d5;
+  font-size: calc(12.075px * var(--login-font-scale)); /* 10.5px base +15% */
+}
+
+.login-glass-card .gym-input {
+  background: rgba(14, 15, 19, 0.55);
+  border-color: #45454c;
+  color: #ffffff;
+  font-size: calc(14.95px * var(--login-font-scale)); /* 13px base +15% — cubre texto tecleado y placeholder */
+}
+
+.login-glass-card .input-error-msg {
+  font-size: calc(11px * var(--login-font-scale));
+}
+
+.login-glass-card .gym-input:focus,
+.login-glass-card .gym-input:focus-visible {
+  background: rgba(14, 15, 19, 0.7);
+  /* !important: la regla base .gym-input de index.css fija color+ancho+
+     estilo con el shorthand `border` (specificity 0,0,1,0, menor que
+     esta regla) pero por alguna razón de cascada seguía ganando el
+     border-color en :focus — !important lo hace explícito, mismo
+     patrón que .gym-input.input-error un poco más abajo. */
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+.login-glass-card .gym-input.input-error {
+  border-color: oklch(0.66 0.22 25) !important;
+  background: rgba(46, 12, 12, 0.4) !important;
+}
+
+.login-glass-card .btn-primary {
+  background: linear-gradient(180deg, oklch(0.68 0.21 25), oklch(0.55 0.19 25));
+  border-color: oklch(0.66 0.22 25);
+  color: #ffffff;
+}
+
+.login-glass-card .btn-primary:hover {
+  background: linear-gradient(180deg, oklch(0.72 0.21 25), oklch(0.58 0.19 25));
+}
+
+/* ── Botones de vidrio: INICIAR SESIÓN / Registrarse / Olvidé mi
+   contraseña — ÚNICAMENTE estos 3 (className="login-glass-btn"),
+   nada más del card. Instancian GlassMaterial (glass-engine/core/
+   glass.js) con su propio canal de refracción SVG "button" (ver
+   glass-engine/core/refraction.js + public/svg/filters.svg) — un
+   canal aparte de "card" para no compartir en vivo el
+   fePointLight/scale de ese filtro con la tarjeta que los contiene.
+
+   ".login-glass-card" antepuesto en el selector únicamente para
+   tener más especificidad que ".glass-root" (glass.css, CORE) y
+   ".login-glass-card .btn-primary" de arriba — así el box-shadow/
+   background de acá gana sin depender del orden de imports entre
+   hojas de estilo. ── */
+
+.login-glass-card .login-glass-btn {
+  --glass-blur: 14px; /* frost */
+  background: transparent;
+  filter: drop-shadow(0px 0px 42px rgba(0, 0, 0, 0.58));
+  box-shadow: inset 0px 30px 12px -21px rgba(255, 255, 255, 0.32);
+}
+
+/* Registrarse / Olvidé mi contraseña no tenían fondo/borde propio
+   (eran texto suelto) — se les da geometría de botón mínima para
+   que el material de vidrio tenga superficie donde pintarse.
+   Conservan su color de texto/ícono actual (azul / gris). */
+.login-glass-card .login-glass-btn:not(.btn-primary) {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 10px;
+}
+
+/* INICIAR SESIÓN — el acento rojo pasa del fondo sólido al borde. */
+.login-glass-card .login-glass-btn.btn-primary {
+  background: transparent;
+  border-color: oklch(0.66 0.22 25);
+  color: #ffffff;
+}
+
+.login-glass-card .login-glass-btn.btn-primary:hover {
+  background: transparent;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE — solo el card y su contenido. El fondo (LoginVidrio,
+   canvas, login.png/sobre_login.png) no tiene nada acá, sigue fijo a
+   100vw/100vh sin importar el breakpoint.
+
+   .login-outer   → motion.div de entrada (width/max-width del card)
+   .login-card-body → wrapper de padding interno (único hijo estático
+                     de .login-glass-card, ver useGlassCard)
+   .login-logo     → contenedor del logo (76px base)
+   .login-bottom-links → fila Registrarse / Olvidé mi contraseña
+   ══════════════════════════════════════════════════════════════════ */
+
+.login-outer {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-outer.login-outer--wide {
+  max-width: 480px; /* vista "registrar", igual que antes */
+}
+
+.login-card-body {
+  padding: clamp(24px, 5vw, 48px) clamp(20px, 5vw, 40px) clamp(20px, 4vw, 40px);
+}
+
+.login-logo {
+  width: calc(76px * var(--login-logo-scale));
+  height: calc(76px * var(--login-logo-scale));
+}
+
+.login-bottom-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+/* ── Flip 3D de TODA la card (logo+título+form+pie) — click, no
+   :hover — ver Login.jsx (LogoTitulo/PieSesion se repiten en cada
+   cara). Contenedor de altura fija generosa (acomoda "Crear Cuenta",
+   la cara más alta de las 3) con las 2 caras position:absolute +
+   centradas verticalmente — así "Iniciar Sesión" (más corto) no se ve
+   pegado arriba dentro de un hueco vacío, y ninguna cara necesita
+   medirse en JS. Si en algún breakpoint se ve demasiado aire vacío en
+   la cara corta, ese es el momento de pasar a ResizeObserver — no
+   antes.
+   height (no min-height): las 2 caras son position:absolute con
+   height:100% — un padre con min-height pero height:auto NO cuenta
+   como "definite height" para que un hijo absoluto resuelva ese
+   100% (bug real encontrado probando: .login-flip-inner colapsaba a
+   ~0px de alto y el contenido quedaba superpuesto). height fijo sí es
+   una referencia definida.
+   Valor medido en vivo con el contenido real (logo+título+form+pie),
+   no a ojo — ver los 3 breakpoints más abajo para tablet/mobile. ── */
+.login-flip-container {
+  perspective: 1500px;
+  position: relative;
+  width: 100%;
+  height: 610px;
+}
+
+.login-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 700ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.login-flip-front,
+.login-flip-back {
+  /* Wrappers puramente estructurales/posicionales — el vidrio real
+     (border, box-shadow, blur, tilt) vive DENTRO, en el
+     .login-glass-card que cada uno contiene (ver Login.jsx), así que
+     al girar .login-flip-inner el vidrio completo gira junto con la
+     cara, no un marco fijo con contenido girando adentro. El
+     centrado vertical del contenido ya lo resuelve la cadena
+     .login-glass-card > .glass-content de arriba — acá no hace falta
+     flex ni justify-content. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: transparent;
+  /* backface-visibility:hidden solo oculta la cara inactiva VISUALMENTE
+     — no le quita hit-testing. Sin esto, la cara oculta (apilada en el
+     mismo espacio dentro del contexto preserve-3d) sigue recibiendo
+     clicks, bloqueando los del formulario visible. Cada cara solo es
+     clickeable cuando es la activa (reglas de abajo). */
+  pointer-events: none;
+}
+
+.login-flip-inner:not(.is-flipped) .login-flip-front {
+  pointer-events: auto;
+}
+
+.login-flip-inner.is-flipped .login-flip-back {
+  pointer-events: auto;
+}
+
+.login-flip-back {
+  transform: rotateY(180deg);
+}
+
+/* ── Tablet: 600px – 1023px ── */
+@media (max-width: 1023px) and (min-width: 600px) {
+  .login-flip-container {
+    height: 575px;
+  }
+}
+
+/* ── Mobile: < 600px ── */
+@media (max-width: 599px) {
+  /* La cara más alta acá es "Crear Cuenta": .login-glass-card
+     .login-grid-2 colapsa a 1 columna en este breakpoint (ver bloque
+     más abajo), así que carnet/celular/contraseña/confirmar van cada
+     uno en su propia fila. Valor medido en vivo, no a ojo. */
+  .login-flip-container {
+    height: 680px;
+  }
+}
+
+/* ── Tablet: 600px – 1023px ── */
+@media (max-width: 1023px) and (min-width: 600px) {
+  .login-outer,
+  .login-outer.login-outer--wide {
+    width: 85vw;
+    max-width: 420px;
+  }
+
+  .login-card-body {
+    /* Mismos clamp() del desktop, acotados un 15%. */
+    padding: clamp(20.4px, 4.25vw, 40.8px) clamp(17px, 4.25vw, 34px) clamp(17px, 3.4vw, 34px);
+  }
+
+  .login-glass-card {
+    --login-font-scale: 0.9; /* -10% */
+    --login-logo-scale: 0.85; /* -15% */
+  }
+}
+
+/* ── Mobile: < 600px ── */
+@media (max-width: 599px) {
+  .login-outer,
+  .login-outer.login-outer--wide {
+    width: 92vw;
+    max-width: 100%;
+  }
+
+  .login-card-body {
+    padding: 24px 20px;
+  }
+
+  .login-glass-card {
+    --login-font-scale: 0.82; /* -18% */
+    --login-logo-scale: 0.75; /* -25% */
+  }
+
+  .login-bottom-links {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* .login-grid-2 (index.css) ya apila a max-width:520px — acá se
+     extiende ese umbral a 599px para que coincida con el breakpoint
+     mobile del login, sin tocar la regla global (selector más
+     específico gana). */
+  .login-glass-card .login-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

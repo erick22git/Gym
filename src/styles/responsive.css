@@ -1,0 +1,82 @@
+/* ══════════════════════════════════════════════════════════════════════
+   BREAKPOINTS OFICIALES DEL PROYECTO — usar SIEMPRE estos 2, en toda
+   página nueva o refactor. No inventar otro valor por página (ya pasó
+   una vez: .login-grid-2 usaba 520px antes de que Login.css migrara a
+   estos oficiales; index.css todavía arrastra restos sueltos en 768px/
+   480px/380px de una época anterior — no copiar esos, van desapareciendo
+   página por página a medida que se migran en fases siguientes).
+
+     Desktop : ≥ 1024px  — base del proyecto, NO necesita media query
+               (es el estilo por defecto, sin envolver en @media)
+     Tablet  : @media (max-width: 1023px) and (min-width: 600px)
+     Mobile  : @media (max-width: 599px)
+
+   El proyecto no tiene el plugin postcss-custom-media instalado, así
+   que no se usa @custom-media — se copian los 2 media queries de arriba
+   tal cual, literal, en cada archivo que los necesite.
+
+   Este archivo centraliza las reglas responsive del LAYOUT PRINCIPAL
+   (app-layout / topnav). Las páginas individuales (Dashboard, Clientes,
+   etc.) sumarán sus propias reglas en fases siguientes, siempre con
+   estos mismos 2 breakpoints — en su propio archivo si es grande, o
+   junto a la sección correspondiente de index.css si es chico.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Layout principal: padding del contenedor raíz ──
+   Desktop: 14px (sin cambios, ver .app-layout en index.css)
+   Tablet: -15% ≈ 12px · Mobile: fijo compacto 16px
+   La fila del titlebar (grid-template-rows) también se ajusta acá:
+   78px en desktop (ver index.css) es lo que necesita el glass-menu
+   con ícono+2 líneas de texto (--menu-height:72px) — en tablet baja
+   con el propio --menu-height (ver bloque de TopNav debajo) y en
+   mobile vuelve a ser angosta porque ahí el menú es la hamburguesa
+   (34px), no el glass-menu. */
+@media (max-width: 1023px) and (min-width: 600px) {
+  .app-layout { padding: 12px; gap: 12px; grid-template-rows: 66px 1fr; }
+  .main-layout { gap: 12px; }
+}
+
+@media (max-width: 599px) {
+  .app-layout { padding: 16px; gap: 10px; grid-template-rows: 48px 1fr; }
+  .main-layout { gap: 10px; }
+}
+
+/* ── TopNav / Glass Menu (ver TopNav.jsx + src/glass-engine/menu.css) ──
+   Tablet: vidrio compactado (--menu-* más chicos, ícono/texto un
+   escalón más chicos que desktop, proporcional — nunca tan chico
+   que rompa la regla de letra grande y sólida), mismo scroll
+   horizontal.
+   Mobile: el menú de vidrio se reemplaza por botón hamburguesa +
+   drawer lateral sólido (sin vidrio, ver .topnav-hamburger/.drawer-*
+   en index.css y el componente NavDrawer dentro de TopNav.jsx). */
+@media (max-width: 1023px) and (min-width: 600px) {
+  :root {
+    /* 62px (antes 48px) — mismo motivo que --menu-height desktop:
+       "Control de Acceso" en 2 líneas necesita más alto. */
+    --menu-height: 62px;
+    --menu-padding: 4px;
+    --menu-item-width: 50px;
+    --menu-gap: 2px;
+  }
+  .menu-item { padding: 0 11px; }
+  .menu-item .icon svg { width: 15px; height: 15px; }
+  .menu-item span:last-child { font-size: 11px; }
+}
+
+@media (max-width: 599px) {
+  .topnav { display: none; }
+  /* margin-right:auto reemplaza al flex:1 de .topnav (oculto) — sin
+     esto, el resto de .titlebar (campana/avatar/controles de ventana)
+     pierde su único elemento flex:1 y colapsa hacia la izquierda en
+     vez de quedarse fija a la derecha. */
+  .topnav-hamburger { display: flex; margin-right: auto; }
+}
+
+/* ── Tarjeta de usuario (ver TitleBar.jsx) ──
+   Tablet/desktop: sin cambios, texto completo.
+   Mobile: solo el avatar, sin nombre/rol — el dropdown al tocar
+   sigue siendo el mismo (ver .titlebar-user-btn/.titlebar-user-text). */
+@media (max-width: 599px) {
+  .titlebar-user-text { display: none; }
+  .titlebar-user-btn { padding: 3px; gap: 0; }
+}

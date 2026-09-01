@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { BarChart2, Users, DollarSign, TrendingUp, RefreshCw, Calendar, Award, Wallet, CreditCard, ShoppingCart } from 'lucide-react'
+import '../Clients.css'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -50,26 +51,38 @@ function KPICard({ label, value, desc, color, Icon }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       style={{
-        background: `${color}0c`, border: `1px solid ${color}30`,
+        position: 'relative', overflow: 'hidden',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
         borderRadius: 12, padding: '16px 18px',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 12,
+        background: `radial-gradient(circle at top left, ${color}22 0%, transparent 70%)`,
+        pointerEvents: 'none',
+      }} />
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Icon size={14} color={color} />
-        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.14em', color, textTransform: 'uppercase' }}>{label}</span>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.14em', color, textTransform: 'uppercase', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{label}</span>
       </div>
-      <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--display)', color, lineHeight: 1, marginBottom: 4 }}>
+      <div style={{ position: 'relative', fontSize: 28, fontWeight: 800, fontFamily: 'var(--display)', color: 'oklch(0.97 0.01 250)', lineHeight: 1, marginBottom: 4, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
         {value}
       </div>
-      {desc && <div style={{ fontSize: 11, color: 'var(--dim)' }}>{desc}</div>}
+      {desc && <div style={{ position: 'relative', fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{desc}</div>}
     </motion.div>
   )
 }
 
 function ChartCard({ title, children, height = 260 }) {
   return (
-    <div className="gym-card" style={{ padding: '18px 20px' }}>
-      <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 16 }}>
+    <div style={{
+      background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+      border: '1px solid transparent', borderRadius: 12, padding: '18px 20px',
+      boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+    }}>
+      <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'oklch(0.88 0.01 250 / .85)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 16, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
         {title}
       </h3>
       <div style={{ height }}>{children}</div>
@@ -284,8 +297,12 @@ function TabClientes() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {cumpleanos.length > 0 && (
-            <div className="gym-card" style={{ padding: '16px 18px', flex: 1 }}>
-              <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+            <div style={{
+              background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+              border: '1px solid transparent', borderRadius: 12, padding: '16px 18px', flex: 1,
+              boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+            }}>
+              <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'oklch(0.88 0.01 250 / .85)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                 Cumpleaños próximos (15 días)
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -293,8 +310,8 @@ function TabClientes() {
                   <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
                     <span style={{ fontSize: 16 }}>🎂</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{c.nombre} {c.apellido}</div>
-                      <div style={{ fontSize: 11, color: 'var(--dim)' }}>{new Date(c.fecha_nacimiento).toLocaleDateString('es-BO', { day: 'numeric', month: 'long' })} · {c.edad} años</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{c.nombre} {c.apellido}</div>
+                      <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{new Date(c.fecha_nacimiento).toLocaleDateString('es-BO', { day: 'numeric', month: 'long' })} · {c.edad} años</div>
                     </div>
                   </div>
                 ))}
@@ -305,19 +322,23 @@ function TabClientes() {
       </div>
 
       {inactivos.length > 0 && (
-        <div className="gym-card" style={{ padding: '16px 18px' }}>
-          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+        <div style={{
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 12, padding: '16px 18px',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        }}>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'oklch(0.88 0.01 250 / .85)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Clientes en riesgo de baja (membresía activa, sin venir +14 días)
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {inactivos.slice(0, 8).map(c => (
               <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 9, background: 'oklch(0.66 0.22 25 / .12)', border: '1px solid oklch(0.66 0.22 25 / .25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'oklch(0.75 0.18 25)', flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: 'oklch(0.66 0.22 25 / .12)', border: '1px solid oklch(0.66 0.22 25 / .25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'oklch(0.75 0.18 25)', flexShrink: 0, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                   {c.dias_inactivo}d
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{c.nombre} {c.apellido}</div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)' }}>{c.plan_nombre || 'Sin plan'} · {c.telefono || 'Sin teléfono'}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{c.nombre} {c.apellido}</div>
+                  <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{c.plan_nombre || 'Sin plan'} · {c.telefono || 'Sin teléfono'}</div>
                 </div>
               </div>
             ))}
@@ -373,25 +394,30 @@ function TabAsistencia() {
       </ChartCard>
 
       {recientes.length > 0 && (
-        <div className="gym-card" style={{ padding: '16px 18px' }}>
-          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+        <div style={{
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 12, padding: '16px 18px',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        }}>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'oklch(0.88 0.01 250 / .85)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Asistencias recientes — hoy
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {recientes.map((a, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: '1px solid var(--line)' }}>
-                <span style={{ fontSize: 11, color: 'var(--dim)', minWidth: 50 }}>
+                <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', minWidth: 50, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                   {new Date(a.fecha_hora || a.created_at).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{a.nombre} {a.apellido}</span>
-                  <span style={{ fontSize: 11, color: 'var(--dim)', marginLeft: 8 }}>{a.plan_nombre || ''}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{a.nombre} {a.apellido}</span>
+                  <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', marginLeft: 8, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{a.plan_nombre || ''}</span>
                 </div>
                 <span style={{
                   fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 8,
                   background: a.mem_estado === 'activa' ? 'oklch(0.78 0.16 155 / .15)' : 'oklch(0.66 0.22 25 / .15)',
                   color: a.mem_estado === 'activa' ? 'oklch(0.78 0.16 155)' : 'oklch(0.75 0.18 25)',
                   border: `1px solid ${a.mem_estado === 'activa' ? 'oklch(0.78 0.16 155 / .3)' : 'oklch(0.66 0.22 25 / .3)'}`,
+                  textShadow: '0 1px 2px rgba(0,0,0,0.6)',
                 }}>
                   {a.mem_estado === 'activa' ? 'ACTIVA' : 'VENCIDA'}
                 </span>
@@ -478,11 +504,15 @@ function TabCaja() {
       )}
 
       {/* Nota: historial detallado está en Ventas */}
-      <div className="gym-card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}>
         <Wallet size={16} color="oklch(0.74 0.13 250)" style={{ flexShrink: 0 }} />
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 3 }}>Historial detallado de turnos</div>
-          <div style={{ fontSize: 11, color: 'var(--dim)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', marginBottom: 3, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Historial detallado de turnos</div>
+          <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             El historial completo de sesiones de caja — con arqueo, conciliación electrónica, ventas y notas — está en <strong style={{ color: 'oklch(0.74 0.13 250)' }}>Ventas → pestaña "Historial de Caja"</strong>.
           </div>
         </div>
@@ -547,13 +577,20 @@ function TabIngresos() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Filtro de período */}
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{
+        display: 'flex', gap: 4, width: 'fit-content',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#top-clientes-glass)', WebkitBackdropFilter: 'url(#top-clientes-glass)',
+        border: '1px solid transparent', borderRadius: 10, padding: 4,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}>
         {[['dia', 'Hoy'], ['semana', 'Esta semana'], ['mes', 'Este mes'], ['anio', 'Este año']].map(([id, lbl]) => (
           <button key={id} onClick={() => setPeriodo(id)} style={{
-            padding: '5px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: periodo === id ? 700 : 400,
-            background: periodo === id ? 'oklch(0.66 0.22 25 / .18)' : 'oklch(1 0 0 / .04)',
-            border: `1px solid ${periodo === id ? 'oklch(0.66 0.22 25 / .4)' : 'var(--line)'}`,
-            color: periodo === id ? 'oklch(0.85 0.12 25)' : 'var(--dim)',
+            padding: '5px 14px', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: periodo === id ? 700 : 400,
+            background: periodo === id ? 'oklch(1 0 0 / .1)' : 'transparent',
+            border: periodo === id ? '1px solid oklch(1 0 0 / .22)' : '1px solid transparent',
+            color: periodo === id ? 'oklch(0.97 0.01 250)' : 'var(--dim)',
+            textShadow: periodo === id ? '0 1px 2px oklch(0 0 0 / .6)' : 'none',
+            transition: 'all .2s',
           }}>{lbl}</button>
         ))}
       </div>
@@ -569,8 +606,12 @@ function TabIngresos() {
       {/* Gráficas */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
         {/* Ingresos por día */}
-        <div className="gym-card" style={{ padding: '18px 20px' }}>
-          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 16 }}>
+        <div style={{
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 12, padding: '18px 20px',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        }}>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'oklch(0.88 0.01 250 / .85)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 16, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Ingresos últimos 20 días
           </h3>
           <ResponsiveContainer width="100%" height={160}>
@@ -585,12 +626,16 @@ function TabIngresos() {
         </div>
 
         {/* Desglose por método */}
-        <div className="gym-card" style={{ padding: '18px 20px' }}>
-          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 16 }}>
+        <div style={{
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 12, padding: '18px 20px',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        }}>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'oklch(0.88 0.01 250 / .85)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 16, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Por método de pago
           </h3>
           {metodoData.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 30, color: 'var(--dim)', fontSize: 12 }}>Sin datos</div>
+            <div style={{ textAlign: 'center', padding: 30, color: 'oklch(0.88 0.01 250 / .85)', fontSize: 12 }}>Sin datos</div>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={110}>
@@ -605,10 +650,10 @@ function TabIngresos() {
               </ResponsiveContainer>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
                 {metodoData.map((m, i) => (
-                  <div key={m.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
+                  <div key={m.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{ width: 8, height: 8, borderRadius: 2, background: Object.values(COLORS)[i % Object.values(COLORS).length] }} />
-                      <span style={{ color: 'var(--muted)' }}>{m.name}</span>
+                      <span style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>{m.name}</span>
                     </div>
                     <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{fmtMoney(m.value)}</span>
                   </div>
@@ -620,40 +665,44 @@ function TabIngresos() {
       </div>
 
       {/* Tabla de pagos */}
-      <div className="gym-card" style={{ overflow: 'hidden' }}>
+      <div style={{
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 12, overflow: 'hidden',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)' }}>
-          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
+          <h3 style={{ fontFamily: 'var(--display)', fontSize: 12, fontWeight: 700, color: 'oklch(0.88 0.01 250 / .85)', letterSpacing: '.1em', textTransform: 'uppercase', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Detalle de pagos — {pagosFiltrados.length} registros
           </h3>
         </div>
         {pagosFiltrados.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'var(--dim)' }}>Sin pagos en el período seleccionado</div>
+          <div style={{ textAlign: 'center', padding: 40, color: 'oklch(0.88 0.01 250 / .85)' }}>Sin pagos en el período seleccionado</div>
         ) : (
           <div style={{ overflowX: 'auto', maxHeight: 380, overflowY: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ position: 'sticky', top: 0, background: 'oklch(0.13 0.01 250)' }}>
+              <thead style={{ position: 'sticky', top: 0, background: 'oklch(0.11 0.02 250 / .92)', backdropFilter: 'blur(10px)' }}>
                 <tr style={{ borderBottom: '1px solid var(--line)' }}>
                   {['Fecha', 'Cliente', 'Concepto', 'Método', 'Monto'].map(h => (
-                    <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {pagosFiltrados.map((p, i) => (
                   <tr key={p.id || i} style={{ borderBottom: '1px solid oklch(1 0 0 / .04)' }}>
-                    <td style={{ padding: '9px 14px', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '9px 14px', fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>
                       {new Date(p.fecha).toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: '2-digit' })}
                     </td>
-                    <td style={{ padding: '9px 14px', fontSize: 12, color: 'var(--ink)' }}>{p.nombre} {p.apellido}</td>
-                    <td style={{ padding: '9px 14px', fontSize: 12, color: 'var(--muted)' }}>{p.concepto || 'Membresía'}</td>
+                    <td style={{ padding: '9px 14px', fontSize: 12, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{p.nombre} {p.apellido}</td>
+                    <td style={{ padding: '9px 14px', fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{p.concepto || 'Membresía'}</td>
                     <td style={{ padding: '9px 14px' }}>
                       <span style={{
                         fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 5,
                         background: 'oklch(0.74 0.13 250 / .12)', color: 'oklch(0.74 0.13 250)',
-                        border: '1px solid oklch(0.74 0.13 250 / .25)',
+                        border: '1px solid oklch(0.74 0.13 250 / .25)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
                       }}>{p.metodo || 'efectivo'}</span>
                     </td>
-                    <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: COLORS.green }}>{fmtMoney(p.monto)}</td>
+                    <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: COLORS.green, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{fmtMoney(p.monto)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -671,25 +720,32 @@ export default function Reportes() {
   const [tab, setTab] = useState('general')
 
   return (
-    <div style={{ padding: '0 2px' }}>
+    <div className="clientes-page" style={{ padding: '0 2px' }}>
       <div style={{ marginBottom: 24 }}>
         <h1 className="titulo-metalico" style={{ marginBottom: 6 }}>REPORTES</h1>
         <p style={{ fontSize: 13, color: 'var(--dim)' }}>Análisis y métricas del gimnasio</p>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'oklch(1 0 0 / .03)', border: '1px solid var(--line)', borderRadius: 10, padding: 4 }}>
+      <div style={{
+        display: 'flex', gap: 4, marginBottom: 20,
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#top-clientes-glass)', WebkitBackdropFilter: 'url(#top-clientes-glass)',
+        border: '1px solid transparent', borderRadius: 10, padding: 4,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}>
         {TABS.map(t => {
           const Icon = t.icon
+          const active = tab === t.id
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               style={{
                 flex: 1, padding: '8px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                background: tab === t.id ? 'oklch(0.66 0.22 25 / .18)' : 'transparent',
-                border: tab === t.id ? '1px solid oklch(0.66 0.22 25 / .4)' : '1px solid transparent',
-                color: tab === t.id ? 'oklch(0.85 0.12 25)' : 'var(--dim)',
+                background: active ? 'oklch(1 0 0 / .1)' : 'transparent',
+                border: active ? '1px solid oklch(1 0 0 / .22)' : '1px solid transparent',
+                color: active ? 'oklch(0.97 0.01 250)' : 'var(--dim)',
+                textShadow: active ? '0 1px 2px oklch(0 0 0 / .6)' : 'none',
                 cursor: 'pointer', transition: 'all .2s',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}

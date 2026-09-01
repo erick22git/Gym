@@ -79,7 +79,7 @@ function TabEmpresa() {
         </div>
         <div>
           <label className="gym-label">Nombre Comercial</label>
-          <input className="gym-input" value={form.nombre_comercial} onChange={f('nombre_comercial')} placeholder="Ej: Urban Fitness Club" />
+          <input className="gym-input" value={form.nombre_comercial} onChange={f('nombre_comercial')} placeholder="Ej: Gimnasio" />
         </div>
         <div>
           <label className="gym-label">Teléfono</label>
@@ -215,7 +215,7 @@ function TabCredenciales() {
                       const res = await window.api.facturacion.emitirFactura({
                         cliente_tipo_doc: 'CI', cliente_documento: '7234891',
                         cliente_nombre: 'Juan Carlos Mamani', cliente_correo: '',
-                        concepto: 'Membresía Premium Urban Fitness Club', cantidad: 1,
+                        concepto: 'Membresía Premium Gimnasio', cantidad: 1,
                         precio_unitario: 250, descuento: 0, monto_total: 250,
                         metodo_pago: 'efectivo', enviar_correo: false,
                       })
@@ -395,7 +395,7 @@ function TabCertificado() {
 
 // ── Tab: Correo Electrónico ─────────────────────────────────────────────────
 function TabCorreo() {
-  const [form, setForm] = useState({ smtp_host: '', smtp_port: 587, smtp_user: '', smtp_pass_encriptado: '', use_ssl: false, remitente: '', asunto_plantilla: 'Factura Electrónica - Urban Fitness Club', cuerpo_plantilla: 'Estimado/a {nombre},\n\nAdjunto encontrará su factura electrónica N° {numero_factura} por el monto de Bs. {monto}.\n\nGracias por su preferencia.\n\nUrban Fitness Club' })
+  const [form, setForm] = useState({ smtp_host: '', smtp_port: 587, smtp_user: '', smtp_pass_encriptado: '', use_ssl: false, remitente: '', asunto_plantilla: 'Factura Electrónica - Gimnasio', cuerpo_plantilla: 'Estimado/a {nombre},\n\nAdjunto encontrará su factura electrónica N° {numero_factura} por el monto de Bs. {monto}.\n\nGracias por su preferencia.\n\nGimnasio' })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [enviandoPrueba, setEnviandoPrueba] = useState(false)
@@ -454,7 +454,7 @@ function TabCorreo() {
         </div>
         <div>
           <label className="gym-label">Correo Remitente</label>
-          <input className="gym-input" value={form.remitente} onChange={f('remitente')} placeholder="Urban Fitness Club <gym@gmail.com>" />
+          <input className="gym-input" value={form.remitente} onChange={f('remitente')} placeholder="Gimnasio <gym@gmail.com>" />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 22 }}>
           <input type="checkbox" id="ssl" checked={form.use_ssl} onChange={f('use_ssl')} style={{ width: 16, height: 16, accentColor: 'oklch(0.66 0.22 25)' }} />

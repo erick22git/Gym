@@ -1,0 +1,63 @@
+/* ============================================================
+   GLASS ENGINE — variables portadas desde
+   D:\Saas\glassefecto\GlassEngine\css\variables.css
+   Ver GLASS_ENGINE_PORTABILIDAD.md en el proyecto de origen.
+
+   Los 6 tokens marcados CORE son el "look" del vidrio compartido
+   en TODA la app (tarjeta de login hoy, menú/sidebar en fases
+   futuras) — no se tocan sin una razón de diseño documentada.
+
+   El resto son tokens de soporte que glass.css / physics.js /
+   card.js (también CORE, sin modificar) leen por nombre y que
+   este proyecto no tenía definidos todavía. Se copian con los
+   mismos valores calibrados del proyecto de origen.
+   ============================================================ */
+
+:root {
+
+  /* ---- 6 tokens CORE — no modificar sin razón documentada ---- */
+  --glass-tint: rgba(10, 12, 15, 0.12);
+  --glass-tint-hover: rgba(10, 12, 15, 0.16);
+  --glass-brightness: .94;
+  --glass-saturate: 130%;
+  --glass-blur: 10px;
+  --glass-radius: 999px;
+
+  /* ---- soporte — leídas por glass.css ---- */
+  --white: 255,255,255;
+  --black: 0,0,0;
+  --shadow: 12,16,26;
+  --shadow-small: 0 4px 14px rgba(var(--shadow), .15);
+  --shadow-medium: 0 12px 32px rgba(var(--shadow), .24);
+  --shadow-inner: inset 0 1px 0 rgba(255,255,255,.14);
+  --shadow-inner-dark: inset 0 -2px 5px rgba(0,0,0,.18);
+  --transition-fast: .15s;
+  --z-glass: 5;
+  --z-content: 20;
+
+  /* ---- soporte — leídas por physics.js (fallback si faltan) ---- */
+  --spring-stiffness: .16;
+  --spring-damping: .78;
+  --spring-mass: 1;
+  --spring-precision: .001;
+
+  /* ---- soporte — leídas por card.js (tilt/parallax) ----
+     Mismo valor "que no se mueva tanto" del proyecto de origen:
+     3.5deg de tilt total, parallax de contenido apagado. */
+  --rotation-strength: 3.5deg;
+  --parallax-strength: 0;
+
+  /* ---- CONSUMIDOR — proporciones del menú (TopNav), no del motor.
+     Ajustadas al tamaño real del titlebar de esta app, no copiadas
+     del demo. Valores de tablet en src/styles/responsive.css.
+     --menu-height subido de 58→72px: "Control de Acceso" pasó a 2
+     líneas (ver item.menuLabel en TopNav.jsx) — el ítem necesita
+     espacio para ícono + 2 líneas de texto + el zoom de hover/activo
+     (scale 1.15) sin recortar, ver .app-layout (index.css) para la
+     fila del titlebar, que crece en la misma proporción. */
+  --menu-height: 72px;
+  --menu-padding: 5px;
+  --menu-item-width: 60px;
+  --menu-gap: 4px;
+
+}

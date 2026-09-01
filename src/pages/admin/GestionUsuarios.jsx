@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../../context/AuthContext'
 import { auditoriaService, ACCIONES } from '../../services/auditoriaService'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
+import '../Clients.css'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,13 +70,15 @@ function TabButton({ active, onClick, icon: Icon, children }) {
   return (
     <button
       onClick={onClick}
+      className="clientes-action-icon"
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '10px 20px',
-        background: active ? 'oklch(0.66 0.22 25 / .15)' : 'transparent',
-        border: 'none',
-        borderBottom: active ? '2px solid oklch(0.70 0.18 25)' : '2px solid transparent',
-        color: active ? 'oklch(0.70 0.18 25)' : 'oklch(0.78 0.02 250 / .55)',
+        background: active ? 'oklch(1 0 0 / .1)' : 'transparent',
+        border: active ? '1px solid oklch(1 0 0 / .22)' : '1px solid transparent',
+        borderRadius: 999,
+        color: active ? 'oklch(0.97 0.01 250)' : 'var(--dim)',
+        textShadow: active ? '0 1px 2px oklch(0 0 0 / .6)' : 'none',
         cursor: 'pointer',
         fontSize: 13,
         fontWeight: active ? 700 : 400,
@@ -108,6 +111,7 @@ function Badge({ children, color = 'muted' }) {
       border: `1px solid ${c.border}`,
       color: c.text,
       textTransform: 'uppercase',
+      textShadow: '0 1px 2px rgba(0,0,0,0.6)',
     }}>
       {children}
     </span>
@@ -161,8 +165,14 @@ function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'oklch(0 0 0 / .7)', backdropFilter: 'blur(4px)' }}>
       <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }}
-        style={{ width: '100%', maxWidth: 480, background: 'oklch(0.14 0.01 250 / .97)', backdropFilter: 'blur(32px)', border: '1px solid oklch(1 0 0 / .1)', borderRadius: 16, padding: '28px 28px 24px', boxShadow: '0 24px 60px oklch(0 0 0 / .5)', margin: 16, maxHeight: '90vh', overflowY: 'auto' }}>
-        <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: 'oklch(0.98 0.01 250)' }}>
+        style={{
+          width: '100%', maxWidth: 480,
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 16, padding: '28px 28px 24px',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+          margin: 16, maxHeight: '90vh', overflowY: 'auto',
+        }}>
+        <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 700, color: 'oklch(0.98 0.01 250)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
           {esEdicion ? 'Editar Usuario' : 'Nuevo Usuario'}
         </h3>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -175,26 +185,31 @@ function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
                 type="button"
                 onClick={seleccionarFoto}
                 disabled={cambiandoImg}
+                className="clientes-glass-btn"
+                title="Cambiar foto"
                 style={{
                   position: 'absolute', bottom: -4, right: -4,
                   width: 22, height: 22, borderRadius: '50%',
-                  background: 'oklch(0.66 0.22 25)', border: '2px solid oklch(0.14 0.01 250)',
+                  border: '1px solid oklch(0.66 0.22 25 / .5)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', padding: 0,
                 }}
               >
-                <Camera size={11} color="white" />
+                <div className="clientes-glass-bg" style={{ borderRadius: '50%' }} />
+                <span className="clientes-glass-content">
+                  <Camera size={11} color="oklch(0.75 0.20 25)" />
+                </span>
               </button>
             </div>
             <div>
-              <div style={{ fontSize: 13, color: 'oklch(0.78 0.02 250 / .8)', fontWeight: 500 }}>
+              <div style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', fontWeight: 500, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                 {form.nombre_completo || 'Nuevo usuario'}
               </div>
-              <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .4)', marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
                 Haz clic en la foto para cambiarla
               </div>
               {form.foto && (
-                <button type="button" onClick={() => set('foto', null)} style={{ fontSize: 11, color: 'oklch(0.65 0.22 25)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2 }}>
+                <button type="button" onClick={() => set('foto', null)} className="clientes-action-icon" style={{ fontSize: 11, color: 'oklch(0.65 0.22 25)', padding: 0, marginTop: 2, justifyContent: 'flex-start' }}>
                   Quitar foto
                 </button>
               )}
@@ -209,7 +224,7 @@ function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
             <div>
               <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Rol *</label>
               {esAdmin ? (
-                <div className="gym-input" style={{ width: '100%', color: 'oklch(0.78 0.02 250 / .5)', cursor: 'not-allowed' }}>
+                <div className="gym-input" style={{ width: '100%', color: 'var(--dim)', cursor: 'not-allowed' }}>
                   Administrador <span style={{ fontSize: 10 }}>(fijo)</span>
                 </div>
               ) : (
@@ -256,9 +271,13 @@ function ModalUsuario({ usuario, roles, onGuardar, onCerrar }) {
             </label>
           )}
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <button type="button" className="btn-secondary" onClick={onCerrar} style={{ flex: 1 }}>Cancelar</button>
-            <button type="submit" className="btn-primary" style={{ flex: 2, fontSize: 13 }}>
-              {esEdicion ? 'Guardar cambios' : 'Crear usuario'}
+            <button type="button" className="clientes-glass-btn btn-secondary" onClick={onCerrar} style={{ flex: 1 }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content">Cancelar</span>
+            </button>
+            <button type="submit" className="clientes-glass-btn btn-primary" style={{ flex: 2, fontSize: 13 }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content">{esEdicion ? 'Guardar cambios' : 'Crear usuario'}</span>
             </button>
           </div>
         </form>
@@ -339,54 +358,69 @@ function TabUsuarios({ roles }) {
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.78 0.02 250 / .35)', pointerEvents: 'none' }} />
-          <input className="gym-input" placeholder="Buscar usuario..." value={busqueda} onChange={e => setBusqueda(e.target.value)} style={{ paddingLeft: 34, width: '100%' }} />
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.88 0.01 250 / .85)', pointerEvents: 'none' }} />
+          <input
+            className="gym-input"
+            placeholder="Buscar usuario..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            style={{
+              paddingLeft: 34, width: '100%',
+              background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)', color: 'oklch(0.97 0.01 250)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+            }}
+          />
         </div>
         <select className="gym-select" value={filtroRol} onChange={e => setFiltroRol(e.target.value)} style={{ minWidth: 140 }}>
           <option value="">Todos los roles</option>
           {roles.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
         </select>
-        <button className="btn-primary btn-sm" onClick={() => setModal({ usuario: null })} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Plus size={14} /> Nuevo Usuario
+        <button className="clientes-glass-btn btn-primary btn-sm" onClick={() => setModal({ usuario: null })} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Plus size={14} /> Nuevo Usuario</span>
         </button>
       </div>
 
       {/* Tabla */}
-      <div style={{ overflowX: 'auto' }}>
+      <div style={{
+        overflowX: 'auto',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent', borderRadius: 14,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}>
         <table className="gym-table" style={{ width: '100%' }}>
           <thead>
             <tr>
-              <th>Usuario</th>
-              <th>Nombre</th>
-              <th>Rol</th>
-              <th>Último Login</th>
-              <th>Estado</th>
-              <th style={{ textAlign: 'right' }}>Acciones</th>
+              <th style={{ color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Usuario</th>
+              <th style={{ color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Nombre</th>
+              <th style={{ color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Rol</th>
+              <th style={{ color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Último Login</th>
+              <th style={{ color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Estado</th>
+              <th style={{ textAlign: 'right', color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {filtrados.map(u => (
               <tr key={u.id}>
-                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'oklch(0.78 0.02 250 / .7)' }}>@{u.username}</td>
-                <td style={{ fontWeight: 500 }}>
+                <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>@{u.username}</td>
+                <td style={{ fontWeight: 500, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <UserAvatar foto={u.foto} nombre={u.nombre_completo} size={30} />
                     {u.nombre_completo}
                   </div>
                 </td>
                 <td><Badge color={u.rol_nombre === 'Administrador' ? 'red' : u.rol_nombre === 'Empleado' ? 'blue' : 'muted'}>{u.rol_nombre}</Badge></td>
-                <td style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .55)' }}>{u.ultimo_login ? new Date(u.ultimo_login).toLocaleString('es-BO') : '—'}</td>
+                <td style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{u.ultimo_login ? new Date(u.ultimo_login).toLocaleString('es-BO') : '—'}</td>
                 <td><Badge color={u.activo ? 'green' : 'red'}>{u.activo ? 'Activo' : 'Inactivo'}</Badge></td>
                 <td>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
-                    <button className="btn-ghost btn-sm" onClick={() => setModal({ usuario: u })} title="Editar" style={{ padding: '4px 8px' }}>
+                    <button className="clientes-action-icon" onClick={() => setModal({ usuario: u })} title="Editar">
                       <Edit2 size={13} />
                     </button>
-                    <button className="btn-ghost btn-sm" onClick={() => toggleActivo(u)} title={u.activo ? 'Desactivar' : 'Activar'} style={{ padding: '4px 8px' }}>
+                    <button className="clientes-action-icon" onClick={() => toggleActivo(u)} title={u.activo ? 'Desactivar' : 'Activar'}>
                       {u.activo ? <ToggleRight size={13} color="oklch(0.78 0.16 155)" /> : <ToggleLeft size={13} />}
                     </button>
                     {u.username !== 'admin' && u.id !== usuarioActual?.id && (
-                      <button className="btn-ghost btn-sm" onClick={() => handleEliminar(u)} title="Eliminar" style={{ padding: '4px 8px' }}>
+                      <button className="clientes-action-icon" onClick={() => handleEliminar(u)} title="Eliminar">
                         <Trash2 size={13} color="oklch(0.66 0.22 25)" />
                       </button>
                     )}
@@ -395,7 +429,7 @@ function TabUsuarios({ roles }) {
               </tr>
             ))}
             {filtrados.length === 0 && (
-              <tr><td colSpan={6} style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .35)', padding: 32 }}>No hay usuarios</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--dim)', padding: 32 }}>No hay usuarios</td></tr>
             )}
           </tbody>
         </table>
@@ -548,74 +582,78 @@ function TabRoles() {
 
       {/* ── Panel izquierdo: roles ──────────────────────────────────────────── */}
       <div style={{
-        background: 'var(--glass)',
-        backdropFilter: 'blur(28px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(28px) saturate(140%)',
-        border: '1px solid var(--line)',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
         borderRadius: 14,
         padding: '16px 12px',
         display: 'flex', flexDirection: 'column', gap: 6,
         alignSelf: 'start',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
       }}>
-        <div style={{ fontSize: 11, letterSpacing: '.1em', color: 'oklch(0.78 0.02 250 / .4)', textTransform: 'uppercase', marginBottom: 8, paddingLeft: 4 }}>
+        <div style={{ fontSize: 11, letterSpacing: '.1em', color: 'var(--dim)', textTransform: 'uppercase', marginBottom: 8, paddingLeft: 4 }}>
           Roles del sistema
         </div>
 
-        {roles.map(r => (
-          <button
-            key={r.id}
-            onClick={() => setRolSeleccionado(r)}
-            style={{
-              width: '100%', textAlign: 'left',
-              padding: '10px 14px', borderRadius: 10,
-              background: rolSeleccionado?.id === r.id ? 'oklch(0.66 0.22 25 / .15)' : 'oklch(1 0 0 / .025)',
-              border: `1px solid ${rolSeleccionado?.id === r.id ? 'oklch(0.66 0.22 25 / .4)' : 'oklch(1 0 0 / .06)'}`,
-              color: rolSeleccionado?.id === r.id ? 'oklch(0.76 0.20 25)' : 'oklch(0.84 0.01 250)',
-              cursor: 'pointer', fontSize: 13, fontWeight: rolSeleccionado?.id === r.id ? 700 : 500,
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              transition: 'all .15s',
-            }}
-          >
-            <span>{r.nombre}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {r.total_usuarios > 0 && (
-                <span style={{
-                  fontSize: 10, background: 'oklch(0.78 0.02 250 / .1)',
-                  padding: '1px 7px', borderRadius: 10, color: 'oklch(0.78 0.02 250 / .5)',
-                  fontFamily: 'Oxanium, sans-serif', fontWeight: 700,
-                }}>{r.total_usuarios}</span>
-              )}
-              {rolSeleccionado?.id === r.id && <ChevronRight size={13} />}
-            </div>
-          </button>
-        ))}
+        {roles.map(r => {
+          const activo = rolSeleccionado?.id === r.id
+          return (
+            <button
+              key={r.id}
+              onClick={() => setRolSeleccionado(r)}
+              className="clientes-action-icon"
+              style={{
+                width: '100%', textAlign: 'left',
+                padding: '10px 14px', borderRadius: 10,
+                background: activo ? 'oklch(1 0 0 / .1)' : 'transparent',
+                border: activo ? '1px solid oklch(1 0 0 / .22)' : '1px solid transparent',
+                color: activo ? 'oklch(0.97 0.01 250)' : 'var(--dim)',
+                textShadow: activo ? '0 1px 2px oklch(0 0 0 / .6)' : 'none',
+                cursor: 'pointer', fontSize: 13, fontWeight: activo ? 700 : 500,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                transition: 'all .15s',
+              }}
+            >
+              <span>{r.nombre}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {r.total_usuarios > 0 && (
+                  <span style={{
+                    fontSize: 10, background: 'oklch(1 0 0 / .1)',
+                    padding: '1px 7px', borderRadius: 10, color: 'oklch(0.88 0.01 250 / .85)',
+                    fontFamily: 'Oxanium, sans-serif', fontWeight: 700,
+                  }}>{r.total_usuarios}</span>
+                )}
+                {activo && <ChevronRight size={13} />}
+              </div>
+            </button>
+          )
+        })}
 
         <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
           <button
-            className="btn-secondary btn-sm"
+            className="clientes-glass-btn btn-secondary btn-sm"
             onClick={() => setModalRol({ rol: null })}
             style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', fontSize: 12 }}
           >
-            <Plus size={12} /> Nuevo Rol
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Plus size={12} /> Nuevo Rol</span>
           </button>
           {rolSeleccionado && !rolSeleccionado.es_sistema && (
             <button
-              className="btn-secondary btn-sm"
+              className="clientes-action-icon"
               onClick={() => setModalRol({ rol: rolSeleccionado })}
               title="Editar rol"
-              style={{ padding: '6px 10px' }}
             >
               <Edit2 size={12} />
             </button>
           )}
           {rolSeleccionado && !rolSeleccionado.es_sistema && (
             <button
-              className="btn-secondary btn-sm"
+              className="clientes-action-icon"
               onClick={() => handleEliminarRol(rolSeleccionado)}
               title="Eliminar rol"
-              style={{ padding: '6px 10px', color: 'oklch(0.70 0.18 25)' }}
+              style={{ color: 'oklch(0.70 0.18 25)' }}
             >
-              <Trash2 size={12} />
+              <Trash2 size={12} color="oklch(0.70 0.18 25)" />
             </button>
           )}
         </div>
@@ -628,10 +666,10 @@ function TabRoles() {
             {/* Cabecera del rol */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <h4 className="silver" style={{ margin: 0, fontSize: 16, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.06em' }}>
+                <h4 className="silver" style={{ margin: 0, fontSize: 16, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.06em', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                   {rolSeleccionado.nombre.toUpperCase()}
                 </h4>
-                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'oklch(0.78 0.02 250 / .45)' }}>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                   {seleccionados.size} de {permisosRol.length} permisos asignados
                   {rolSeleccionado.es_sistema && ' · Rol del sistema'}
                 </p>
@@ -640,20 +678,23 @@ function TabRoles() {
 
             {/* Buscador de permisos */}
             <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.78 0.02 250 / .35)', pointerEvents: 'none' }} />
+              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'oklch(0.88 0.01 250 / .85)', pointerEvents: 'none' }} />
               <input
                 className="gym-input"
                 placeholder="Buscar permiso..."
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                style={{ paddingLeft: 34, width: '100%' }}
+                style={{
+                  paddingLeft: 34, width: '100%',
+                  background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)', color: 'oklch(0.97 0.01 250)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                }}
               />
             </div>
 
             {/* Módulos con permisos */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
               {Object.entries(porModulo).length === 0 && (
-                <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .35)', padding: 32, fontSize: 13 }}>
+                <div style={{ textAlign: 'center', color: 'var(--dim)', padding: 32, fontSize: 13 }}>
                   {busqueda ? 'Sin resultados' : 'Sin permisos disponibles'}
                 </div>
               )}
@@ -663,11 +704,10 @@ function TabRoles() {
                   <div
                     key={modulo}
                     style={{
-                      background: 'var(--glass)',
-                      backdropFilter: 'blur(28px) saturate(140%)',
-                      WebkitBackdropFilter: 'blur(28px) saturate(140%)',
-                      border: '1px solid var(--line)',
+                      background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                      border: '1px solid transparent',
                       borderRadius: 12,
+                      boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
                     }}
                   >
                     {/* Cabecera del módulo */}
@@ -677,29 +717,31 @@ function TabRoles() {
                       borderBottom: '1px solid oklch(1 0 0 / .06)',
                       background: 'oklch(1 0 0 / .02)',
                     }}>
-                      <span className="silver" style={{ fontSize: 13, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase' }}>
+                      <span className="silver" style={{ fontSize: 13, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.12em', textTransform: 'uppercase', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                         {modulo}
                       </span>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           onClick={() => toggleModulo(perms, false)}
+                          className="clientes-glass-btn"
                           style={{
                             padding: '3px 10px', borderRadius: 5, border: '1px solid oklch(1 0 0 / .1)',
-                            background: 'oklch(1 0 0 / .04)', color: 'oklch(0.78 0.02 250 / .6)',
                             cursor: 'pointer', fontSize: 11, fontWeight: 500,
                           }}
                         >
-                          Todos
+                          <div className="clientes-glass-bg" />
+                          <span className="clientes-glass-content" style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>Todos</span>
                         </button>
                         <button
                           onClick={() => toggleModulo(perms, true)}
+                          className="clientes-glass-btn"
                           style={{
                             padding: '3px 10px', borderRadius: 5, border: '1px solid oklch(1 0 0 / .1)',
-                            background: 'oklch(1 0 0 / .04)', color: 'oklch(0.78 0.02 250 / .6)',
                             cursor: 'pointer', fontSize: 11, fontWeight: 500,
                           }}
                         >
-                          Ninguno
+                          <div className="clientes-glass-bg" />
+                          <span className="clientes-glass-content" style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>Ninguno</span>
                         </button>
                       </div>
                     </div>
@@ -732,7 +774,7 @@ function TabRoles() {
         ) : (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            height: 200, color: 'oklch(0.78 0.02 250 / .35)', fontSize: 13,
+            height: 200, color: 'var(--dim)', fontSize: 13,
           }}>
             Selecciona un rol para ver sus permisos
           </div>
@@ -749,19 +791,20 @@ function TabRoles() {
             transition={{ duration: 0.2 }}
             onClick={guardarPermisos}
             disabled={guardando}
+            className="clientes-glass-btn btn-primary"
             style={{
               position: 'fixed', bottom: 28, right: 32,
-              background: 'oklch(0.66 0.22 25)',
-              color: 'white', border: 'none', borderRadius: 12,
+              borderRadius: 999,
               padding: '11px 24px', cursor: guardando ? 'not-allowed' : 'pointer',
               fontSize: 13, fontWeight: 700, fontFamily: 'Oxanium, sans-serif',
               letterSpacing: '.06em',
-              boxShadow: '0 8px 28px oklch(0.66 0.22 25 / .5)',
+              border: '1px solid oklch(0.66 0.22 25 / .5)',
               zIndex: 50,
               opacity: guardando ? 0.7 : 1,
             }}
           >
-            {guardando ? 'Guardando...' : 'Guardar cambios'}
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'oklch(0.80 0.16 25)' }}>{guardando ? 'Guardando...' : 'Guardar cambios'}</span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -790,22 +833,34 @@ function ModalRol({ rol, onGuardar, onCerrar }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'oklch(0 0 0 / .7)' }}>
       <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.94 }}
-        style={{ width: '100%', maxWidth: 380, background: 'oklch(0.14 0.01 250 / .97)', backdropFilter: 'blur(32px)', border: '1px solid oklch(1 0 0 / .1)', borderRadius: 14, padding: '24px 24px 20px', boxShadow: '0 24px 60px oklch(0 0 0 / .5)', margin: 16 }}>
-        <h3 style={{ margin: '0 0 18px', fontSize: 14, fontWeight: 700 }}>{esEdicion ? 'Editar Rol' : 'Nuevo Rol'}</h3>
+        style={{
+          width: '100%', maxWidth: 380,
+          background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+          border: '1px solid transparent', borderRadius: 14, padding: '24px 24px 20px',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+          margin: 16,
+        }}>
+        <h3 style={{ margin: '0 0 18px', fontSize: 14, fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{esEdicion ? 'Editar Rol' : 'Nuevo Rol'}</h3>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Nombre *</label>
             <input className="gym-input" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Nombre del rol"
               disabled={esEdicion && rol?.es_sistema} style={{ width: '100%' }} />
-            {esEdicion && rol?.es_sistema && <p style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .4)', marginTop: 4 }}>El nombre de roles del sistema no puede editarse</p>}
+            {esEdicion && rol?.es_sistema && <p style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4 }}>El nombre de roles del sistema no puede editarse</p>}
           </div>
           <div>
             <label className="gym-label" style={{ display: 'block', marginBottom: 5 }}>Descripción</label>
             <textarea className="gym-textarea" value={descripcion} onChange={e => setDescripcion(e.target.value)} placeholder="Descripción del rol..." rows={2} style={{ width: '100%', resize: 'vertical' }} />
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <button type="button" className="btn-secondary" onClick={onCerrar} style={{ flex: 1 }}>Cancelar</button>
-            <button type="submit" className="btn-primary" style={{ flex: 2, fontSize: 13 }}>{esEdicion ? 'Guardar' : 'Crear rol'}</button>
+            <button type="button" className="clientes-glass-btn btn-secondary" onClick={onCerrar} style={{ flex: 1 }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content">Cancelar</span>
+            </button>
+            <button type="submit" className="clientes-glass-btn btn-primary" style={{ flex: 2, fontSize: 13 }}>
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content">{esEdicion ? 'Guardar' : 'Crear rol'}</span>
+            </button>
           </div>
         </form>
       </motion.div>
@@ -824,7 +879,7 @@ export default function GestionUsuarios() {
   }, [])
 
   return (
-    <div style={{ padding: '0 0 32px' }}>
+    <div className="clientes-page" style={{ padding: '0 0 32px' }}>
       <div style={{ marginBottom: 24 }}>
         <h2 className="titulo-metalico" style={{ margin: 0, fontSize: 22 }}>Gestión de Usuarios y Roles</h2>
         <p style={{ margin: '4px 0 0', color: 'oklch(0.78 0.02 250 / .45)', fontSize: 13 }}>
@@ -833,7 +888,13 @@ export default function GestionUsuarios() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid oklch(1 0 0 / .08)', marginBottom: 24 }}>
+      <div style={{
+        display: 'flex', gap: 6, padding: 6, marginBottom: 24,
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#top-clientes-glass)', WebkitBackdropFilter: 'url(#top-clientes-glass)',
+        border: '1px solid transparent', borderRadius: 999,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+        width: 'fit-content',
+      }}>
         <TabButton active={tab === 'usuarios'} onClick={() => setTab('usuarios')} icon={Users}>
           Usuarios
         </TabButton>

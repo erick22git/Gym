@@ -139,7 +139,7 @@ export default function VistaFactura({ factura, empresa, onClose, onNueva, onEdi
         {/* HEADER */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
           <div>
-            <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'0.02em' }}>{emp.nombre_comercial || emp.razon_social || 'URBAN FITNESS CLUB'}</div>
+            <div style={{ fontSize:14, fontWeight:800, color:'#111', letterSpacing:'0.02em' }}>{emp.nombre_comercial || emp.razon_social || 'GIMNASIO'}</div>
             <div style={{ fontSize:9, color:'#777', marginTop:2 }}>NIT: {emp.nit || '123456789'}</div>
           </div>
           <div style={{ textAlign:'center', background:ROJO, color:'white', padding:'6px 16px', borderRadius:4, minWidth:130 }}>

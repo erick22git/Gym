@@ -15,8 +15,8 @@ const QRCode = require('qrcode')
 // ─── Datos de simulación ─────────────────────────────────────────────────────
 
 const DATOS_SIM_EMPRESA = {
-  nit: '123456789', razon_social: 'URBAN FITNESS CLUB (PRUEBA)',
-  nombre_comercial: 'Urban Fitness Club', direccion: 'Av. Hernando Siles #123',
+  nit: '123456789', razon_social: 'GIMNASIO (PRUEBA)',
+  nombre_comercial: 'Gimnasio', direccion: 'Av. Hernando Siles #123',
   telefono: '4-6451234', departamento: 'Chuquisaca', municipio: 'Sucre',
   codigo_sucursal: 0, punto_venta: 0,
   leyenda: 'Esta factura contribuye al desarrollo del país, el uso ilícito de ésta será sancionado de acuerdo a ley.',
@@ -384,13 +384,13 @@ async function generarPDFFactura(factura, empresa) {
 
       // ── Cabecera ───────────────────────────────────────────────────────────
       // Logo y nombre del emisor (izquierda)
-      const logoPath = path.join(__dirname, '../../public/logo.jpg')
+      const logoPath = path.join(__dirname, '../../public/logo.png')
       let logoY = MAR
       if (fs.existsSync(logoPath)) {
         try { doc.image(logoPath, MAR, MAR, { height: 40 }); logoY = MAR } catch {}
       }
       doc.fillColor(NEGRO).fontSize(14).font('Helvetica-Bold')
-        .text(emp.nombre_comercial || emp.razon_social || 'URBAN FITNESS CLUB', MAR + 50, MAR + 4)
+        .text(emp.nombre_comercial || emp.razon_social || 'GIMNASIO', MAR + 50, MAR + 4)
       doc.fontSize(8).font('Helvetica').fillColor(GRIS)
         .text(`NIT: ${emp.nit || ''}`, MAR + 50, MAR + 22)
 
@@ -542,7 +542,7 @@ async function generarPDFFactura(factura, empresa) {
       // ── Pie de página ────────────────────────────────────────────────────────
       doc.rect(0, doc.page.height - 28, W, 28).fill(NEGRO)
       doc.fillColor('white').fontSize(7).font('Helvetica')
-        .text(`Urban Fitness Club · Facturación Electrónica SFE Bolivia${esSimulacion ? ' · SIMULACIÓN' : ''}`,
+        .text(`Gimnasio · Facturación Electrónica SFE Bolivia${esSimulacion ? ' · SIMULACIÓN' : ''}`,
           0, doc.page.height - 16, { align: 'center' })
 
       doc.end()
@@ -571,11 +571,11 @@ async function enviarFacturaPorCorreo(factura, empresa, configCorreo, pdfPath) {
     .replace('{numero_factura}', factura.numero_factura || '')
     .replace('{monto}', parseFloat(factura.monto_total).toFixed(2))
 
-  let asunto = (configCorreo.asunto_plantilla || 'Factura Electrónica - Urban Fitness Club')
+  let asunto = (configCorreo.asunto_plantilla || 'Factura Electrónica - Gimnasio')
     .replace('{numero_factura}', factura.numero_factura || '')
 
   await transporter.sendMail({
-    from: `"${empresa.razon_social || 'Urban Fitness Club'}" <${configCorreo.remitente || configCorreo.smtp_user}>`,
+    from: `"${empresa.razon_social || 'Gimnasio'}" <${configCorreo.remitente || configCorreo.smtp_user}>`,
     to: factura.cliente_correo,
     subject: asunto,
     html: `<p>${cuerpo.replace(/\n/g, '<br>')}</p>`,
@@ -1186,7 +1186,7 @@ function registrarHandlers(mainWindow) {
       const defaultName = `Factura_${factura.numero_factura}_${clienteNombre}_${fechaStr}.pdf`
       const { dialog } = require('electron')
       const docs = app.getPath('documents')
-      const defaultDir = path.join(docs, 'UrbanFitnessClub', 'Facturas')
+      const defaultDir = path.join(docs, 'Gimnasio', 'Facturas')
       if (!fs.existsSync(defaultDir)) fs.mkdirSync(defaultDir, { recursive: true })
       const result = await dialog.showSaveDialog({
         title: 'Guardar Factura PDF',

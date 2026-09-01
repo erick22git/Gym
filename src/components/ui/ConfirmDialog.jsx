@@ -1,6 +1,13 @@
 import { useState, createContext, useContext, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlertOctagon, AlertTriangle, Info } from 'lucide-react'
+// Este diálogo es GLOBAL (un solo ConfirmProvider montado en la raíz de la
+// app, useConfirm() se usa desde cualquier página) — no hay forma de
+// scopearlo por página con un ancestro .clientes-page como en otros
+// arreglos de esta sesión. El pedido ("el modal de eliminar en Clientes")
+// se aplica acá al componente compartido — afecta a TODOS los confirm()
+// de la app (Caja, Historial, etc.), no solo al de eliminar cliente.
+import '../../pages/Clients.css'
 
 const ConfirmContext = createContext(null)
 
@@ -59,17 +66,29 @@ export function ConfirmProvider({ children }) {
               transition={{ duration: 0.17, ease: [0.25, 0.1, 0.25, 1] }}
               style={{
                 position: 'relative', zIndex: 1, width: '100%', maxWidth: 420,
-                background: 'oklch(0.11 0.01 250)',
-                border: `1px solid ${cfg.color}35`,
+                // [SIMPLIFICADO — pedido explícito: "quitar el negro,
+                // transparente, distorsión suave, opacidad, Y SOLO ESO"]
+                // La vuelta anterior sumó un halo de 3 capas (inset +
+                // glow + sombra) — más de lo pedido. Bajado a un único
+                // boxShadow suave (una sombra de caída, sin insets ni
+                // brillo) — la "opacidad" pedida es justamente esa, sutil
+                // y nada más. Antes: background sólido casi negro
+                // (oklch(0.11 ...)), sin backdrop-filter — el resto (fondo
+                // transparente, #clientes-table-glass) se mantiene igual.
+                background: 'transparent',
+                backdropFilter: 'url(#clientes-table-glass)',
+                WebkitBackdropFilter: 'url(#clientes-table-glass)',
+                border: `1px solid ${cfg.color.replace(')', ' / .35)')}`,
                 borderTop: `3px solid ${cfg.color}`,
                 borderRadius: 16, padding: '24px 26px',
-                boxShadow: '0 24px 60px oklch(0 0 0 / .55)',
+                boxShadow: '0 20px 50px oklch(0 0 0 / .35)',
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.6)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
                 <div style={{
                   width: 42, height: 42, borderRadius: 10, flexShrink: 0,
-                  background: `${cfg.color}18`, border: `1px solid ${cfg.color}35`,
+                  background: cfg.color.replace(')', ' / .18)'), border: `1px solid ${cfg.color.replace(')', ' / .35)')}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Icon size={20} color={cfg.color} />
@@ -102,21 +121,30 @@ export function ConfirmProvider({ children }) {
                 </div>
               )}
 
+              {/* [CORREGIDO — pedido explícito: "los botones tienen que
+                  ser como en Nuevo Cliente, transparentes y con
+                  movimiento"] Mismas clases de Clients.css. El de
+                  Confirmar también tenía el bug de `${cfg.color}22` —
+                  corregido con .replace(). */}
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: dialogo.requiereTexto ? 0 : 4 }}>
-                <button onClick={() => responder(false)} className="btn-secondary" style={{ minWidth: 90 }}>
-                  {dialogo.textoCancelar || 'Cancelar'}
+                <button onClick={() => responder(false)} className="clientes-glass-btn btn-secondary" style={{ minWidth: 90 }}>
+                  <div className="clientes-glass-bg" />
+                  <span className="clientes-glass-content">{dialogo.textoCancelar || 'Cancelar'}</span>
                 </button>
                 <button
+                  className="clientes-glass-btn"
                   onClick={() => puedeConfirmar && responder(true)}
+                  disabled={!puedeConfirmar}
                   style={{
                     minWidth: 100, padding: '8px 18px', borderRadius: 9,
                     fontSize: 13, fontWeight: 700,
-                    background: `${cfg.color}22`, border: `1px solid ${cfg.color}50`,
-                    color: cfg.color, cursor: puedeConfirmar ? 'pointer' : 'not-allowed',
+                    background: 'transparent', border: 'none',
+                    cursor: puedeConfirmar ? 'pointer' : 'not-allowed',
                     opacity: puedeConfirmar ? 1 : 0.4, transition: 'opacity .15s',
                   }}
                 >
-                  {dialogo.textoConfirmar || 'Confirmar'}
+                  <div className="clientes-glass-bg" />
+                  <span className="clientes-glass-content" style={{ color: cfg.color }}>{dialogo.textoConfirmar || 'Confirmar'}</span>
                 </button>
               </div>
             </motion.div>

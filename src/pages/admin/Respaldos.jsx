@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { auditoriaService, ACCIONES } from '../../services/auditoriaService'
+import '../Clients.css'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,23 +31,25 @@ function fmtBytes(bytes) {
 function ActionCard({ icon: Icon, titulo, descripcion, color, children }) {
   return (
     <div style={{
-      background: 'var(--glass)',
-      border: `1px solid ${color}25`,
+      position: 'relative', overflow: 'hidden',
+      background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+      border: '1px solid transparent',
       borderTop: `3px solid ${color}`,
       borderRadius: 14,
       padding: '22px 24px',
       display: 'flex', flexDirection: 'column', gap: 14,
+      boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10,
-          background: `${color}18`, border: `1px solid ${color}35`,
+          background: color.replace(')', ' / .18)'), border: `1px solid ${color.replace(')', ' / .35)')}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Icon size={20} color={color} />
         </div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{titulo}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{titulo}</div>
           <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>{descripcion}</div>
         </div>
       </div>
@@ -73,19 +76,19 @@ function ModalConfirmarRestaurar({ onConfirm, onClose }) {
         exit={{ opacity: 0 }}
         style={{
           position: 'relative', zIndex: 1, width: 440,
-          background: 'oklch(0.14 0.015 250)',
+          background: 'oklch(0.13 0.02 250 / .5)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
           border: '1px solid oklch(0.65 0.22 25 / .4)',
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), 0 0 12px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .5)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <AlertTriangle size={20} color="oklch(0.65 0.22 25)" />
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.85 0.12 25)' }}>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.85 0.12 25)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             ¡Atención! Restaurar base de datos
           </h2>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7, marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.7, marginBottom: 20, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
           Esta acción <strong style={{ color: 'oklch(0.85 0.12 25)' }}>reemplazará TODOS los datos actuales</strong> con los del respaldo seleccionado.
           <br /><br />
           Esta operación <strong>no se puede deshacer</strong>. El sistema se reiniciará después de restaurar.
@@ -93,17 +96,22 @@ function ModalConfirmarRestaurar({ onConfirm, onClose }) {
           ¿Estás seguro de continuar?
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button onClick={onClose} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
           <button
             onClick={onConfirm}
+            className="clientes-glass-btn"
             style={{
-              flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-              background: 'oklch(0.65 0.22 25 / .2)', border: '1px solid oklch(0.65 0.22 25 / .5)',
-              color: 'oklch(0.85 0.12 25)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              flex: 1, borderRadius: 999, fontSize: 13, fontWeight: 700,
+              border: '1px solid oklch(0.65 0.22 25 / .5)',
             }}
           >
-            <Upload size={14} /> Restaurar ahora
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'oklch(0.85 0.12 25)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Upload size={14} /> Restaurar ahora
+            </span>
           </button>
         </div>
       </motion.div>
@@ -141,24 +149,24 @@ function ModalEliminarPrueba({ conteo, onConfirm, onClose }) {
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
         style={{
           position: 'relative', zIndex: 1, width: 480,
-          background: 'oklch(0.14 0.015 250)',
+          background: 'oklch(0.13 0.02 250 / .5)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
           border: '1px solid oklch(0.65 0.22 25 / .4)',
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: '0 24px 60px oklch(0 0 0 / .5)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), 0 0 12px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .5)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <AlertTriangle size={20} color="oklch(0.82 0.14 75)" />
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.90 0.10 75)' }}>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.90 0.10 75)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             ELIMINAR DATOS DE PRUEBA
           </h2>
         </div>
-        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+        <p style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', marginBottom: 12, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
           Se eliminarán SOLO los datos generados como prueba:
         </p>
-        <div style={{ background: 'oklch(0.10 0.01 250)', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+        <div style={{ background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
           {filas.map(([label, n]) => n > 0 ? (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)', padding: '3px 0', borderBottom: '1px solid oklch(1 0 0 / .04)' }}>
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', padding: '3px 0', borderBottom: '1px solid oklch(1 0 0 / .04)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
               <span>• {label}</span>
               <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{n.toLocaleString()}</span>
             </div>
@@ -177,26 +185,31 @@ function ModalEliminarPrueba({ conteo, onConfirm, onClose }) {
             placeholder={confirmar}
             style={{
               width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
-              background: 'oklch(0.10 0.01 250)', border: `1px solid ${ok ? 'oklch(0.65 0.22 25 / .6)' : 'var(--line)'}`,
-              color: 'var(--ink)', outline: 'none', boxSizing: 'border-box',
+              background: 'oklch(0.2 0.02 250 / .5)', border: `1px solid ${ok ? 'oklch(0.65 0.22 25 / .6)' : 'oklch(1 0 0 / .18)'}`,
+              color: 'oklch(0.97 0.01 250)', outline: 'none', boxSizing: 'border-box', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
             }}
           />
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button onClick={onClose} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
           <button
             onClick={ok ? onConfirm : undefined}
             disabled={!ok}
+            className="clientes-glass-btn"
             style={{
-              flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-              background: ok ? 'oklch(0.65 0.22 25 / .25)' : 'oklch(0.65 0.22 25 / .08)',
+              flex: 1, borderRadius: 999, fontSize: 13, fontWeight: 700,
               border: `1px solid oklch(0.65 0.22 25 / ${ok ? '.6' : '.2'})`,
-              color: ok ? 'oklch(0.85 0.12 25)' : 'var(--dim)',
-              cursor: ok ? 'pointer' : 'not-allowed',
+              opacity: ok ? 1 : 0.6,
             }}
           >
-            <Trash2 size={14} style={{ display: 'inline', marginRight: 6 }} />
-            Eliminar Datos de Prueba
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: ok ? 'oklch(0.85 0.12 25)' : 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Trash2 size={14} />
+              Eliminar Datos de Prueba
+            </span>
           </button>
         </div>
       </motion.div>
@@ -223,15 +236,15 @@ function ModalResetSistema({ onConfirm, onClose }) {
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
         style={{
           position: 'relative', zIndex: 1, width: 480,
-          background: 'oklch(0.12 0.02 25)',
+          background: 'oklch(0.13 0.02 25 / .5)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
           border: '1px solid oklch(0.55 0.20 25 / .5)',
           borderRadius: 16, padding: '24px 28px',
-          boxShadow: '0 24px 60px oklch(0 0 0 / .6)',
+          boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), 0 0 12px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .6)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <ShieldAlert size={22} color="oklch(0.65 0.22 25)" />
-          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.85 0.15 25)' }}>
+          <h2 style={{ fontFamily: 'var(--display)', fontSize: 16, fontWeight: 700, color: 'oklch(0.85 0.15 25)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             RESETEAR SISTEMA COMPLETO
           </h2>
         </div>
@@ -239,7 +252,7 @@ function ModalResetSistema({ onConfirm, onClose }) {
           <p style={{ fontSize: 12, color: 'oklch(0.85 0.12 25)', fontWeight: 600, marginBottom: 6 }}>
             Esta acción eliminará TODOS los datos operativos:
           </p>
-          <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.8 }}>
+          <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.8, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             • Todos los clientes y membresías<br />
             • Todas las ventas e ingresos<br />
             • Todo el inventario de productos<br />
@@ -261,26 +274,31 @@ function ModalResetSistema({ onConfirm, onClose }) {
             placeholder={confirmar}
             style={{
               width: '100%', padding: '9px 12px', borderRadius: 8, fontSize: 13,
-              background: 'oklch(0.10 0.01 250)', border: `1px solid ${ok ? 'oklch(0.65 0.22 25 / .6)' : 'var(--line)'}`,
-              color: 'var(--ink)', outline: 'none', boxSizing: 'border-box',
+              background: 'oklch(0.2 0.02 250 / .5)', border: `1px solid ${ok ? 'oklch(0.65 0.22 25 / .6)' : 'oklch(1 0 0 / .18)'}`,
+              color: 'oklch(0.97 0.01 250)', outline: 'none', boxSizing: 'border-box', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
             }}
           />
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button onClick={onClose} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
           <button
             onClick={ok ? onConfirm : undefined}
             disabled={!ok}
+            className="clientes-glass-btn"
             style={{
-              flex: 1, padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 700,
-              background: ok ? 'oklch(0.55 0.20 25 / .3)' : 'oklch(0.55 0.20 25 / .08)',
+              flex: 1, borderRadius: 999, fontSize: 13, fontWeight: 700,
               border: `1px solid oklch(0.55 0.20 25 / ${ok ? '.7' : '.2'})`,
-              color: ok ? 'oklch(0.85 0.15 25)' : 'var(--dim)',
-              cursor: ok ? 'pointer' : 'not-allowed',
+              opacity: ok ? 1 : 0.6,
             }}
           >
-            <ShieldAlert size={14} style={{ display: 'inline', marginRight: 6 }} />
-            Resetear Sistema Completo
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: ok ? 'oklch(0.85 0.15 25)' : 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <ShieldAlert size={14} />
+              Resetear Sistema Completo
+            </span>
           </button>
         </div>
       </motion.div>
@@ -478,7 +496,7 @@ export default function Respaldos() {
   }
 
   return (
-    <div style={{ padding: '0 2px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="clientes-page" style={{ padding: '0 2px', display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
       <div>
         <h1 className="titulo-metalico" style={{ marginBottom: 6 }}>RESPALDOS</h1>
@@ -493,23 +511,25 @@ export default function Respaldos() {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.25 }}
           style={{
-            background: 'var(--glass)', border: '1px solid var(--line)',
+            background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+            border: '1px solid transparent',
             borderRadius: 12, padding: '14px 18px',
             display: 'flex', gap: 24, flexWrap: 'wrap',
+            boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
           }}>
           <div>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>Tamaño actual</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--display)' }}>{fmtBytes(dbInfo.tamaño)}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--display)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{fmtBytes(dbInfo.tamaño)}</div>
           </div>
           <div>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>Último respaldo</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
               {respaldos.length > 0 ? fmtFecha(respaldos[0].fecha) : 'Nunca'}
             </div>
           </div>
           <div>
             <div style={{ fontSize: 10, color: 'var(--dim)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>Total respaldos</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--display)' }}>{respaldos.length}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--display)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{respaldos.length}</div>
           </div>
         </motion.div>
       )}
@@ -523,20 +543,23 @@ export default function Respaldos() {
           descripcion="Exporta todos los datos como archivo cifrado .enc"
           color="oklch(0.74 0.13 250)"
         >
-          <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.6, margin: 0, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Se creará un archivo cifrado (.enc) con todos los datos del sistema: clientes, membresías, planes, inventario, caja, reportes y configuración. Puede restaurarse en cualquier PC con la misma app.
           </p>
           <button
             onClick={handleExportar}
             disabled={exportando}
-            className="btn-primary"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 4 }}
+            className="clientes-glass-btn btn-primary"
+            style={{ marginTop: 4 }}
           >
-            {exportando ? (
-              <><RefreshCw size={14} className="spin" /> Exportando...</>
-            ) : (
-              <><Download size={14} /> Exportar base de datos</>
-            )}
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">
+              {exportando ? (
+                <><RefreshCw size={14} className="spin" /> Exportando...</>
+              ) : (
+                <><Download size={14} /> Exportar base de datos</>
+              )}
+            </span>
           </button>
         </ActionCard>
         </motion.div>
@@ -548,22 +571,23 @@ export default function Respaldos() {
           descripcion="VACUUM + ANALYZE — recomendado cada 3-6 meses"
           color="oklch(0.74 0.16 155)"
         >
-          <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.6, margin: 0, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Compacta el archivo eliminando espacio libre y actualiza estadísticas para mejorar la velocidad de búsquedas.
           </p>
           <button
             onClick={handleMantenimiento}
             disabled={optimizando}
+            className="clientes-glass-btn"
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 600,
-              background: optimizando ? 'oklch(0.74 0.16 155 / .05)' : 'oklch(0.74 0.16 155 / .15)',
+              borderRadius: 999, fontSize: 13, fontWeight: 600,
               border: `1px solid oklch(0.74 0.16 155 / ${optimizando ? '.15' : '.4'})`,
-              color: optimizando ? 'var(--dim)' : 'oklch(0.85 0.12 155)',
               cursor: optimizando ? 'default' : 'pointer', marginTop: 4,
             }}
           >
-            {optimizando ? <><RefreshCw size={14} className="spin" /> Optimizando...</> : <><Zap size={14} /> Optimizar ahora</>}
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: optimizando ? 'var(--dim)' : 'oklch(0.85 0.12 155)' }}>
+              {optimizando ? <><RefreshCw size={14} className="spin" /> Optimizando...</> : <><Zap size={14} /> Optimizar ahora</>}
+            </span>
           </button>
         </ActionCard>
         </motion.div>
@@ -583,26 +607,29 @@ export default function Respaldos() {
             <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.82 0.14 75)', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
               <AlertTriangle size={11} /> Advertencia
             </div>
-            <div style={{ fontSize: 11, color: 'var(--dim)', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.5, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
               Restaurar reemplazará TODOS los datos actuales. Esta acción no se puede deshacer.
             </div>
           </div>
           <button
             onClick={handleSeleccionarArchivo}
             disabled={restaurando}
+            className="clientes-glass-btn"
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 600,
-              background: 'oklch(0.82 0.14 75 / .15)', border: '1px solid oklch(0.82 0.14 75 / .4)',
-              color: 'oklch(0.90 0.10 75)', cursor: restaurando ? 'default' : 'pointer',
+              borderRadius: 999, fontSize: 13, fontWeight: 600,
+              border: '1px solid oklch(0.82 0.14 75 / .4)',
+              cursor: restaurando ? 'default' : 'pointer',
               opacity: restaurando ? 0.5 : 1, marginTop: 4,
             }}
           >
-            {restaurando ? (
-              <><RefreshCw size={14} className="spin" /> Restaurando...</>
-            ) : (
-              <><FolderOpen size={14} /> Seleccionar archivo</>
-            )}
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: 'oklch(0.90 0.10 75)' }}>
+              {restaurando ? (
+                <><RefreshCw size={14} className="spin" /> Restaurando...</>
+              ) : (
+                <><FolderOpen size={14} /> Seleccionar archivo</>
+              )}
+            </span>
           </button>
         </ActionCard>
         </motion.div>
@@ -620,9 +647,12 @@ export default function Respaldos() {
           </div>
         ) : respaldos.length === 0 ? (
           <div style={{
-            background: 'var(--glass)', border: '1px solid var(--line)',
+            background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+            border: '1px solid transparent',
             borderRadius: 12, padding: '32px 24px', textAlign: 'center',
-            color: 'var(--dim)', fontSize: 13,
+            color: 'oklch(0.88 0.01 250 / .85)', fontSize: 13,
+            boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+            textShadow: '0 1px 2px rgba(0,0,0,0.6)',
           }}>
             No hay respaldos registrados todavía.
             <br />
@@ -636,17 +666,19 @@ export default function Respaldos() {
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={{
-                  background: 'var(--glass)', border: '1px solid var(--line)',
+                  background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                  border: '1px solid transparent',
                   borderRadius: 10, padding: '12px 16px',
                   display: 'flex', alignItems: 'center', gap: 12,
+                  boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .07), 0 0 10px 1px oklch(1 0 0 / .04), 0 14px 34px oklch(0 0 0 / .35)',
                 }}
               >
                 <HardDrive size={16} color="oklch(0.74 0.13 250)" style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                     {r.nombre}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 1 }}>
+                  <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 1, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                     {fmtFecha(r.fecha)} · {fmtBytes(r.tamaño)}
                   </div>
                 </div>
@@ -654,7 +686,7 @@ export default function Respaldos() {
                   <div style={{
                     fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
                     background: 'oklch(0.74 0.16 155 / .15)', color: 'oklch(0.74 0.16 155)',
-                    border: '1px solid oklch(0.74 0.16 155 / .3)',
+                    border: '1px solid oklch(0.74 0.16 155 / .3)', textShadow: '0 1px 2px rgba(0,0,0,0.6)',
                   }}>
                     Más reciente
                   </div>
@@ -671,14 +703,17 @@ export default function Respaldos() {
           <Zap size={14} color="oklch(0.74 0.16 155)" /> Backups automáticos
           <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--dim)' }}>(se generan al cerrar la app · se conservan los últimos 7)</span>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', marginBottom: 10 }}>
           Cópialos a un pendrive periódicamente como capa extra de seguridad. Puedes restaurar cualquiera de ellos con el botón correspondiente.
         </div>
         {backupsAuto.length === 0 ? (
           <div style={{
-            background: 'var(--glass)', border: '1px solid var(--line)',
+            background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+            border: '1px solid transparent',
             borderRadius: 10, padding: '18px 20px', textAlign: 'center',
-            color: 'var(--dim)', fontSize: 12,
+            color: 'oklch(0.88 0.01 250 / .85)', fontSize: 12,
+            boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+            textShadow: '0 1px 2px rgba(0,0,0,0.6)',
           }}>
             Aún no hay backups automáticos. Se crearán al cerrar la app.
           </div>
@@ -686,16 +721,18 @@ export default function Respaldos() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {backupsAuto.map((b, i) => (
               <div key={i} style={{
-                background: 'var(--glass)', border: '1px solid var(--line)',
+                background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+                border: '1px solid transparent',
                 borderRadius: 9, padding: '10px 14px',
                 display: 'flex', alignItems: 'center', gap: 10,
+                boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .07), 0 0 10px 1px oklch(1 0 0 / .04), 0 14px 34px oklch(0 0 0 / .35)',
               }}>
                 <Zap size={14} color="oklch(0.74 0.16 155)" style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                     {b.nombre}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 1 }}>
+                  <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 1, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                     {b.fecha ? fmtFecha(b.fecha) : '—'} · {fmtBytes(b.tamaño)}
                   </div>
                 </div>
@@ -703,21 +740,20 @@ export default function Respaldos() {
                   <div style={{
                     fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
                     background: 'oklch(0.74 0.16 155 / .12)', color: 'oklch(0.74 0.16 155)',
-                    border: '1px solid oklch(0.74 0.16 155 / .25)', flexShrink: 0,
+                    border: '1px solid oklch(0.74 0.16 155 / .25)', flexShrink: 0, textShadow: '0 1px 2px rgba(0,0,0,0.6)',
                   }}>
                     Más reciente
                   </div>
                 )}
                 <button
                   onClick={() => { setArchivoRestaurar(b); setModalRestaurar(true) }}
+                  className="clientes-glass-btn"
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    padding: '5px 11px', borderRadius: 7, fontSize: 11, fontWeight: 600,
-                    background: 'oklch(0.82 0.14 75 / .12)', border: '1px solid oklch(0.82 0.14 75 / .3)',
-                    color: 'oklch(0.90 0.10 75)', cursor: 'pointer', flexShrink: 0,
+                    padding: '5px 12px', borderRadius: 999, fontSize: 11, fontWeight: 600, flexShrink: 0,
                   }}
                 >
-                  <Upload size={11} /> Restaurar
+                  <div className="clientes-glass-bg" />
+                  <span className="clientes-glass-content" style={{ color: 'oklch(0.90 0.10 75)' }}><Upload size={11} /> Restaurar</span>
                 </button>
               </div>
             ))}
@@ -727,10 +763,11 @@ export default function Respaldos() {
 
       {/* Datos de Prueba */}
       <div style={{
-        background: 'var(--glass)',
-        border: '1px solid oklch(0.74 0.16 155 / .25)',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
         borderTop: '3px solid oklch(0.74 0.16 155)',
         borderRadius: 14, padding: '20px 24px',
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
           <div style={{
@@ -741,8 +778,8 @@ export default function Respaldos() {
             <FlaskConical size={18} color="oklch(0.74 0.16 155)" />
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Datos de Prueba</div>
-            <div style={{ fontSize: 12, color: 'var(--dim)' }}>Genera datos de ejemplo para probar el sistema antes de entregarlo al cliente</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Datos de Prueba</div>
+            <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>Genera datos de ejemplo para probar el sistema antes de entregarlo al cliente</div>
           </div>
         </div>
 
@@ -793,32 +830,34 @@ export default function Respaldos() {
             <button
               onClick={handleGenerarPrueba}
               disabled={hayDatosPrueba}
+              className="clientes-glass-btn"
               style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 600,
-                background: !hayDatosPrueba ? 'oklch(0.74 0.16 155 / .15)' : 'oklch(0.74 0.16 155 / .05)',
+                borderRadius: 999, fontSize: 13, fontWeight: 600,
                 border: `1px solid oklch(0.74 0.16 155 / ${!hayDatosPrueba ? '.45' : '.15'})`,
-                color: !hayDatosPrueba ? 'oklch(0.85 0.12 155)' : 'var(--dim)',
                 cursor: !hayDatosPrueba ? 'pointer' : 'not-allowed',
               }}
             >
-              <FlaskConical size={14} /> Generar Datos de Prueba
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content" style={{ color: !hayDatosPrueba ? 'oklch(0.85 0.12 155)' : 'var(--dim)' }}>
+                <FlaskConical size={14} /> Generar Datos de Prueba
+              </span>
             </button>
           )}
 
           <button
             onClick={() => setModalEliminarP(true)}
             disabled={eliminandoP || !hayDatosPrueba}
+            className="clientes-glass-btn"
             style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '9px 16px', borderRadius: 9, fontSize: 13, fontWeight: 600,
-              background: (hayDatosPrueba && !eliminandoP) ? 'oklch(0.65 0.22 25 / .12)' : 'oklch(0.65 0.22 25 / .04)',
+              borderRadius: 999, fontSize: 13, fontWeight: 600,
               border: `1px solid oklch(0.65 0.22 25 / ${(hayDatosPrueba && !eliminandoP) ? '.4' : '.15'})`,
-              color: (hayDatosPrueba && !eliminandoP) ? 'oklch(0.85 0.12 25)' : 'var(--dim)',
               cursor: (hayDatosPrueba && !eliminandoP) ? 'pointer' : 'not-allowed',
             }}
           >
-            {eliminandoP ? <><RefreshCw size={14} className="spin" /> Eliminando...</> : <><Trash2 size={14} /> Eliminar Datos de Prueba</>}
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content" style={{ color: (hayDatosPrueba && !eliminandoP) ? 'oklch(0.85 0.12 25)' : 'var(--dim)' }}>
+              {eliminandoP ? <><RefreshCw size={14} className="spin" /> Eliminando...</> : <><Trash2 size={14} /> Eliminar Datos de Prueba</>}
+            </span>
           </button>
         </div>
       </div>

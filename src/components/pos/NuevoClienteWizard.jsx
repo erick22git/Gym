@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, Check, ChevronRight, ChevronLeft, ChevronDown, CreditCard, DollarSign,
          CheckCircle, Banknote, QrCode, ArrowLeftRight, Wallet, Maximize2, Receipt, FileText, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -9,6 +9,57 @@ import { useAuth } from '../../context/AuthContext'
 import { useApp } from '../../context/AppContext'
 import { PAGES } from '../../constants'
 import VistaRecibo from '../../modules/recibos/VistaRecibo'
+import { waterContainer, waterCard, waterContainerReduced, waterCardReduced } from '../../animations/waterVariants'
+import './NuevoClienteWizard.css'
+
+// Propiedades de layout que van al wrapper interno (.glass-content) en
+// vez de al <button> exterior — ver NcGlassButton.
+const GLASS_CONTENT_LAYOUT_KEYS = ['display', 'alignItems', 'justifyContent', 'flexDirection', 'flexWrap', 'gap']
+function splitGlassStyle(style = {}) {
+  const content = {}, outer = {}
+  for (const k in style) {
+    if (GLASS_CONTENT_LAYOUT_KEYS.includes(k)) content[k] = style[k]
+    else outer[k] = style[k]
+  }
+  return { content, outer }
+}
+
+// ─── Botón de vidrio reutilizable — misma ESTRUCTURA DOM que "INICIAR
+// SESIÓN" del login (button.glass-root.glass--regular > div.glass-material
+// con sus 3 glass-layer [fill/specular/rainbow] > div.glass-content con
+// el texto), copiada tal cual del motor GlassMaterial (glass-engine/
+// core/glass.js) — pero SIN instanciar el motor JS (useGlassButton): las
+// variables --light-intensity/--rainbow-opacity/--rainbow-offset/
+// --border-intensity/--press que normalmente anima glass.js en cada
+// frame (siguiendo cursor/velocidad — la causa del parpadeo/brillo que
+// se mueve) quedan CONGELADAS como valores fijos en CSS
+// (.nc-glass-btn.glass-root en NuevoClienteWizard.css). El material
+// (blur, tinte, refracción vía los mismos filtros SVG
+// #glass-refraction-button/#glass-specular-button, specular, drop-shadow,
+// inset box-shadow) sigue funcionando 100% vía CSS, sin reaccionar al
+// cursor. className recibe TODAS las clases que ya traía cada botón
+// (btn-primary/btn-secondary/nc-glass-btn/nc-glass-btn--sm/
+// nc-glass-btn--active) — este wrapper solo agrega glass-root/
+// glass--regular y arma el HTML interno. ──
+function NcGlassButton({ children, className = '', style, ...props }) {
+  const { content: contentStyle, outer: outerStyle } = splitGlassStyle(style)
+  return (
+    <button
+      className={`glass-root glass--regular${className ? ' ' + className : ''}`}
+      style={outerStyle}
+      {...props}
+    >
+      <div className="glass-material" aria-hidden="true">
+        <div className="glass-layer glass-layer--fill" />
+        <div className="glass-layer glass-layer--specular" />
+        <div className="glass-layer glass-layer--rainbow" />
+      </div>
+      <div className="glass-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', ...contentStyle }}>
+        {children}
+      </div>
+    </button>
+  )
+}
 
 // ── Indicador de pasos ────────────────────────────────────────────────────────
 function StepIndicator({ paso, esGrupal }) {
@@ -29,7 +80,7 @@ function StepIndicator({ paso, esGrupal }) {
                 background: done ? 'var(--green)' : active ? 'var(--red)' : 'oklch(1 0 0 / .06)',
                 color: done || active ? '#fff' : 'var(--dim)',
                 border: active ? '2px solid oklch(0.66 0.22 25 / .6)' : '2px solid transparent',
-                boxShadow: active ? '0 0 16px oklch(0.66 0.22 25 / .4)' : 'none',
+                boxShadow: active ? '0 0 16px oklch(1 0 0 / .4)' : 'none',
                 transition: 'all .3s',
               }}>
                 {done ? <Check size={16} /> : n}
@@ -76,17 +127,25 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
 
   function set(k, v) { onChange({ ...datos, [k]: v }) }
 
+  // [CAMBIADO — dígitos faltantes ya NO bloquea] "Mínimo 6 dígitos"
+  // vivía en `errs` (bloqueaba onNext) — pasa a advertencia amarilla NO
+  // bloqueante (ciFaltanDigitos/telFaltanDigitos, ver inp() más abajo),
+  // mismo criterio ya aplicado en Clientes (Clients.jsx). Requerido/CI
+  // duplicado siguen bloqueando — eso no cambió, solo el conteo de
+  // dígitos.
   async function handleNext() {
     const errs = {}
     if (!datos.nombre?.trim()) errs.nombre = 'Requerido'
     if (!datos.apellido?.trim()) errs.apellido = 'Requerido'
     if (!datos.carnet?.trim()) errs.carnet = 'Requerido'
-    else if (datos.carnet.length < 6) errs.carnet = 'Mínimo 6 dígitos'
     if (!datos.telefono?.trim()) errs.telefono = 'Requerido'
     if (ciExiste) errs.carnet = 'Ya existe un cliente con este CI'
     setErrores(errs)
     if (Object.keys(errs).length === 0) onNext()
   }
+
+  const ciFaltanDigitos = datos.carnet?.trim().length > 0 && datos.carnet.trim().length < 6
+  const telFaltanDigitos = datos.telefono?.trim().length > 0 && datos.telefono.trim().length < 8
 
   const inp = (label, key, opts = {}) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -94,7 +153,7 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
         {label}{opts.required && <span style={{ color: 'var(--red)', marginLeft: 2 }}>*</span>}
       </label>
       <input
-        className="gym-input"
+        className="gym-input nc-input"
         type={opts.type || 'text'}
         value={datos[key] || ''}
         onChange={e => {
@@ -104,8 +163,64 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
         placeholder={opts.placeholder}
         style={{ borderColor: errores[key] ? 'oklch(0.66 0.22 25 / .6)' : undefined }}
       />
-      {errores[key] && <span style={{ fontSize: 11, color: 'oklch(0.75 0.18 25)' }}>{errores[key]}</span>}
-      {key === 'carnet' && ciExiste && <span style={{ fontSize: 11, color: 'oklch(0.75 0.18 25)' }}>Ya existe un cliente con este CI</span>}
+      {/* [NUEVO — Fase 2 animaciones, punto 6] Mensajes de error/
+          advertencia animados — antes aparecían/desaparecían de golpe. */}
+      <AnimatePresence>
+        {errores[key] && (
+          <motion.span
+            key="error"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            style={{ fontSize: 11, color: 'oklch(0.75 0.18 25)' }}
+          >
+            {errores[key]}
+          </motion.span>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {key === 'carnet' && ciExiste && (
+          <motion.span
+            key="ci-existe"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            style={{ fontSize: 11, color: 'oklch(0.75 0.18 25)' }}
+          >
+            Ya existe un cliente con este CI
+          </motion.span>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {key === 'carnet' && !ciExiste && ciFaltanDigitos && (
+          <motion.span
+            key="ci-faltan-digitos"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            style={{ color: '#eab308', fontSize: '12px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            ⚠ Ojo, te faltan dígitos
+          </motion.span>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {key === 'telefono' && telFaltanDigitos && (
+          <motion.span
+            key="tel-faltan-digitos"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            style={{ color: '#eab308', fontSize: '12px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            ⚠ Ojo, te faltan dígitos
+          </motion.span>
+        )}
+      </AnimatePresence>
     </div>
   )
 
@@ -134,7 +249,7 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
           <div style={{ flex: 1 }}>{inp('CI / Carnet', 'carnet', { required: true, placeholder: '8234567' })}</div>
           <div style={{ flexShrink: 0, width: 84 }}>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.05em', display: 'block', marginBottom: 5 }}>Ext. *</label>
-            <Select value={datos.extension_ci || 'CH'} onChange={v => set('extension_ci', v)} options={EXT_OPTIONS} />
+            <Select value={datos.extension_ci || 'CH'} onChange={v => set('extension_ci', v)} options={EXT_OPTIONS} triggerClassName="nc-select-trigger" dropdownClassName="nc-select-dropdown" />
           </div>
         </div>
 
@@ -182,7 +297,7 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
                 {inp('Email', 'email', { placeholder: 'correo@ejemplo.com' })}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.05em' }}>Género</label>
-                  <Select value={datos.genero || ''} onChange={v => set('genero', v)} options={GENERO_OPTIONS} />
+                  <Select value={datos.genero || ''} onChange={v => set('genero', v)} options={GENERO_OPTIONS} triggerClassName="nc-select-trigger" dropdownClassName="nc-select-dropdown" />
                 </div>
                 <div style={{ gridColumn: '1/-1' }}>{inp('Dirección', 'direccion')}</div>
               </div>
@@ -197,7 +312,7 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', letterSpacing: '.05em' }}>Tipo de sangre</label>
-                  <Select value={datos.tipo_sangre || ''} onChange={v => set('tipo_sangre', v)} options={SANGRE_OPTIONS} />
+                  <Select value={datos.tipo_sangre || ''} onChange={v => set('tipo_sangre', v)} options={SANGRE_OPTIONS} triggerClassName="nc-select-trigger" dropdownClassName="nc-select-dropdown" />
                 </div>
                 <div />
                 <div style={{ gridColumn: '1/-1' }}>{inp('Alergias', 'alergias', { placeholder: 'Penicilina, mariscos...' })}</div>
@@ -209,10 +324,10 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
       </AnimatePresence>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
-        <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
-        <button className="btn-primary" onClick={handleNext} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <NcGlassButton className="btn-secondary nc-glass-btn" onClick={onCancel}>Cancelar</NcGlassButton>
+        <NcGlassButton className="btn-primary nc-glass-btn" onClick={handleNext} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           Siguiente: Plan <ChevronRight size={16} />
-        </button>
+        </NcGlassButton>
       </div>
     </div>
   )
@@ -220,6 +335,11 @@ function PasoDatos({ datos, onChange, onNext, onCancel }) {
 
 // ── Paso 2: Selección de Plan ─────────────────────────────────────────────────
 function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onPlanCambio, onBack, onCancel }) {
+  // [NUEVO — Fase 2 (revisada) de animaciones] mismo criterio que
+  // ControlAcceso.jsx — ver waterVariants.js.
+  const reduceMotion = useReducedMotion()
+  const cardVariant = reduceMotion ? waterCardReduced : waterCard
+  const containerVariant = reduceMotion ? waterContainerReduced : waterContainer
   const [planes, setPlanes] = useState([])
   const [descuentos, setDescuentos] = useState([])
   const [descuentoId, setDescuentoId] = useState(null)
@@ -301,8 +421,17 @@ function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onPlanCambio, o
 
   return (
     <div>
-      {/* Cards de planes */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+      {/* Cards de planes — [CAMBIADO, Fase 2 (revisada)] entrada con
+          waterContainer/waterCard (spring), reemplaza la aparición
+          instantánea. whileHover/whileTap ya existían y no se tocan —
+          conviven sin problema con `variants` (disparadores
+          independientes de Framer Motion). */}
+      <motion.div
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}
+        variants={containerVariant}
+        initial="hidden"
+        animate="visible"
+      >
         {planes.map((plan, i) => {
           const activo = seleccion.plan_id === plan.id
           const caracteristicas = (() => {
@@ -314,6 +443,7 @@ function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onPlanCambio, o
               key={plan.id}
               type="button"
               onClick={() => seleccionarPlan(plan)}
+              variants={cardVariant}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               style={{
@@ -362,12 +492,11 @@ function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onPlanCambio, o
             </motion.button>
           )
         })}
-      </div>
+      </motion.div>
 
       {/* Resumen y descuento */}
       {planSel && (
-        <div style={{
-          background: 'var(--glass)', border: '1px solid var(--line)',
+        <div className="nc-panel" style={{
           borderRadius: 12, padding: 16, marginBottom: 16,
         }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 12, fontFamily: 'var(--display)', letterSpacing: '.04em' }}>
@@ -385,21 +514,30 @@ function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onPlanCambio, o
           {/* Descuento */}
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6, display: 'block' }}>Aplicar descuento</label>
-            <select
-              className="gym-select"
-              value={descuentoId ?? ''}
-              onChange={e => { setDescuentoId(e.target.value || null); setDescuentoPersonalizado('') }}
-              style={{ marginBottom: descuentoId === 'personalizado' ? 8 : 0 }}
-            >
-              <option value="">Sin descuento</option>
-              {descuentos.map(d => (
-                <option key={d.id} value={d.id}>{d.nombre} ({d.tipo === 'porcentaje' ? `${d.valor}%` : `Bs. ${d.valor}`})</option>
-              ))}
-              <option value="personalizado">Personalizado (%)</option>
-            </select>
+            {/* [CAMBIADO — de <select> nativo a Select custom] Un <select>
+                nativo abre su lista de <option> con chrome del sistema
+                operativo — no se le puede aplicar backdrop-filter (ni
+                ningún CSS) a esa lista, es una limitación real del
+                elemento, no algo que faltara pisar acá. Se reemplaza por
+                el mismo componente Select (../ui/Select) que ya usan
+                Ext./Género/Tipo de sangre, así el desplegable de
+                descuento SÍ puede llevar #dropdown-glass como el resto. */}
+            <div style={{ marginBottom: descuentoId === 'personalizado' ? 8 : 0 }}>
+              <Select
+                value={descuentoId ?? ''}
+                onChange={v => { setDescuentoId(v || null); setDescuentoPersonalizado('') }}
+                options={[
+                  { value: '', label: 'Sin descuento' },
+                  ...descuentos.map(d => ({ value: String(d.id), label: `${d.nombre} (${d.tipo === 'porcentaje' ? `${d.valor}%` : `Bs. ${d.valor}`})` })),
+                  { value: 'personalizado', label: 'Personalizado (%)' },
+                ]}
+                triggerClassName="nc-select-trigger"
+                dropdownClassName="nc-select-dropdown"
+              />
+            </div>
             {descuentoId === 'personalizado' && (
               <input
-                className="gym-input"
+                className="gym-input nc-input"
                 type="number" min="0" max="50" placeholder="Porcentaje de descuento"
                 value={descuentoPersonalizado}
                 onChange={e => setDescuentoPersonalizado(e.target.value)}
@@ -439,14 +577,14 @@ function PasoPlan({ seleccion, onChange, onNext, onNextMiembros, onPlanCambio, o
       })()}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-        <button className="btn-secondary" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <NcGlassButton className="btn-secondary nc-glass-btn" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ChevronLeft size={16} /> Atrás
-        </button>
+        </NcGlassButton>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
-          <button className="btn-primary" onClick={handleNext} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <NcGlassButton className="btn-secondary nc-glass-btn" onClick={onCancel}>Cancelar</NcGlassButton>
+          <NcGlassButton className="btn-primary nc-glass-btn" onClick={handleNext} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             {(planSel?.capacidad || 1) > 1 ? `Agregar miembros (${(planSel.capacidad || 2) - 1})` : 'Siguiente: Pago'} <ChevronRight size={16} />
-          </button>
+          </NcGlassButton>
         </div>
       </div>
     </div>
@@ -487,7 +625,7 @@ function PasoMiembros({ seleccion, miembros, onChangeMiembros, onNext, onBack, o
 
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 5, letterSpacing: '.06em', textTransform: 'uppercase' }}>Miembro 1 — Titular (quien paga)</div>
-        <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--ink)' }}>
+        <div className="nc-panel" style={{ borderRadius: 8, padding: '8px 12px', fontSize: 13, color: 'var(--ink)' }}>
           El cliente actual ya queda como titular
         </div>
       </div>
@@ -501,7 +639,7 @@ function PasoMiembros({ seleccion, miembros, onChangeMiembros, onNext, onBack, o
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 8 }}>
               <div style={{ position: 'relative' }}>
                 <input
-                  className="gym-input"
+                  className="gym-input nc-input"
                   placeholder="Carnet / CI"
                   value={m.carnet}
                   onChange={e => buscarMiembro(idx, e.target.value)}
@@ -521,7 +659,7 @@ function PasoMiembros({ seleccion, miembros, onChangeMiembros, onNext, onBack, o
                 )}
               </div>
               <input
-                className="gym-input"
+                className="gym-input nc-input"
                 placeholder="Nombre completo"
                 value={m.nombre}
                 onChange={e => { const n = [...miembros]; n[idx] = { ...n[idx], nombre: e.target.value, cliente_id: null }; onChangeMiembros(n) }}
@@ -534,14 +672,14 @@ function PasoMiembros({ seleccion, miembros, onChangeMiembros, onNext, onBack, o
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
-        <button className="btn-secondary" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <NcGlassButton className="btn-secondary nc-glass-btn" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ChevronLeft size={16} /> Atrás
-        </button>
+        </NcGlassButton>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
-          <button className="btn-primary" onClick={onNext} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <NcGlassButton className="btn-secondary nc-glass-btn" onClick={onCancel}>Cancelar</NcGlassButton>
+          <NcGlassButton className="btn-primary nc-glass-btn" onClick={onNext} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             Siguiente: Pago <ChevronRight size={16} />
-          </button>
+          </NcGlassButton>
         </div>
       </div>
     </div>
@@ -557,13 +695,24 @@ const TODOS_METODOS = [
   { id: 'mixto',         label: 'Mixto',           Icon: Wallet,          color: 'oklch(0.70 0.18 25)'  },
 ]
 
-function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
+function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando, onOverlayHijoChange }) {
   const [metodo, setMetodo] = useState('efectivo')
   const [recibido, setRecibido] = useState('')
   const [qrConfirmado, setQrConfirmado] = useState(false)
   const [qrAmpliado, setQrAmpliado] = useState(false)
   const [posConfig, setPosConfig] = useState({})
   const [metodosDisp, setMetodosDisp] = useState(TODOS_METODOS)
+
+  // [NUEVO — mismo fix que ModalVentaRapida en ControlAcceso.jsx] El QR
+  // ampliado es OTRO overlay propio (.96 blur20) que se monta por
+  // encima del overlay base del wizard (.7 blur6, ver el motion.div
+  // raíz de NuevoClienteWizard) — sin avisarle, ese overlay base sigue
+  // ahí detrás y los dos se suman (oscurecimiento doblado). Como el
+  // estado qrAmpliado vive ACÁ (PasoPago), no en el componente raíz del
+  // wizard que pinta ese overlay, se avisa hacia arriba con este
+  // callback para que el padre pueda apagar su propio fondo mientras
+  // este hijo esté abierto.
+  useEffect(() => { onOverlayHijoChange?.(qrAmpliado) }, [qrAmpliado, onOverlayHijoChange])
 
   useEffect(() => {
     window.api.pos.getConfig().then(cfg => {
@@ -581,9 +730,16 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
 
   useEffect(() => {
     if (!qrAmpliado) return
-    function onKey(e) { if (e.key === 'Escape') setQrAmpliado(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Fase de captura + stopPropagation: intercepta el ESC ANTES de que
+    // llegue al listener (fase burbuja) del wizard completo
+    // (NuevoClienteWizard cierra con ESC incondicionalmente) — con el
+    // QR ampliado abierto, ESC debe cerrar solo el QR, nunca el wizard
+    // entero por debajo. Depender del orden de registro no alcanza acá
+    // (el listener del wizard se registra primero, al montar); la fase
+    // de captura sí garantiza el orden sin importar cuándo se registró.
+    function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); setQrAmpliado(false) } }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [qrAmpliado])
 
   const vuelto = metodo === 'efectivo' && recibido ? Math.max(0, parseFloat(recibido) - total) : 0
@@ -618,21 +774,17 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
                 <button
                   key={id}
                   type="button"
+                  className={`nc-method-btn${sel ? ' nc-method-btn--active' : ''}`}
                   onClick={() => { setMetodo(id); setRecibido(''); setQrConfirmado(false) }}
                   style={{
                     padding: '14px 8px', borderRadius: 12, cursor: 'pointer',
-                    background: sel ? 'var(--glass-2)' : 'var(--glass)',
-                    border: `1.5px solid ${sel ? 'var(--red)' : 'var(--line)'}`,
-                    boxShadow: sel ? '0 0 16px oklch(0.66 0.22 25 / .25)' : 'none',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                    transition: 'all .2s', position: 'relative', overflow: 'hidden',
                   }}
                 >
-                  {sel && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'var(--red)' }} />}
-                  <div style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10, background: `${color}18` }}>
-                    <Icon size={22} color={color} strokeWidth={1.8} />
+                  <div style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 10 }}>
+                    <Icon size={22} strokeWidth={1.8} />
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: sel ? 'var(--ink)' : 'var(--dim)' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
                     {label}
                   </span>
                 </button>
@@ -642,14 +794,14 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
 
           {/* Contenido según método */}
           {metodo === 'efectivo' && (
-            <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: 14 }}>
+            <div className="nc-panel" style={{ borderRadius: 10, padding: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontSize: 12, color: 'var(--dim)' }}>Total a cobrar</span>
                 <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--red)' }}>Bs. {total.toFixed(2)}</span>
               </div>
               <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Monto recibido</label>
               <input
-                className="gym-input"
+                className="gym-input nc-input"
                 type="number" min="0" step="0.5"
                 value={recibido}
                 onChange={e => setRecibido(e.target.value)}
@@ -659,15 +811,13 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
               />
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                 {denoms.map(d => (
-                  <button key={d} type="button" onClick={() => setRecibido(String(d))} style={{
+                  <NcGlassButton key={d} type="button" className="nc-glass-btn nc-glass-btn--sm" onClick={() => setRecibido(String(d))} style={{
                     padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                    background: 'var(--glass-2)', border: '1px solid var(--line)', cursor: 'pointer', color: 'var(--muted)',
-                  }}>{d}</button>
+                  }}>{d}</NcGlassButton>
                 ))}
-                <button type="button" onClick={() => setRecibido(total.toFixed(2))} style={{
+                <NcGlassButton type="button" className={`nc-glass-btn nc-glass-btn--sm${recibido === total.toFixed(2) ? ' nc-glass-btn--active' : ''}`} onClick={() => setRecibido(total.toFixed(2))} style={{
                   padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                  background: 'oklch(0.78 0.16 155 / .12)', border: '1px solid oklch(0.78 0.16 155 / .3)', cursor: 'pointer', color: 'var(--green)',
-                }}>Exacto</button>
+                }}>Exacto</NcGlassButton>
               </div>
               {recibido && parseFloat(recibido) >= total && (
                 <div style={{ background: 'oklch(0.78 0.16 155 / .1)', border: '1px solid oklch(0.78 0.16 155 / .3)', borderRadius: 8, padding: '8px 12px', display: 'flex', justifyContent: 'space-between' }}>
@@ -684,7 +834,7 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
           )}
 
           {metodo === 'qr' && (
-            <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
+            <div className="nc-panel" style={{ borderRadius: 10, padding: 14, textAlign: 'center' }}>
               <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--red)', marginBottom: 10 }}>
                 Bs. {total.toFixed(2)}
               </div>
@@ -721,7 +871,7 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
           )}
 
           {(metodo === 'tarjeta' || metodo === 'transferencia') && (
-            <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: 14 }}>
+            <div className="nc-panel" style={{ borderRadius: 10, padding: 14 }}>
               <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--red)', marginBottom: 12 }}>
                 Bs. {total.toFixed(2)}
               </div>
@@ -732,7 +882,7 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
           )}
 
           {metodo === 'mixto' && (
-            <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: 14 }}>
+            <div className="nc-panel" style={{ borderRadius: 10, padding: 14 }}>
               <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--display)', color: 'var(--red)', marginBottom: 10 }}>
                 Bs. {total.toFixed(2)}
               </div>
@@ -740,11 +890,11 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 }}>Efectivo</label>
-                  <input className="gym-input" type="number" min="0" max={total} placeholder="0.00" value={recibido} onChange={e => setRecibido(e.target.value)} />
+                  <input className="gym-input nc-input" type="number" min="0" max={total} placeholder="0.00" value={recibido} onChange={e => setRecibido(e.target.value)} />
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--dim)', display: 'block', marginBottom: 4 }}>QR / Transferencia</label>
-                  <input className="gym-input" readOnly value={`Bs. ${Math.max(0, total - (parseFloat(recibido) || 0)).toFixed(2)}`} style={{ color: 'var(--dim)' }} />
+                  <input className="gym-input nc-input" readOnly value={`Bs. ${Math.max(0, total - (parseFloat(recibido) || 0)).toFixed(2)}`} style={{ color: 'var(--dim)' }} />
                 </div>
               </div>
             </div>
@@ -754,7 +904,7 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
         {/* Col der: detalle */}
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.08em', marginBottom: 12 }}>DETALLE DE LA VENTA</div>
-          <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: 14 }}>
+          <div className="nc-panel" style={{ borderRadius: 10, padding: 14 }}>
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{seleccion.plan_nombre}</div>
               <div style={{ fontSize: 11, color: 'var(--dim)' }}>{seleccion.plan_duracion} días</div>
@@ -809,7 +959,7 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
 
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 800, letterSpacing: '.12em', color: 'var(--ink)', marginBottom: 6 }}>
-              URBAN FITNESS CLUB
+              GIMNASIO
             </div>
             <div style={{ fontSize: 18, color: 'var(--muted)' }}>
               Pago por <span style={{ color: 'var(--red)', fontWeight: 700 }}>Bs. {total.toFixed(2)}</span>
@@ -835,19 +985,21 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn-secondary" onClick={() => setQrAmpliado(false)}>Cerrar</button>
+            <NcGlassButton className="btn-secondary nc-glass-btn" onClick={() => setQrAmpliado(false)}>Cerrar</NcGlassButton>
             <motion.button
+              className="glass-root glass--regular nc-glass-btn"
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               onClick={() => { setQrConfirmado(true); setQrAmpliado(false) }}
-              style={{
-                background: 'var(--red)', border: 'none', borderRadius: 10,
-                padding: '12px 28px', color: '#fff', fontWeight: 800,
-                fontFamily: 'var(--display)', letterSpacing: '.06em', fontSize: 14,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-                boxShadow: '0 0 24px oklch(0.66 0.22 25 / .5)',
-              }}
+              style={{ borderRadius: 10, padding: '12px 28px' }}
             >
-              <Check size={18} /> Pago Recibido
+              <div className="glass-material" aria-hidden="true">
+                <div className="glass-layer glass-layer--fill" />
+                <div className="glass-layer glass-layer--specular" />
+                <div className="glass-layer glass-layer--rainbow" />
+              </div>
+              <div className="glass-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 800, fontFamily: 'var(--display)', letterSpacing: '.06em', fontSize: 14 }}>
+                <Check size={18} /> Pago Recibido
+              </div>
             </motion.button>
           </div>
         </motion.div>,
@@ -855,27 +1007,32 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20 }}>
-        <button className="btn-secondary" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <NcGlassButton className="btn-secondary nc-glass-btn" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ChevronLeft size={16} /> Atrás
-        </button>
+        </NcGlassButton>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn-secondary" onClick={onCancel}>Cancelar</button>
+          <NcGlassButton className="btn-secondary nc-glass-btn" onClick={onCancel}>Cancelar</NcGlassButton>
           <motion.button
+            className="glass-root glass--regular nc-glass-btn"
             onClick={handlePagar}
             disabled={!puedeConfirmar() || procesando}
             whileHover={puedeConfirmar() && !procesando ? { scale: 1.02 } : {}}
             whileTap={puedeConfirmar() && !procesando ? { scale: 0.98 } : {}}
             style={{
-              background: puedeConfirmar() && !procesando ? 'var(--red)' : 'oklch(0.4 0.05 25)',
-              border: 'none', borderRadius: 10, padding: '14px 28px',
-              color: '#fff', fontWeight: 800, fontFamily: 'var(--display)', letterSpacing: '.06em',
-              fontSize: 14, cursor: puedeConfirmar() && !procesando ? 'pointer' : 'not-allowed',
-              display: 'flex', alignItems: 'center', gap: 8,
-              boxShadow: puedeConfirmar() ? '0 0 20px oklch(0.66 0.22 25 / .4)' : 'none',
+              borderRadius: 10, padding: '14px 28px',
+              cursor: puedeConfirmar() && !procesando ? 'pointer' : 'not-allowed',
+              opacity: puedeConfirmar() && !procesando ? 1 : 0.5,
             }}
           >
-            <DollarSign size={18} />
-            {procesando ? 'PROCESANDO...' : 'PROCESAR PAGO'}
+            <div className="glass-material" aria-hidden="true">
+              <div className="glass-layer glass-layer--fill" />
+              <div className="glass-layer glass-layer--specular" />
+              <div className="glass-layer glass-layer--rainbow" />
+            </div>
+            <div className="glass-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 800, fontFamily: 'var(--display)', letterSpacing: '.06em', fontSize: 14 }}>
+              <DollarSign size={18} />
+              {procesando ? 'PROCESANDO...' : 'PROCESAR PAGO'}
+            </div>
           </motion.button>
         </div>
       </div>
@@ -884,7 +1041,7 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando }) {
 }
 
 // ── Pantalla de éxito ──────────────────────────────────────────────────────────
-function ConfirmacionExito({ resultado, onFinalizar }) {
+function ConfirmacionExito({ resultado, onFinalizar, onOverlayHijoChange }) {
   const { esModuloActivo } = useAuth()
   const { navigate } = useApp()
   const [reciboPrevia, setReciboPrevia] = useState(null)
@@ -892,6 +1049,27 @@ function ConfirmacionExito({ resultado, onFinalizar }) {
   const recibosActivo = esModuloActivo('recibos')
   const facturacionActiva = esModuloActivo('facturacion')
   const hayComprobantes = recibosActivo || facturacionActiva
+
+  // [NUEVO — mismo fix que qrAmpliado en PasoPago] VistaRecibo (.8
+  // blur8, componente compartido en modules/recibos/) se monta encima
+  // del overlay base del wizard sin apagarlo — se avisa hacia arriba
+  // igual que ahí.
+  useEffect(() => { onOverlayHijoChange?.(!!reciboPrevia) }, [reciboPrevia, onOverlayHijoChange])
+
+  // Persistir recibo en BD al completar el pago (para que aparezca en el perfil del cliente)
+  useEffect(() => {
+    if (!recibosActivo || !resultado.venta_id) return
+    window.api.recibos.guardar({
+      numero: resultado.venta_id,
+      venta_id: resultado.venta_id,
+      cliente_nombre: resultado.cliente_nombre || '',
+      cliente_doc: resultado.cliente_doc || '',
+      items: [{ nombre: resultado.plan_nombre, cantidad: 1, total: resultado.total || 0 }],
+      total: resultado.total || 0,
+      metodo_pago: resultado.metodo_pago || 'efectivo',
+      cajero: resultado.cajero || '',
+    }).catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Solo auto-cierra si no hay módulos de comprobante activos
   useEffect(() => {
@@ -966,32 +1144,28 @@ function ConfirmacionExito({ resultado, onFinalizar }) {
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
               {recibosActivo && (
-                <button onClick={verRecibo} style={{
+                <NcGlassButton className="nc-glass-btn" onClick={verRecibo} style={{
                   display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px',
                   borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: 'oklch(0.82 0.14 75 / .15)', border: '1px solid oklch(0.82 0.14 75 / .4)',
-                  color: 'oklch(0.88 0.10 75)', cursor: 'pointer',
                 }}>
                   <Receipt size={15} /> Recibo
-                </button>
+                </NcGlassButton>
               )}
               {facturacionActiva && (
-                <button onClick={verFactura} style={{
+                <NcGlassButton className="nc-glass-btn" onClick={verFactura} style={{
                   display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px',
                   borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  background: 'oklch(0.74 0.13 250 / .15)', border: '1px solid oklch(0.74 0.13 250 / .4)',
-                  color: 'oklch(0.80 0.12 250)', cursor: 'pointer',
                 }}>
                   <FileText size={15} /> Factura
-                </button>
+                </NcGlassButton>
               )}
             </div>
           </div>
         )}
 
-        <button className="btn-primary" onClick={onFinalizar} style={{ margin: '0 auto' }}>
+        <NcGlassButton className="btn-primary nc-glass-btn" onClick={onFinalizar} style={{ margin: '0 auto' }}>
           Finalizar
-        </button>
+        </NcGlassButton>
         {!hayComprobantes && (
           <p style={{ fontSize: 11, color: 'var(--dim)', marginTop: 12 }}>Se cierra automáticamente en 10 segundos</p>
         )}
@@ -1016,6 +1190,18 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
   const [pendingPagoInfo, setPendingPagoInfo] = useState(null)
   const [miembros, setMiembros] = useState([])
   const [enMiembros, setEnMiembros] = useState(false)
+  // [NUEVO — fondo oscuro apilado] cajaCerradaPrompt ya vive acá, pero
+  // qrAmpliado (PasoPago) y reciboPrevia (ConfirmacionExito) viven en
+  // componentes hijos — este wizard no puede ver esos estados
+  // directamente, así que cada hijo avisa hacia arriba vía
+  // onOverlayHijoChange (ver PasoPago/ConfirmacionExito más arriba) y
+  // acá se combinan en un solo flag para apagar el overlay propio del
+  // wizard (ver motion.div raíz, más abajo) mientras cualquiera de los
+  // 3 esté abierto — mismo criterio que hayModalHijoEncima en
+  // ModalVentaRapida (ControlAcceso.jsx).
+  const [qrAmpliadoActivo, setQrAmpliadoActivo] = useState(false)
+  const [reciboPreviaActivo, setReciboPreviaActivo] = useState(false)
+  const hayOverlayHijo = cajaCerradaPrompt || qrAmpliadoActivo || reciboPreviaActivo
 
   useEffect(() => {
     if (mode === 'renovar' && clienteId) {
@@ -1030,6 +1216,20 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
       })
     }
   }, [mode, clienteId])
+
+  // Cerrar con ESC — incondicional, nunca valida el formulario (misma
+  // regla que el botón X y el click fuera del modal). Si el sub-modal
+  // de "Abrir Caja" está abierto, ESC lo cierra a él primero (no cierra
+  // el wizard completo por debajo sin que el usuario lo vea).
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== 'Escape') return
+      if (cajaCerradaPrompt) { setCajaCerradaPrompt(false); return }
+      onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose, cajaCerradaPrompt])
 
   async function abrirCajaYContinuar() {
     setAbriendoCaja(true)
@@ -1153,15 +1353,26 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 100,
-        background: 'oklch(0 0 0 / .75)',
-        backdropFilter: 'blur(8px)',
+        // Mismo nivel que el overlay de Venta Rápida (ControlAcceso.jsx,
+        // ModalVentaRapida) — antes era .75/blur(8px), notablemente más
+        // oscuro que el .7/blur(6px) de Venta Rápida.
+        // [CORREGIDO — fondo oscuro apilado] Se apaga (transparent/none)
+        // mientras haya un overlay hijo montado encima (caja cerrada,
+        // QR ampliado o vista previa de recibo, ver hayOverlayHijo más
+        // arriba) — cada uno de esos trae su PROPIO fondo oscuro; sin
+        // esto se sumaban los dos, mismo diagnóstico que ya se hizo con
+        // Datos del comprobante en ModalVentaRapida.
+        background: hayOverlayHijo ? 'transparent' : 'oklch(0 0 0 / .7)',
+        backdropFilter: hayOverlayHijo ? 'none' : 'blur(6px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 20,
       }}
     >
       <motion.div
+        className="nc-glass-card"
         initial={{ scale: 0.95, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.95, y: 20 }}
@@ -1169,10 +1380,7 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
         style={{
           width: '100%', maxWidth: 760,
           maxHeight: 'calc(100vh - 80px)',
-          background: 'oklch(0.11 0.01 250)',
-          border: '1px solid var(--line-s)',
           borderRadius: 20,
-          boxShadow: '0 24px 80px oklch(0 0 0 / .7)',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}
@@ -1194,7 +1402,7 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
         {/* Body scrollable */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 24px 8px' }}>
           {exito ? (
-            <ConfirmacionExito resultado={exito} onFinalizar={handleFinalizar} />
+            <ConfirmacionExito resultado={exito} onFinalizar={handleFinalizar} onOverlayHijoChange={setReciboPreviaActivo} />
           ) : (
             <>
               <StepIndicator paso={pasoIndicador} esGrupal={esGrupal} />
@@ -1248,6 +1456,7 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
                       onBack={() => setPaso(2)}
                       onCancel={onClose}
                       procesando={procesando}
+                      onOverlayHijoChange={setQrAmpliadoActivo}
                     />
                   )}
                 </motion.div>
@@ -1291,22 +1500,23 @@ export default function NuevoClienteWizard({ mode, clienteId, onClose, onExito, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Monto inicial (Bs.)</label>
-                  <input className="gym-input" type="number" min="0" step="0.01" value={montoInicialCaja} onChange={e => setMontoInicialCaja(e.target.value)} />
+                  <input className="gym-input nc-input" type="number" min="0" step="0.01" value={montoInicialCaja} onChange={e => setMontoInicialCaja(e.target.value)} />
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Observaciones (opcional)</label>
-                  <input className="gym-input" value={notasCaja} onChange={e => setNotasCaja(e.target.value)} placeholder="Inicio de turno..." />
+                  <input className="gym-input nc-input" value={notasCaja} onChange={e => setNotasCaja(e.target.value)} placeholder="Inicio de turno..." />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setCajaCerradaPrompt(false)} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-                <button
+                <NcGlassButton onClick={() => setCajaCerradaPrompt(false)} className="btn-secondary nc-glass-btn" style={{ flex: 1 }}>Cancelar</NcGlassButton>
+                <NcGlassButton
                   onClick={abrirCajaYContinuar}
                   disabled={abriendoCaja}
-                  style={{ flex: 2, padding: '9px', borderRadius: 9, fontSize: 13, fontWeight: 700, background: 'oklch(0.78 0.16 155 / .2)', border: '1px solid oklch(0.78 0.16 155 / .5)', color: 'oklch(0.78 0.16 155)', cursor: abriendoCaja ? 'not-allowed' : 'pointer', opacity: abriendoCaja ? 0.7 : 1 }}
+                  className="nc-glass-btn"
+                  style={{ flex: 2, padding: '9px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: abriendoCaja ? 'not-allowed' : 'pointer', opacity: abriendoCaja ? 0.7 : 1 }}
                 >
                   {abriendoCaja ? 'Abriendo...' : 'Abrir y Continuar Pago'}
-                </button>
+                </NcGlassButton>
               </div>
             </motion.div>
           </motion.div>

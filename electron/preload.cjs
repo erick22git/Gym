@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('api', {
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
+  enterAppMode: () => ipcRenderer.send('window:enter-app-mode'),
+  enterLoginMode: () => ipcRenderer.send('window:enter-login-mode'),
 
   // Clientes
   clientes: {
@@ -158,6 +160,7 @@ contextBridge.exposeInMainWorld('api', {
     getById: (id) => ipcRenderer.invoke('ventas:getById', id),
     getKPIs: (filtros) => ipcRenderer.invoke('ventas:getKPIs', filtros),
     anular: (id) => ipcRenderer.invoke('ventas:anular', id),
+    setCliente: (id, nombre, carnet) => ipcRenderer.invoke('ventas:setCliente', id, nombre, carnet),
     getBySesion: (sesionId) => ipcRenderer.invoke('ventas:getBySesion', sesionId),
   },
 
@@ -332,5 +335,17 @@ contextBridge.exposeInMainWorld('api', {
     delete:    (id) => ipcRenderer.invoke('promociones:delete', id),
     setActivo:    (id, activo) => ipcRenderer.invoke('promociones:setActivo', id, activo),
     getProductos: (id) => ipcRenderer.invoke('promociones:getProductos', id),
+  },
+
+  // ─── Casilleros ──────────────────────────────────────────────────────────
+  casilleros: {
+    getStats:      () => ipcRenderer.invoke('casilleros:getStats'),
+    getPaginated:  (filtros) => ipcRenderer.invoke('casilleros:getPaginated', filtros),
+    crearRango:    (desde, hasta) => ipcRenderer.invoke('casilleros:crearRango', desde, hasta),
+    marcarPerdida: (id) => ipcRenderer.invoke('casilleros:marcarPerdida', id),
+    getDisponibles:      () => ipcRenderer.invoke('casilleros:getDisponibles'),
+    getAsignadasActivas: () => ipcRenderer.invoke('casilleros:getAsignadasActivas'),
+    asignar:  (casilleroId, clienteId, usuarioId) => ipcRenderer.invoke('casilleros:asignar', casilleroId, clienteId, usuarioId),
+    devolver: (casilleroId) => ipcRenderer.invoke('casilleros:devolver', casilleroId),
   },
 })

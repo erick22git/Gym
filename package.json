@@ -1,11 +1,12 @@
 {
-  "name": "urban-fitness-club",
+  "name": "gimnasio",
   "version": "1.0.0",
-  "description": "Sistema de gestión Urban Fitness Club con Facturación Electrónica SFE Bolivia",
+  "description": "Sistema de gestión Gimnasio con Facturación Electrónica SFE Bolivia",
   "type": "module",
   "main": "electron/main-loader.cjs",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev:clean": "powershell -ExecutionPolicy Bypass -File dev.ps1",
     "prebuild": "node scripts/run-bytecode-compile.cjs",
     "build": "vite build && electron-builder",
     "build:vite": "vite build",
@@ -36,6 +37,7 @@
     "concurrently": "^8.2.2",
     "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
+    "esbuild": "^0.28.2",
     "png-to-ico": "^3.0.1",
     "postcss": "^8.4.35",
     "react": "^18.2.0",
@@ -46,8 +48,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.urbanfitness.club",
-    "productName": "Urban Fitness Club",
+    "appId": "com.gimnasio.app",
+    "productName": "Gimnasio",
     "directories": {
       "output": "dist-electron"
     },
@@ -60,7 +62,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Urban Fitness Club",
+      "shortcutName": "Gimnasio",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
     },

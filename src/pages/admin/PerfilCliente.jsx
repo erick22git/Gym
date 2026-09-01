@@ -11,6 +11,12 @@ import { useAuth } from '../../context/AuthContext'
 import { PAGES } from '../../constants'
 import AttendanceHeatmap from '../../components/cliente/AttendanceHeatmap'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
+// Reusa las clases de vidrio/movimiento de Clientes (.clientes-glass-btn/
+// -bg/-content — mismo look "Nuevo Cliente" pedido acá para Editar/
+// Cancelar/Guardar/Agregar nota) — no están scopeadas a .clientes-page,
+// son selectores de clase sueltos, así que funcionan igual importadas
+// desde esta página.
+import '../Clients.css'
 
 const TABS = [
   { id: 'info', label: 'Información', icon: User },
@@ -26,15 +32,34 @@ const GENEROS = { M: 'Masculino', F: 'Femenino', O: 'Otro' }
 const SANGRES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const METODOS = { efectivo: 'Efectivo', transferencia: 'Transferencia', qr: 'QR', tarjeta: 'Tarjeta' }
 
+// [REDISEÑADO — pedido explícito: "los cuadros son negros, quítale ese
+// color oscuro, transparente, con distorsión suave y opacidad, y que
+// el contenido tenga sombra"] Antes background sólido casi opaco
+// (oklch(0.13 .../.7)) + blur() plano. Ahora transparente + el mismo
+// filtro de distorsión suave que ya usa Clientes (#clientes-table-glass,
+// public/filters-menu-glass.svg, reusado por referencia) + el halo de
+// 5 capas ("opacidad") que usamos en Dashboard/Caja/Clientes +
+// text-shadow, que se hereda a TODO el contenido de la card sin
+// tocarlo campo por campo.
 function Card({ children, style }) {
   return (
     <div style={{
-      background: 'oklch(0.13 0.01 250 / .7)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-      border: '1px solid oklch(1 0 0 / .08)',
+      background: 'transparent',
+      backdropFilter: 'url(#clientes-table-glass)',
+      WebkitBackdropFilter: 'url(#clientes-table-glass)',
+      border: '1px solid transparent',
       borderRadius: 14,
       padding: '16px 18px',
+      // [CORREGIDO — segunda vuelta: "dales brillos sombras sutiles pero
+      // que se vean"] La vuelta anterior sacó el brillo por completo
+      // (0 brillo, pedido explícito en ese momento) — ahora piden que sí
+      // se note un poco, sutil pero visible: un filo de luz fino arriba
+      // (inset 0 1px 0) + la sombra oscura de antes + un glow externo
+      // muy leve — 3 capas chicas, no las 5 fuertes de la primera
+      // versión (esas sí tenían 3 insets blancos grandes, "demasiado
+      // brillo").
+      boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .10), 0 8px 30px oklch(0 0 0 / .3), 0 0 16px oklch(1 0 0 / .04)',
+      textShadow: '0 1px 2px rgba(0, 0, 0, 0.6)',
       ...style,
     }}>
       {children}
@@ -60,9 +85,9 @@ function Field({ label, value, icon: Icon }) {
   if (!value) return null
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)', letterSpacing: '.07em', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: 10, color: 'oklch(0.88 0.01 250 / .8)', letterSpacing: '.07em', textTransform: 'uppercase' }}>{label}</div>
       <div style={{ fontSize: 13, color: 'oklch(0.90 0.01 250)', display: 'flex', alignItems: 'center', gap: 5 }}>
-        {Icon && <Icon size={12} color="oklch(0.78 0.02 250 / .4)" />}
+        {Icon && <Icon size={12} color="oklch(0.88 0.01 250 / .8)" />}
         {value}
       </div>
     </div>
@@ -131,16 +156,54 @@ function TabInfo({ perfil, onUpdated }) {
           <div><label className="gym-label">Email</label>{inp('email', 'email')}</div>
           <div><label className="gym-label">Teléfono</label>{inp('telefono', 'tel')}</div>
           <div><label className="gym-label">Fecha nacimiento</label>{inp('fecha_nacimiento', 'date')}</div>
+          {/* [CORREGIDO — pedido explícito: "los desplegables deben tener
+              el fondo del desplegable de usuarios del menú, distorsionado
+              y la letra notoria con sombra"] Mismo backdrop-filter/borde/
+              boxShadow que .user-dropdown-panel (index.css) — #dropdown-
+              glass en vez del blur() plano de .gym-input. Ojo: la lista
+              de <option> desplegada es render nativo del sistema
+              operativo, CSS no puede tocar esa parte — el vidrio se nota
+              en la caja cerrada del <select>, no en el desplegable
+              abierto en sí (limitación real del navegador, no algo que
+              se pueda ajustar). */}
           <div>
             <label className="gym-label">Género</label>
-            <select className="gym-input" value={form.genero} onChange={e => setForm(f => ({ ...f, genero: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
+            <select
+              className="gym-input"
+              value={form.genero}
+              onChange={e => setForm(f => ({ ...f, genero: e.target.value }))}
+              style={{
+                width: '100%', fontSize: 13,
+                background: 'transparent',
+                backdropFilter: 'url(#dropdown-glass)',
+                WebkitBackdropFilter: 'url(#dropdown-glass)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 10px 24px oklch(0 0 0 / .5), inset 0 1px 0 oklch(1 0 0 / .1)',
+                color: 'oklch(0.97 0.01 250)',
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.6)',
+              }}
+            >
               <option value="">—</option>
               {Object.entries(GENEROS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
             <label className="gym-label">Tipo de sangre</label>
-            <select className="gym-input" value={form.tipo_sangre} onChange={e => setForm(f => ({ ...f, tipo_sangre: e.target.value }))} style={{ width: '100%', fontSize: 13 }}>
+            <select
+              className="gym-input"
+              value={form.tipo_sangre}
+              onChange={e => setForm(f => ({ ...f, tipo_sangre: e.target.value }))}
+              style={{
+                width: '100%', fontSize: 13,
+                background: 'transparent',
+                backdropFilter: 'url(#dropdown-glass)',
+                WebkitBackdropFilter: 'url(#dropdown-glass)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 10px 24px oklch(0 0 0 / .5), inset 0 1px 0 oklch(1 0 0 / .1)',
+                color: 'oklch(0.97 0.01 250)',
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.6)',
+              }}
+            >
               <option value="">—</option>
               {SANGRES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -154,9 +217,18 @@ function TabInfo({ perfil, onUpdated }) {
             <textarea className="gym-input" rows={2} value={form.condicion_medica || ''} onChange={e => setForm(f => ({ ...f, condicion_medica: e.target.value }))} style={{ width: '100%', fontSize: 13, resize: 'vertical' }} />
           </div>
         </div>
+        {/* [CORREGIDO — pedido explícito: "los botones deben verse como
+            en Nuevo Cliente y moverse así, la letra sin opacidad"]
+            Mismas clases de Clients.css que Editar arriba. */}
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn-secondary" onClick={() => setEdit(false)} style={{ flex: 1 }}>Cancelar</button>
-          <button className="btn-primary" onClick={guardar} style={{ flex: 2 }}>Guardar cambios</button>
+          <button className="clientes-glass-btn btn-secondary" onClick={() => setEdit(false)} style={{ flex: 1 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Cancelar</span>
+          </button>
+          <button className="clientes-glass-btn btn-primary" onClick={guardar} style={{ flex: 2 }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">Guardar cambios</span>
+          </button>
         </div>
       </div>
     )
@@ -165,14 +237,22 @@ function TabInfo({ perfil, onUpdated }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn-secondary" onClick={() => setEdit(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-          <Edit2 size={13} /> Editar
+        {/* [CORREGIDO — pedido explícito: "debe moverse como en Nuevo
+            Cliente"] Antes solo tenía el fondo distorsionado, sin el
+            movimiento. Pasado a las clases reales de Clients.css
+            (.clientes-glass-btn/-bg/-content, importadas arriba) — mismo
+            vidrio + jiggle al hover + texto sólido sin opacidad que
+            "Nuevo cliente" en Clientes, en vez de reconstruirlo a mano
+            con estilos sueltos que no incluían la animación. */}
+        <button className="clientes-glass-btn btn-secondary" onClick={() => setEdit(true)} style={{ fontSize: 12 }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><Edit2 size={13} /> Editar</span>
         </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <Card>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.78 0.02 250 / .4)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>Datos personales</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.88 0.01 250 / .8)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>Datos personales</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Field label="Email" value={perfil.email} icon={Mail} />
             <Field label="Teléfono" value={perfil.telefono} icon={Phone} />
@@ -183,7 +263,7 @@ function TabInfo({ perfil, onUpdated }) {
         </Card>
 
         <Card>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.78 0.02 250 / .4)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>Información médica</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.88 0.01 250 / .8)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>Información médica</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Field label="Tipo de sangre" value={perfil.tipo_sangre} icon={Droplets} />
             <Field label="Alergias" value={perfil.alergias} icon={AlertCircle} />
@@ -214,7 +294,7 @@ function TabMembresias({ membresias = [], clienteId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {membresias.length === 0 && (
-        <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .35)', paddingTop: 40, fontSize: 13 }}>Sin membresías</div>
+        <div style={{ textAlign: 'center', color: 'oklch(0.85 0.01 250 / .55)', paddingTop: 40, fontSize: 13 }}>Sin membresías</div>
       )}
       {membresias.map(m => {
         const inicio = new Date(m.fecha_inicio)
@@ -230,7 +310,7 @@ function TabMembresias({ membresias = [], clienteId }) {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'oklch(0.95 0.01 250)' }}>{m.plan_nombre}</div>
-                <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .45)', marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .8)', marginTop: 2 }}>
                   {m.fecha_inicio} → {m.fecha_fin}
                 </div>
               </div>
@@ -242,8 +322,8 @@ function TabMembresias({ membresias = [], clienteId }) {
             {activa && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .4)' }}>Progreso</span>
-                  <span style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .6)' }}>{Math.round(restante)} días restantes</span>
+                  <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .8)' }}>Progreso</span>
+                  <span style={{ fontSize: 11, color: 'oklch(0.90 0.01 250 / .85)' }}>{Math.round(restante)} días restantes</span>
                 </div>
                 <div style={{ height: 5, borderRadius: 3, background: 'oklch(1 0 0 / .08)', overflow: 'hidden' }}>
                   <motion.div
@@ -260,7 +340,7 @@ function TabMembresias({ membresias = [], clienteId }) {
             )}
 
             <div style={{ display: 'flex', gap: 16, marginTop: 10 }}>
-              {m.monto_pagado && <div style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .5)' }}>Bs. {m.monto_pagado}</div>}
+              {m.monto_pagado && <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .8)' }}>Bs. {m.monto_pagado}</div>}
             </div>
 
             {/* Miembros del grupo */}
@@ -271,7 +351,7 @@ function TabMembresias({ membresias = [], clienteId }) {
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {miembrosMap[m.id].map(mm => (
-                    <div key={mm.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, padding: '3px 8px', background: mm.es_titular ? 'oklch(0.74 0.13 250 / .15)' : 'oklch(1 0 0 / .06)', border: `1px solid ${mm.es_titular ? 'oklch(0.74 0.13 250 / .3)' : 'oklch(1 0 0 / .1)'}`, borderRadius: 6, color: mm.es_titular ? 'oklch(0.74 0.13 250)' : 'oklch(0.78 0.02 250 / .6)', cursor: mm.cliente_id !== clienteId ? 'pointer' : 'default' }}
+                    <div key={mm.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, padding: '3px 8px', background: mm.es_titular ? 'oklch(0.74 0.13 250 / .15)' : 'oklch(1 0 0 / .06)', border: `1px solid ${mm.es_titular ? 'oklch(0.74 0.13 250 / .3)' : 'oklch(1 0 0 / .1)'}`, borderRadius: 6, color: mm.es_titular ? 'oklch(0.74 0.13 250)' : 'oklch(0.90 0.01 250 / .85)', cursor: mm.cliente_id !== clienteId ? 'pointer' : 'default' }}
                       onClick={() => { if (mm.cliente_id !== clienteId) navigate(PAGES.PERFIL_CLIENTE, { clienteId: mm.cliente_id }) }}>
                       {mm.nombre} {mm.apellido}{mm.es_titular ? ' (titular)' : ''}
                     </div>
@@ -303,13 +383,22 @@ function TabAsistencia({ clienteId, stats }) {
     })
   }, [clienteId])
 
-  if (cargando) return <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .3)', paddingTop: 40 }}>Cargando...</div>
+  if (cargando) return <div style={{ textAlign: 'center', color: 'oklch(0.85 0.01 250 / .55)', paddingTop: 40 }}>Cargando...</div>
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    // [SCROLL — pedido explícito: "no debe tener barra de scroll en toda
+    // la pantalla, solo en últimas visitas"] flex column que llena la
+    // altura disponible (el padre, el motion.div en PerfilCliente,
+    // también pasa a flex:1/minHeight:0 solo cuando esta pestaña está
+    // activa) — Stats+Heatmap quedan a su alto natural (flexShrink:0
+    // implícito, no tienen flex propio) y la Card de "Últimas visitas"
+    // es la única con flex:1/minHeight:0, así que es la única que
+    // absorbe el sobrante — y adentro, su propia lista con
+    // overflowY:auto es la única barra de scroll de toda la pestaña.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0 }}>
       {/* Stats row */}
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, flexShrink: 0 }}>
           {[
             { label: 'Total visitas', value: stats.total || 0 },
             { label: 'Este mes', value: stats.mes || 0 },
@@ -318,32 +407,33 @@ function TabAsistencia({ clienteId, stats }) {
           ].map(s => (
             <Card key={s.label}>
               <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', color: 'oklch(0.95 0.01 250)' }}>{s.value}</div>
-              <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)', marginTop: 3, textTransform: 'uppercase', letterSpacing: '.07em' }}>{s.label}</div>
+              <div style={{ fontSize: 10, color: 'oklch(0.88 0.01 250 / .8)', marginTop: 3, textTransform: 'uppercase', letterSpacing: '.07em' }}>{s.label}</div>
             </Card>
           ))}
         </div>
       )}
 
       {/* Heatmap */}
-      <Card>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.78 0.02 250 / .4)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>Últimos 90 días</div>
+      <Card style={{ flexShrink: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.88 0.01 250 / .8)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>Últimos 90 días</div>
         <div style={{ overflowX: 'auto' }}>
           <AttendanceHeatmap data={heatmap} dias={90} />
         </div>
       </Card>
 
-      {/* Historial reciente */}
-      <Card>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.78 0.02 250 / .4)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>Últimas visitas</div>
+      {/* Historial reciente — única sección con flex:1/minHeight:0, así
+          que es la única que se estira y la única con scroll propio. */}
+      <Card style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'oklch(0.88 0.01 250 / .8)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12, flexShrink: 0 }}>Últimas visitas</div>
         {recientes.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .3)', fontSize: 12, paddingTop: 16 }}>Sin asistencias registradas</div>
+          <div style={{ textAlign: 'center', color: 'oklch(0.85 0.01 250 / .55)', fontSize: 12, paddingTop: 16 }}>Sin asistencias registradas</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
             {recientes.map((a, i) => (
-              <div key={a.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: 'oklch(1 0 0 / .025)' }}>
+              <div key={a.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, background: 'oklch(1 0 0 / .025)', flexShrink: 0 }}>
                 <CheckCircle size={13} color="oklch(0.78 0.16 155)" />
                 <span style={{ fontSize: 12, color: 'oklch(0.88 0.01 250)', flex: 1 }}>{a.fecha_hora?.slice(0, 10)}</span>
-                <span style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .4)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .8)', display: 'flex', alignItems: 'center', gap: 3 }}>
                   <Clock size={10} /> {a.fecha_hora?.slice(11, 16)}
                 </span>
               </div>
@@ -366,29 +456,34 @@ function TabPagos({ clienteId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {pagos.length === 0 && (
-        <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .35)', paddingTop: 40, fontSize: 13 }}>Sin pagos registrados</div>
+        <div style={{ textAlign: 'center', color: 'oklch(0.85 0.01 250 / .55)', paddingTop: 40, fontSize: 13 }}>Sin pagos registrados</div>
       )}
       {pagos.map(p => (
         <Card key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* [MEJORADO — pedido explícito, "el ícono en pagos mejóralo"]
+              Antes tinte plano + borde. Sumado un degradado diagonal +
+              glow suave del mismo color, mismo criterio que los avatares
+              rediseñados de Clientes. */}
           <div style={{
-            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-            background: 'oklch(0.75 0.18 60 / .12)',
-            border: '1px solid oklch(0.75 0.18 60 / .25)',
+            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+            background: 'linear-gradient(135deg, oklch(0.75 0.18 60 / .35), oklch(0.75 0.18 60 / .12))',
+            border: '1px solid oklch(0.75 0.18 60 / .4)',
+            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, .2), 0 0 10px oklch(0.75 0.18 60 / .25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <DollarSign size={16} color="oklch(0.75 0.18 60)" />
+            <DollarSign size={17} color="oklch(0.75 0.18 60)" />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'oklch(0.95 0.01 250)', fontFamily: 'Oxanium, sans-serif' }}>
               Bs. {Number(p.monto).toLocaleString('es-BO', { minimumFractionDigits: 2 })}
             </div>
-            <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .45)', marginTop: 2 }}>{p.concepto}</div>
+            <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .8)', marginTop: 2 }}>{p.concepto}</div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <Badge color={p.metodo_pago === 'efectivo' ? 'oklch(0.78 0.16 155)' : 'oklch(0.68 0.18 200)'}>
               {METODOS[p.metodo_pago] || p.metodo_pago || 'Efectivo'}
             </Badge>
-            <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .35)', marginTop: 5 }}>{p.fecha}</div>
+            <div style={{ fontSize: 10, color: 'oklch(0.85 0.01 250 / .55)', marginTop: 5 }}>{p.fecha}</div>
           </div>
         </Card>
       ))}
@@ -454,7 +549,7 @@ function TabRecibos({ clienteId }) {
   return (
     <div>
       {recibos.length === 0 && !cargando && (
-        <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .35)', paddingTop: 40, fontSize: 13 }}>Sin recibos registrados</div>
+        <div style={{ textAlign: 'center', color: 'oklch(0.85 0.01 250 / .55)', paddingTop: 40, fontSize: 13 }}>Sin recibos registrados</div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {recibos.map(r => {
@@ -462,12 +557,24 @@ function TabRecibos({ clienteId }) {
           try { items = r.items ? JSON.parse(r.items) : [] } catch {}
           return (
             <Card key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Receipt size={16} color="oklch(0.82 0.14 75)" style={{ flexShrink: 0 }} />
+              {/* [MEJORADO — pedido explícito, "el ícono en recibos
+                  igual"] Antes un ícono suelto sin fondo — mismo chip
+                  con degradado + glow que Pagos, para que las 2 listas
+                  se vean con el mismo lenguaje. */}
+              <div style={{
+                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                background: 'linear-gradient(135deg, oklch(0.82 0.14 75 / .35), oklch(0.82 0.14 75 / .12))',
+                border: '1px solid oklch(0.82 0.14 75 / .4)',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, .2), 0 0 10px oklch(0.82 0.14 75 / .25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Receipt size={17} color="oklch(0.82 0.14 75)" />
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.92 0.01 250)' }}>
                   Recibo #{r.numero || r.id}
                 </div>
-                <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .5)', marginTop: 1 }}>
+                <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .8)', marginTop: 1 }}>
                   {fmtFecha(r.created_at)} · {r.metodo_pago || 'Efectivo'}
                 </div>
                 {items.length > 0 && (
@@ -481,10 +588,17 @@ function TabRecibos({ clienteId }) {
                   Bs. {Number(r.total || 0).toFixed(2)}
                 </div>
               </div>
+              {/* [MEJORADO — pedido explícito, "que sea más interactivo,
+                  el ícono mejóralo"] Antes borde plano + var(--dim), sin
+                  ningún hover/movimiento. Mismas clases de vidrio +
+                  jiggle que el resto de botones rediseñados. */}
               {VistaRecibo && (
-                <button onClick={() => verRecibo(r)}
-                  style={{ background: 'none', border: '1px solid oklch(1 0 0 / .12)', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', color: 'var(--dim)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, flexShrink: 0 }}>
-                  <Receipt size={12} /> Ver
+                <button className="clientes-glass-btn" onClick={() => verRecibo(r)}
+                  style={{ borderRadius: 7, padding: '5px 10px', cursor: 'pointer', fontSize: 11, flexShrink: 0 }}>
+                  <div className="clientes-glass-bg" />
+                  <span className="clientes-glass-content" style={{ color: 'oklch(0.82 0.14 75)' }}>
+                    <Receipt size={12} /> Ver
+                  </span>
                 </button>
               )}
             </Card>
@@ -520,29 +634,30 @@ function TabRecibos({ clienteId }) {
 
 // ─── Tab: Facturas ────────────────────────────────────────────────────────────
 function TabFacturas({ clienteId }) {
+  const { esModuloActivo } = useAuth()
+  const facturacionActiva = esModuloActivo('facturacion')
   const [facturas, setFacturas] = useState([])
 
   useEffect(() => {
-    if (window.api.facturacion) {
-      window.api.facturacion.getFacturas({ clienteId }).then(setFacturas).catch(() => setFacturas([]))
-    }
-  }, [clienteId])
+    if (!facturacionActiva || !window.api.facturacion) return
+    window.api.facturacion.getFacturas({ clienteId }).then(setFacturas).catch(() => setFacturas([]))
+  }, [clienteId, facturacionActiva])
 
-  if (!window.api.facturacion) {
-    return <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .3)', paddingTop: 40, fontSize: 13 }}>Módulo de facturación no disponible</div>
+  if (!facturacionActiva) {
+    return <div style={{ textAlign: 'center', color: 'oklch(0.85 0.01 250 / .55)', paddingTop: 40, fontSize: 13 }}>Módulo de facturación no disponible</div>
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {facturas.length === 0 && (
-        <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .35)', paddingTop: 40, fontSize: 13 }}>Sin facturas emitidas</div>
+        <div style={{ textAlign: 'center', color: 'oklch(0.85 0.01 250 / .55)', paddingTop: 40, fontSize: 13 }}>Sin facturas emitidas</div>
       )}
       {facturas.map(f => (
         <Card key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <FileText size={18} color="oklch(0.72 0.17 280)" />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'oklch(0.92 0.01 250)' }}>#{f.numero_factura}</div>
-            <div style={{ fontSize: 11, color: 'oklch(0.78 0.02 250 / .45)' }}>{f.fecha}</div>
+            <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .8)' }}>{f.fecha}</div>
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', color: 'oklch(0.95 0.01 250)' }}>Bs. {Number(f.total).toFixed(2)}</div>
@@ -603,27 +718,35 @@ function TabNotas({ clienteId }) {
             placeholder="Agregar nota sobre este cliente..."
             style={{ flex: 1, resize: 'none', fontSize: 13 }}
           />
-          <button className="btn-primary" onClick={agregar} disabled={guardando || !texto.trim()} style={{ alignSelf: 'flex-end', padding: '9px 16px' }}>
-            <Plus size={14} />
+          {/* [CORREGIDO — pedido explícito: "se hace rojo, tiene que ser
+              blanco" + "el signo + está muy suave, tiene que ser como
+              Nuevo Cliente, fuerte, sin opacidad"] Mismas clases de
+              Clients.css — vidrio + jiggle + texto/ícono blanco sólido
+              (antes heredaba el color rojizo de .btn-primary). El ícono
+              en sí ya no lleva ningún alpha (Plus con color explícito
+              blanco, no el color por defecto). */}
+          <button className="clientes-glass-btn btn-primary" onClick={agregar} disabled={guardando || !texto.trim()} style={{ alignSelf: 'flex-end', padding: '9px 16px' }}>
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content"><Plus size={14} color="oklch(0.97 0.01 250)" strokeWidth={2.5} /></span>
           </button>
         </div>
       </Card>
 
       {notas.length === 0 ? (
-        <div style={{ textAlign: 'center', color: 'oklch(0.78 0.02 250 / .3)', paddingTop: 24, fontSize: 13 }}>Sin notas</div>
+        <div style={{ textAlign: 'center', color: 'oklch(0.85 0.01 250 / .55)', paddingTop: 24, fontSize: 13 }}>Sin notas</div>
       ) : (
         notas.map(n => (
           <Card key={n.id} style={{ position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, color: 'oklch(0.90 0.01 250)', lineHeight: 1.5 }}>{n.contenido || n.texto}</div>
-                <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)', marginTop: 8 }}>
+                <div style={{ fontSize: 10, color: 'oklch(0.88 0.01 250 / .8)', marginTop: 8 }}>
                   {n.usuario_nombre} · {(n.created_at || n.fecha_creacion)?.slice(0, 16)}
                 </div>
               </div>
               <button
                 onClick={() => eliminar(n.id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'oklch(0.78 0.02 250 / .3)', padding: 4, borderRadius: 5, flexShrink: 0 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'oklch(0.85 0.01 250 / .55)', padding: 4, borderRadius: 5, flexShrink: 0 }}
               >
                 <Trash2 size={13} />
               </button>
@@ -638,11 +761,13 @@ function TabNotas({ clienteId }) {
 // ─── Main PerfilCliente ───────────────────────────────────────────────────────
 export default function PerfilCliente() {
   const { pageParams, navigate } = useApp()
+  const { esModuloActivo } = useAuth()
   const clienteId = pageParams?.clienteId
   const [perfil, setPerfil] = useState(null)
   const [stats, setStats] = useState(null)
   const [tab, setTab] = useState('info')
   const [cargando, setCargando] = useState(true)
+  const tabsVisibles = TABS.filter(t => t.id !== 'facturas' || esModuloActivo('facturacion'))
 
   const cargar = useCallback(async () => {
     if (!clienteId) return
@@ -667,7 +792,7 @@ export default function PerfilCliente() {
 
   if (!clienteId) {
     return (
-      <div style={{ textAlign: 'center', paddingTop: 60, color: 'oklch(0.78 0.02 250 / .4)' }}>
+      <div style={{ textAlign: 'center', paddingTop: 60, color: 'oklch(0.88 0.01 250 / .8)' }}>
         <div style={{ fontSize: 36, marginBottom: 12 }}>👤</div>
         <div>Selecciona un cliente para ver su perfil</div>
         <button className="btn-secondary" onClick={() => navigate(PAGES.CLIENTS)} style={{ marginTop: 16, fontSize: 12 }}>Ver clientes</button>
@@ -676,29 +801,46 @@ export default function PerfilCliente() {
   }
 
   if (cargando) {
-    return <div style={{ textAlign: 'center', paddingTop: 80, color: 'oklch(0.78 0.02 250 / .35)', fontSize: 13 }}>Cargando perfil...</div>
+    return <div style={{ textAlign: 'center', paddingTop: 80, color: 'oklch(0.85 0.01 250 / .55)', fontSize: 13 }}>Cargando perfil...</div>
   }
 
   if (!perfil) {
-    return <div style={{ textAlign: 'center', paddingTop: 60, color: 'oklch(0.78 0.02 250 / .35)' }}>Cliente no encontrado</div>
+    return <div style={{ textAlign: 'center', paddingTop: 60, color: 'oklch(0.85 0.01 250 / .55)' }}>Cliente no encontrado</div>
   }
 
   const membresiaActiva = perfil.membresias?.find(m => m.estado === 'activa' && new Date(m.fecha_fin) >= new Date())
+  // [SCROLL — pedido explícito: "en asistencia no debe tener barra de
+  // scroll en toda la pantalla, solo en últimas visitas"] Solo en esa
+  // pestaña se activa el layout flex-fill (root + wrapper de tabs +
+  // TabAsistencia se estiran a la altura disponible, con "Últimas
+  // visitas" absorbiendo el sobrante vía su propio overflow-y:auto) y se
+  // desactiva el scroll de .page-content (clase perfil-asistencia-tab,
+  // ver Clients.css: .page-content:has(.perfil-asistencia-tab)). En el
+  // resto de pestañas el layout se queda como estaba (scroll de página
+  // normal), sin arriesgar que Membresías/Pagos/Recibos/Notas (listas
+  // que pueden crecer más) queden sin forma de alcanzar contenido.
+  const enAsistencia = tab === 'asistencia'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div
+      className={`clientes-page${enAsistencia ? ' perfil-asistencia-tab' : ''}`}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 16,
+        ...(enAsistencia ? { flex: 1, minHeight: 0, overflow: 'hidden' } : {}),
+      }}
+    >
       {/* Botón volver */}
       <button
         onClick={() => navigate(PAGES.CLIENTS)}
         style={{
           display: 'flex', alignItems: 'center', gap: 6,
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'oklch(0.78 0.02 250 / .5)', fontSize: 12,
+          color: 'oklch(0.88 0.01 250 / .8)', fontSize: 12,
           padding: 0, alignSelf: 'flex-start',
           transition: 'color .15s',
         }}
         onMouseEnter={e => e.currentTarget.style.color = 'oklch(0.90 0.01 250)'}
-        onMouseLeave={e => e.currentTarget.style.color = 'oklch(0.78 0.02 250 / .5)'}
+        onMouseLeave={e => e.currentTarget.style.color = 'oklch(0.88 0.01 250 / .8)'}
       >
         <ArrowLeft size={14} /> Volver a clientes
       </button>
@@ -729,9 +871,9 @@ export default function PerfilCliente() {
             }
           </div>
           <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .5)' }}>CI: {perfil.carnet}</span>
-            {perfil.email && <span style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .5)' }}>{perfil.email}</span>}
-            {perfil.telefono && <span style={{ fontSize: 12, color: 'oklch(0.78 0.02 250 / .5)' }}>{perfil.telefono}</span>}
+            <span style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .8)' }}>CI: {perfil.carnet}</span>
+            {perfil.email && <span style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .8)' }}>{perfil.email}</span>}
+            {perfil.telefono && <span style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .8)' }}>{perfil.telefono}</span>}
           </div>
           {membresiaActiva && (
             <div style={{ marginTop: 8, fontSize: 12, color: 'oklch(0.78 0.16 155)' }}>
@@ -749,7 +891,7 @@ export default function PerfilCliente() {
           ].map(s => (
             <div key={s.label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'Oxanium, sans-serif', color: 'oklch(0.95 0.01 250)' }}>{s.value}</div>
-              <div style={{ fontSize: 10, color: 'oklch(0.78 0.02 250 / .4)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{s.label}</div>
+              <div style={{ fontSize: 10, color: 'oklch(0.88 0.01 250 / .8)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -757,7 +899,7 @@ export default function PerfilCliente() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 2, background: 'oklch(0.11 0.01 250 / .5)', borderRadius: 12, padding: 4 }}>
-        {TABS.map(t => (
+        {tabsVisibles.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -766,7 +908,7 @@ export default function PerfilCliente() {
               padding: '7px 14px', borderRadius: 9, border: 'none', cursor: 'pointer',
               fontSize: 12, fontWeight: tab === t.id ? 600 : 400,
               background: tab === t.id ? 'oklch(0.17 0.01 250)' : 'transparent',
-              color: tab === t.id ? 'oklch(0.95 0.01 250)' : 'oklch(0.78 0.02 250 / .45)',
+              color: tab === t.id ? 'oklch(0.95 0.01 250)' : 'oklch(0.88 0.01 250 / .8)',
               transition: 'all .15s', flex: 1, justifyContent: 'center',
             }}
           >
@@ -784,6 +926,7 @@ export default function PerfilCliente() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.15 }}
+          style={enAsistencia ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : undefined}
         >
           {tab === 'info' && <TabInfo perfil={perfil} onUpdated={cargar} />}
           {tab === 'membresias' && <TabMembresias membresias={perfil.membresias || []} clienteId={clienteId} />}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Archive, Trash2, RotateCcw, Users, CreditCard, Package, RefreshCw, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import '../Clients.css'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -28,35 +29,32 @@ function FilaEliminado({ children, onRestaurar, onEliminar }) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 8 }}
       style={{
-        background: 'var(--glass)', border: '1px solid oklch(0.66 0.22 25 / .2)',
-        borderLeft: '3px solid oklch(0.66 0.22 25 / .5)',
+        position: 'relative',
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+        border: '1px solid transparent',
+        borderLeft: '3px solid oklch(0.66 0.22 25 / .6)',
         borderRadius: 10, padding: '12px 16px',
         display: 'flex', alignItems: 'center', gap: 12,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .07), 0 0 10px 1px oklch(1 0 0 / .04), 0 14px 34px oklch(0 0 0 / .35)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
-      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
         <button
           onClick={onRestaurar}
           title="Restaurar"
-          style={{
-            padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-            background: 'oklch(0.78 0.16 155 / .12)', border: '1px solid oklch(0.78 0.16 155 / .3)',
-            color: 'oklch(0.78 0.16 155)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 5, transition: 'all .2s',
-          }}
+          className="clientes-glass-btn"
+          style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, borderRadius: 999 }}
         >
-          <RotateCcw size={12} /> Restaurar
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content" style={{ color: 'oklch(0.78 0.16 155)' }}><RotateCcw size={12} /> Restaurar</span>
         </button>
         {!confirmando ? (
           <button
             onClick={() => setConfirmando(true)}
             title="Eliminar permanentemente"
-            style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: 'oklch(0.66 0.22 25 / .12)', border: '1px solid oklch(0.66 0.22 25 / .3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-            }}
+            className="clientes-action-icon"
           >
             <Trash2 size={13} color="oklch(0.75 0.18 25)" />
           </button>
@@ -65,16 +63,20 @@ function FilaEliminado({ children, onRestaurar, onEliminar }) {
             <span style={{ fontSize: 11, color: 'oklch(0.75 0.18 25)', whiteSpace: 'nowrap' }}>¿Confirmar?</span>
             <button
               onClick={() => { onEliminar(); setConfirmando(false) }}
-              style={{
-                padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700,
-                background: 'oklch(0.66 0.22 25)', border: 'none',
-                color: 'white', cursor: 'pointer',
-              }}
-            >Sí</button>
+              className="clientes-glass-btn"
+              style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, borderRadius: 999 }}
+            >
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content" style={{ color: 'oklch(0.75 0.18 25)' }}>Sí</span>
+            </button>
             <button
               onClick={() => setConfirmando(false)}
-              style={{ padding: '5px 10px', borderRadius: 7, fontSize: 11, background: 'var(--glass-2)', border: '1px solid var(--line)', color: 'var(--dim)', cursor: 'pointer' }}
-            >No</button>
+              className="clientes-glass-btn"
+              style={{ padding: '5px 12px', fontSize: 11, borderRadius: 999 }}
+            >
+              <div className="clientes-glass-bg" />
+              <span className="clientes-glass-content" style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>No</span>
+            </button>
           </div>
         )}
       </div>
@@ -123,7 +125,7 @@ function TabClientes({ onRefresh }) {
         {items.map(c => (
           <FilaEliminado key={c.id} onRestaurar={() => restaurar(c.id)} onEliminar={() => eliminar(c.id)}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{c.nombre} {c.apellido}</div>
-            <div style={{ fontSize: 12, color: 'var(--dim)' }}>
+            <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>
               CI: {c.carnet} · {c.telefono || 'Sin teléfono'} · {c.plan_nombre || 'Sin plan'}
             </div>
           </FilaEliminado>
@@ -177,7 +179,7 @@ function TabPlanes({ onRefresh }) {
               {p.color && <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.color, flexShrink: 0 }} />}
               <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</span>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--dim)' }}>
+            <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>
               {p.duracion_dias} días · {fmtMoney(p.precio)}
             </div>
           </FilaEliminado>
@@ -228,7 +230,7 @@ function TabProductos({ onRefresh }) {
         {items.map(p => (
           <FilaEliminado key={p.id} onRestaurar={() => restaurar(p.id)} onEliminar={() => eliminar(p.id)}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</div>
-            <div style={{ fontSize: 12, color: 'var(--dim)' }}>
+            <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>
               {p.categoria_nombre || 'Sin categoría'} · {fmtMoney(p.precio_venta)} · Stock: {p.stock}
               {p.eliminado_at && ` · Eliminado: ${fmtDate(p.eliminado_at)}`}
             </div>
@@ -256,7 +258,7 @@ export default function Papelera() {
   const onRefresh = useCallback(() => setRev(r => r + 1), [])
 
   return (
-    <div style={{ padding: '0 2px' }}>
+    <div className="clientes-page" style={{ padding: '0 2px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
@@ -265,8 +267,9 @@ export default function Papelera() {
             {resumen.total} elemento{resumen.total !== 1 ? 's' : ''} eliminado{resumen.total !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={onRefresh} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-          <RefreshCw size={13} /> Actualizar
+        <button onClick={onRefresh} className="clientes-glass-btn btn-secondary" style={{ fontSize: 12 }}>
+          <div className="clientes-glass-bg" />
+          <span className="clientes-glass-content"><RefreshCw size={13} /> Actualizar</span>
         </button>
       </div>
 
@@ -274,39 +277,48 @@ export default function Papelera() {
       {resumen.total > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           style={{
-            background: 'oklch(0.82 0.14 75 / .08)', border: '1px solid oklch(0.82 0.14 75 / .25)',
+            background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
+            border: '1px solid transparent', borderLeft: '3px solid oklch(0.82 0.14 75)',
             borderRadius: 10, padding: '10px 16px', marginBottom: 16,
             display: 'flex', alignItems: 'center', gap: 10,
+            boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .07), 0 0 10px 1px oklch(1 0 0 / .04), 0 14px 34px oklch(0 0 0 / .35)',
           }}
         >
           <AlertTriangle size={15} color="oklch(0.82 0.14 75)" />
-          <span style={{ fontSize: 12, color: 'oklch(0.90 0.10 75)' }}>
+          <span style={{ fontSize: 12, color: 'oklch(0.90 0.10 75)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
             Los elementos eliminados pueden restaurarse. La eliminación permanente no puede deshacerse.
           </span>
         </motion.div>
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'oklch(1 0 0 / .03)', border: '1px solid var(--line)', borderRadius: 10, padding: 4 }}>
+      <div style={{
+        display: 'flex', gap: 4, marginBottom: 20,
+        background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#top-clientes-glass)', WebkitBackdropFilter: 'url(#top-clientes-glass)',
+        border: '1px solid transparent', borderRadius: 10, padding: 4,
+        boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .1), 0 0 14px 2px oklch(1 0 0 / .07), 0 14px 34px oklch(0 0 0 / .35)',
+      }}>
         {TABS.map(t => {
           const Icon = t.icon
           const count = resumen[t.id] || 0
+          const active = tab === t.id
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               style={{
                 flex: 1, padding: '8px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                background: tab === t.id ? 'oklch(0.66 0.22 25 / .18)' : 'transparent',
-                border: tab === t.id ? '1px solid oklch(0.66 0.22 25 / .4)' : '1px solid transparent',
-                color: tab === t.id ? 'oklch(0.85 0.12 25)' : 'var(--dim)',
+                background: active ? 'oklch(1 0 0 / .1)' : 'transparent',
+                border: active ? '1px solid oklch(1 0 0 / .22)' : '1px solid transparent',
+                color: active ? 'oklch(0.97 0.01 250)' : 'var(--dim)',
+                textShadow: active ? '0 1px 2px oklch(0 0 0 / .6)' : 'none',
                 cursor: 'pointer', transition: 'all .2s',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               }}
             >
               <Icon size={13} /> {t.label}
               {count > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 700, background: tab === t.id ? 'oklch(0.66 0.22 25 / .3)' : 'oklch(0.66 0.22 25 / .15)', color: 'oklch(0.85 0.12 25)', padding: '1px 6px', borderRadius: 8, marginLeft: 2 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, background: active ? 'oklch(0.66 0.22 25 / .3)' : 'oklch(0.66 0.22 25 / .15)', color: 'oklch(0.85 0.12 25)', padding: '1px 6px', borderRadius: 8, marginLeft: 2 }}>
                   {count}
                 </span>
               )}

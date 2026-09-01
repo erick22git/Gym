@@ -32,6 +32,11 @@ export const PAGES = {
   DESCUENTOS: 'Descuentos',
   // Configuración hub
   CONFIGURACION: 'Configuracion',
+  // Casilleros
+  CASILLEROS: 'Casilleros',
+  // IA / Importar datos — asistente que lee documentos/fotos de
+  // inventario y los carga al sistema (HOY 100% mock, ver ImportarIA.jsx)
+  IA_IMPORTAR: 'IAImportar',
 }
 
 // ─── SISTEMA LEGACY: modal de contraseña admin ────────────────────────────────
