@@ -1,0 +1,17 @@
+# Dependencias DIRECTAS de scripts/ocr_service.py, con las versiones exactas con
+# las que se probó (Python 3.11.9). Revisado contra los imports reales del archivo:
+#   flask, paddleocr, docx, openpyxl, pdfplumber, fitz.
+# paddlepaddle no se importa a mano pero paddleocr lo necesita para correr.
+# (No hace falta flask-cors: el servicio agrega los encabezados CORS a mano.)
+# El resto (paddlex, numpy, opencv...) lo instala paddleocr como dependencia.
+#
+# Además hace falta Ollama con el modelo qwen2.5:3b (no es un paquete de pip).
+#   python -m venv venv-ocr
+#   venv-ocr\Scripts\pip install -r scripts\requirements.txt
+Flask==3.1.3
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+openpyxl==3.1.5
+python-docx==1.2.0
+pdfplumber==0.11.10
+pymupdf==1.28.2

@@ -16,3 +16,10 @@ public/frames/
 
 # Logs/snapshots de sesiones de testing con Playwright MCP — debug, no código.
 .playwright-mcp/
+
+# Servicio de OCR (Python): entorno virtual y caché — se recrean con
+# scripts/requirements.txt, no van al repo.
+venv-ocr/
+__pycache__/
+# Capturas y fotos de prueba (pesadas, con datos reales) — solo locales.
+scripts/test_images/

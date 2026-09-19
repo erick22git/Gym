@@ -719,6 +719,21 @@ async function initDB() {
     );
   `)
   db.run(`
+    CREATE TABLE IF NOT EXISTS ia_importaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha TEXT DEFAULT (datetime('now','localtime')),
+      fecha_resultado TEXT,
+      usuario_id INTEGER,
+      usuario_nombre TEXT,
+      archivos TEXT,
+      resultado_crudo TEXT,
+      ediciones TEXT,
+      resultado_final TEXT,
+      resultado TEXT DEFAULT 'procesando',
+      detalle TEXT
+    );
+  `)
+  db.run(`
     CREATE TABLE IF NOT EXISTS detalle_ventas_productos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       venta_id INTEGER REFERENCES ventas(id),
@@ -2438,6 +2453,148 @@ const inventario = {
     return { ok: true, venta_id: ventaId, total: subtotal }
   },
 
+  // ─── Importación por IA (todo o nada) ───────────────────────────────────
+  // `run()` guarda el archivo cifrado tras CADA sentencia, y `db.export()` de
+  // sql.js cierra y reabre la BD (lo que descartaría una transacción abierta),
+  // así que acá se usa `db.run` directo dentro de BEGIN…COMMIT y se guarda a
+  // disco UNA sola vez, después del COMMIT. Si cualquier ítem falla, ROLLBACK:
+  // no queda nada a medias.
+  //   items: [{ accion: 'crear'|'actualizar', producto_id?, nombre, cantidad }]
+  //   'crear'      → producto nuevo con esa cantidad de stock inicial.
+  //   'actualizar' → depende de `data.modo`:
+  //        'reemplazar' (por defecto): el stock pasa a ser `cantidad` (conteo
+  //                     físico), con movimiento 'ajuste' anterior→nuevo.
+  //        'sumar':     el stock pasa a ser anterior + `cantidad` (una compra),
+  //                     con movimiento 'entrada' de esa cantidad.
+  //   Si hay ítems 'actualizar', el modo debe venir explícito: el sistema no
+  //   adivina si el archivo es un conteo o una compra.
+  importarLote(data) {
+    const items = Array.isArray(data?.items) ? data.items : []
+    if (items.length === 0) return { ok: false, error: 'No hay productos para importar.' }
+    const modo = data.modo
+    if (items.some(i => i.accion === 'actualizar') && modo !== 'sumar' && modo !== 'reemplazar') {
+      return { ok: false, error: 'Falta elegir si las cantidades se suman al stock o lo reemplazan.' }
+    }
+    const motivo = 'Importación IA'
+    const uid = data.usuario_id || null
+    const unombre = data.usuario_nombre || null
+    const resultados = []
+    let enTransaccion = false
+    try {
+      // Validar TODO antes de tocar la base.
+      items.forEach((it, i) => {
+        const nombre = String(it?.nombre ?? '').trim()
+        if (!nombre) throw new Error(`El producto #${i + 1} no tiene nombre.`)
+        if (!Number.isInteger(it.cantidad) || it.cantidad < 0) {
+          throw new Error(`La cantidad de "${nombre}" no es un número entero válido (${it.cantidad}).`)
+        }
+        if (it.accion !== 'crear' && it.accion !== 'actualizar') throw new Error(`Acción desconocida para "${nombre}".`)
+      })
+
+      db.run('BEGIN')
+      enTransaccion = true
+      for (const it of items) {
+        const nombre = String(it.nombre).trim()
+        if (it.accion === 'crear') {
+          db.run(
+            `INSERT INTO productos (nombre, precio_compra, precio_venta, stock, stock_minimo, unidad) VALUES (?,?,?,?,?,?)`,
+            [nombre, 0, 0, it.cantidad, 5, 'unidad']
+          )
+          const lid = db.exec('SELECT last_insert_rowid()')[0].values[0][0]
+          if (it.cantidad > 0) {
+            db.run(
+              `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
+              [lid, 'entrada', it.cantidad, 0, it.cantidad, motivo + ' (producto nuevo)', uid, unombre]
+            )
+          }
+          resultados.push({ accion: 'crear', producto_id: lid, nombre, stock_anterior: 0, stock_nuevo: it.cantidad })
+        } else {
+          const prod = queryOne('SELECT id, nombre, stock, activo, eliminado FROM productos WHERE id=?', [it.producto_id])
+          if (!prod || prod.eliminado || !prod.activo) throw new Error(`El producto "${nombre}" ya no existe en el inventario.`)
+          const sumar = modo === 'sumar'
+          const stockNuevo = sumar ? prod.stock + it.cantidad : it.cantidad
+          db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, prod.id])
+          db.run(
+            `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
+            [prod.id, sumar ? 'entrada' : 'ajuste', it.cantidad, prod.stock, stockNuevo, motivo + (sumar ? ' (suma)' : ' (reemplazo)'), uid, unombre]
+          )
+          resultados.push({ accion: 'actualizar', modo, producto_id: prod.id, nombre: prod.nombre, stock_anterior: prod.stock, stock_nuevo: stockNuevo, cantidad_archivo: it.cantidad })
+        }
+      }
+      db.run('COMMIT')
+      enTransaccion = false
+    } catch (e) {
+      if (enTransaccion) { try { db.run('ROLLBACK') } catch (_) { /* ya no había transacción */ } }
+      return { ok: false, error: e.message }
+    }
+    try {
+      saveDB()
+    } catch (e) {
+      return { ok: false, error: `Los cambios se aplicaron pero no se pudieron guardar en disco: ${e.message}`, persistencia: false }
+    }
+    return { ok: true, resultados }
+  },
+
+  // Revierte un lote de importarLote, también todo o nada. Si algún producto
+  // cambió DESPUÉS de la importación (una venta, otro ajuste), no se toca
+  // nada y se explica cuál: pisar ese cambio sería perder datos en silencio.
+  //   items: los `resultados` que devolvió importarLote.
+  //   auditoria_id (opcional): la fila de ia_importaciones de ese lote. Si viene,
+  //   un lote ya restaurado se rechaza con ese motivo exacto (en vez del genérico
+  //   "el stock cambió"), y la fila se marca 'deshecho' en la MISMA transacción.
+  deshacerLote(data) {
+    const items = Array.isArray(data?.items) ? data.items : []
+    if (items.length === 0) return { ok: false, error: 'No hay nada que deshacer.' }
+    if (data.auditoria_id) {
+      const a = queryOne('SELECT resultado FROM ia_importaciones WHERE id=?', [data.auditoria_id])
+      if (a?.resultado === 'deshecho') return { ok: false, error: 'Este lote ya fue restaurado antes: no se puede deshacer dos veces.' }
+    }
+    const motivo = 'Deshacer importación IA'
+    const uid = data.usuario_id || null
+    const unombre = data.usuario_nombre || null
+    let enTransaccion = false
+    try {
+      db.run('BEGIN')
+      enTransaccion = true
+      // En orden inverso: si dos filas tocaron el mismo producto, se deshace la última primero.
+      for (const it of [...items].reverse()) {
+        const prod = queryOne('SELECT id, nombre, stock, activo, eliminado FROM productos WHERE id=?', [it.producto_id])
+        if (!prod || prod.eliminado) throw new Error(`"${it.nombre}" ya no existe; no se puede deshacer ese cambio.`)
+        if (prod.stock !== it.stock_nuevo) {
+          throw new Error(`"${prod.nombre}" cambió desde la importación (ahora tiene ${prod.stock}, se importó ${it.stock_nuevo}). No toqué nada; corrígelo a mano en Inventario.`)
+        }
+        if (it.accion === 'crear') {
+          db.run("UPDATE productos SET eliminado=1, eliminado_at=datetime('now','localtime'), activo=0 WHERE id=?", [prod.id])
+          db.run(
+            `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
+            [prod.id, 'salida', prod.stock, prod.stock, 0, motivo + ' (producto eliminado)', uid, unombre]
+          )
+        } else {
+          db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [it.stock_anterior, prod.id])
+          db.run(
+            `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
+            [prod.id, 'ajuste', it.stock_anterior, prod.stock, it.stock_anterior, motivo, uid, unombre]
+          )
+        }
+      }
+      if (data.auditoria_id) {
+        db.run("UPDATE ia_importaciones SET resultado='deshecho', fecha_resultado=datetime('now','localtime'), detalle=? WHERE id=?",
+          ['Lote restaurado a su estado anterior.', data.auditoria_id])
+      }
+      db.run('COMMIT')
+      enTransaccion = false
+    } catch (e) {
+      if (enTransaccion) { try { db.run('ROLLBACK') } catch (_) { /* ya no había transacción */ } }
+      return { ok: false, error: e.message }
+    }
+    try {
+      saveDB()
+    } catch (e) {
+      return { ok: false, error: `Los cambios se aplicaron pero no se pudieron guardar en disco: ${e.message}`, persistencia: false }
+    }
+    return { ok: true }
+  },
+
   getPaginated(filtros = {}) {
     const page = Math.max(1, filtros.page || 1)
     const pageSize = filtros.pageSize || 10
@@ -2477,6 +2634,40 @@ const inventario = {
       ORDER BY m.created_at DESC LIMIT ? OFFSET ?
     `, [pageSize, offset])
     return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }
+  },
+}
+
+// ─── Auditoría de importaciones por IA ───────────────────────────────────────
+// Una fila por importación (fotos/Excel/Word/PDF). Nace al EMPEZAR a procesar
+// (así también quedan registrados los errores y los "Detener") y se va
+// completando: qué se subió → qué extrajo el pipeline en crudo → qué editó el
+// usuario → qué quedó guardado → resultado final.
+//   resultado: procesando | pendiente | agregado | cancelado | error | detenido | deshecho
+const iaAuditoria = {
+  _json(v) { return v === undefined || v === null ? null : (typeof v === 'string' ? v : JSON.stringify(v)) },
+  crear(data) {
+    const r = run(
+      `INSERT INTO ia_importaciones (usuario_id, usuario_nombre, archivos, resultado_crudo, resultado) VALUES (?,?,?,?,?)`,
+      [data.usuario_id || null, data.usuario_nombre || null, iaAuditoria._json(data.archivos), iaAuditoria._json(data.crudo), data.resultado || 'procesando']
+    )
+    return { ok: true, id: r.lastInsertRowid }
+  },
+  // Solo pisa los campos que vienen en `cambios`; el resto queda como estaba.
+  actualizar(id, cambios = {}) {
+    const sets = []
+    const params = []
+    const campos = { archivos: 'archivos', crudo: 'resultado_crudo', ediciones: 'ediciones', final: 'resultado_final', resultado: 'resultado', detalle: 'detalle' }
+    for (const [clave, col] of Object.entries(campos)) {
+      if (cambios[clave] !== undefined) { sets.push(`${col}=?`); params.push(clave === 'resultado' || clave === 'detalle' ? cambios[clave] : iaAuditoria._json(cambios[clave])) }
+    }
+    if (cambios.resultado !== undefined) sets.push("fecha_resultado=datetime('now','localtime')")
+    if (sets.length === 0) return { ok: true }
+    run(`UPDATE ia_importaciones SET ${sets.join(', ')} WHERE id=?`, [...params, id])
+    return { ok: true }
+  },
+  getAll(filtros = {}) {
+    const limite = Math.min(Number(filtros.limite) || 200, 1000)
+    return queryAll('SELECT * FROM ia_importaciones ORDER BY id DESC LIMIT ?', [limite])
   },
 }
 
@@ -3404,7 +3595,7 @@ module.exports = {
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
   ventas, descuentos, configuracionPOS,
-  inventario, caja, papelera,
+  inventario, iaAuditoria, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,

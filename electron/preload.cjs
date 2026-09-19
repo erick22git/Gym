@@ -190,6 +190,13 @@ contextBridge.exposeInMainWorld('api', {
     testPrint: (printerName) => ipcRenderer.invoke('pos:testPrint', printerName),
   },
 
+  // Auditoría de importaciones por IA
+  iaAuditoria: {
+    crear: (data) => ipcRenderer.invoke('iaAuditoria:crear', data),
+    actualizar: (id, cambios) => ipcRenderer.invoke('iaAuditoria:actualizar', id, cambios),
+    getAll: (filtros) => ipcRenderer.invoke('iaAuditoria:getAll', filtros),
+  },
+
   // Inventario
   inventario: {
     getCategorias: () => ipcRenderer.invoke('inventario:getCategorias'),
@@ -213,6 +220,8 @@ contextBridge.exposeInMainWorld('api', {
     getMovimientos: (productoId) => ipcRenderer.invoke('inventario:getMovimientos', productoId),
     getAllMovimientos: () => ipcRenderer.invoke('inventario:getAllMovimientos'),
     venderProductos: (items, meta) => ipcRenderer.invoke('inventario:venderProductos', items, meta),
+    importarLote: (data) => ipcRenderer.invoke('inventario:importarLote', data),
+    deshacerLote: (data) => ipcRenderer.invoke('inventario:deshacerLote', data),
     pickImage: () => ipcRenderer.invoke('inventario:pickImage'),
   },
 
