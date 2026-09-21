@@ -2671,6 +2671,27 @@ const iaAuditoria = {
   },
 }
 
+// ─── Control por voz por módulo (Configuración → Control por voz) ─────────────
+// Un interruptor por módulo, en la tabla `config` (clave/valor). Por defecto TODO activo: solo
+// se guarda algo cuando el administrador apaga un módulo.
+const vozConfig = {
+  MODULOS: ['ventas', 'caja', 'ia'],
+  getAll() {
+    const out = {}
+    for (const m of vozConfig.MODULOS) {
+      const fila = queryOne('SELECT value FROM config WHERE key=?', ['voz_control_' + m])
+      out[m] = fila ? fila.value !== '0' : true
+    }
+    return out
+  },
+  set(modulo, activo) {
+    if (!vozConfig.MODULOS.includes(modulo)) return { ok: false, error: 'Módulo desconocido.' }
+    run('INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+      ['voz_control_' + modulo, activo ? '1' : '0'])
+    return { ok: true, config: vozConfig.getAll() }
+  },
+}
+
 // ─── Caja ─────────────────────────────────────────────────────────────────────
 
 const caja = {
@@ -3595,7 +3616,7 @@ module.exports = {
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
   ventas, descuentos, configuracionPOS,
-  inventario, iaAuditoria, caja, papelera,
+  inventario, iaAuditoria, vozConfig, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,

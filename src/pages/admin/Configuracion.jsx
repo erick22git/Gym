@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Building2, Puzzle, Users, CreditCard, HardDrive, Receipt,
-  Shield, Info, ChevronRight, ArrowLeft, Lock, Save, FileText, Sparkles,
+  Shield, Info, ChevronRight, ArrowLeft, Lock, Save, FileText, Sparkles, Mic,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import '../Clients.css'
@@ -14,6 +14,7 @@ import ConfiguracionPOS from './ConfiguracionPOS'
 import Respaldos from './Respaldos'
 import ConfiguracionRecibos from '../../modules/recibos/ConfiguracionRecibos'
 import ImportarIA from './ImportarIA'
+import ConfigVoz from './ConfigVoz'
 
 // ─── Secciones disponibles ────────────────────────────────────────────────────
 
@@ -80,6 +81,13 @@ const SECCIONES = [
     titulo: 'Sobre el Sistema',
     descripcion: 'Versión, créditos y ayuda',
     color: 'oklch(0.78 0.02 250)',
+  },
+  {
+    id: 'voz',
+    icon: Mic,
+    titulo: 'Control por voz',
+    descripcion: 'Activar o desactivar el control por voz en Ventas, Caja e IA',
+    color: 'oklch(0.78 0.16 155)',
   },
   {
     id: 'ia',
@@ -391,6 +399,7 @@ export default function Configuracion() {
             {/* Mismo componente que se abre desde el TopNav (PAGES.IA_IMPORTAR)
                 — un solo componente, dos puntos de entrada, ver ImportarIA.jsx */}
             {seccion === 'ia' && <ImportarIA />}
+            {seccion === 'voz' && <ConfigVoz />}
           </motion.div>
         )}
       </AnimatePresence>

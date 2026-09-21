@@ -9,6 +9,10 @@ import { PAGES } from '../constants'
 import ClienteCard from '../components/pos/ClienteCard'
 import NuevoClienteWizard from '../components/pos/NuevoClienteWizard'
 import LiquidVentaButton from '../components/pos/LiquidVentaButton'
+import useControlVoz from '../hooks/useControlVoz'
+import useVozHabilitada from '../hooks/useVozHabilitada'
+import PanelControlVoz from '../components/voz/PanelControlVoz'
+import { buscarProductoPorVoz, puntajeProducto } from '../utils/buscarProductoVoz'
 import VistaRecibo from '../modules/recibos/VistaRecibo'
 import { waterContainer, waterCard, waterCardSide, waterContainerReduced, waterCardReduced, waterCardControlled, waterCardSideControlled } from '../animations/waterVariants'
 import './ControlAcceso.css'
@@ -316,6 +320,32 @@ function BannerPromos({ promos }) {
 
 // ─── Modal Venta Rápida de Productos ─────────────────────────────────────────
 
+// ─── Control por voz de la Venta rápida ───────────────────────────────────────
+// Catálogo de acciones sobre los campos REALES de este formulario: buscar/agregar productos al carrito,
+// quitar, cambiar cantidad, método de pago (efectivo/qr/tarjeta/transferencia), monto recibido y el
+// cobro. "procesar_pago" es irreversible: SIEMPRE se frena y pide confirmación explícita.
+const CATALOGO_VENTA_RAPIDA = {
+  agregar_producto: { descripcion: 'Agrega un producto del inventario al carrito de la venta.',
+    params: { producto: { tipo: 'texto' }, cantidad: { tipo: 'entero', opcional: true, por_defecto: 1, min: 1, max: 999 } } },
+  quitar_producto: { descripcion: 'Quita un producto que ya esta en el carrito.', params: { producto: { tipo: 'texto' } } },
+  cambiar_cantidad: { descripcion: 'Cambia la cantidad de un producto que ya esta en el carrito.',
+    params: { producto: { tipo: 'texto' }, cantidad: { tipo: 'entero', min: 1, max: 999 } } },
+  metodo_pago: { descripcion: 'Elige el metodo de pago de la venta.',
+    params: { metodo: { tipo: 'enum', valores: ['efectivo', 'qr', 'tarjeta', 'transferencia'] } } },
+  monto_recibido: { descripcion: 'Pone el monto en bolivianos que entrega el cliente (solo pago en efectivo).',
+    params: { monto: { tipo: 'numero', min: 0, max: 100000 } } },
+  procesar_pago: { descripcion: 'Cobra y registra la venta (Registrar Venta). IRREVERSIBLE.', irreversible: true, params: {} },
+}
+const EJEMPLOS_VENTA_RAPIDA = [
+  { frase: 'agrega dos aguas de 600', acciones: [{ accion: 'agregar_producto', producto: 'agua 600', cantidad: 2 }] },
+  { frase: 'pon un shaker y paga con tarjeta', acciones: [{ accion: 'agregar_producto', producto: 'shaker', cantidad: 1 }, { accion: 'metodo_pago', metodo: 'tarjeta' }] },
+  { frase: 'cambia la cantidad de shaker a 3', acciones: [{ accion: 'cambiar_cantidad', producto: 'shaker', cantidad: 3 }] },
+  { frase: 'quita el shaker', acciones: [{ accion: 'quitar_producto', producto: 'shaker' }] },
+  { frase: 'en efectivo, me dieron 100 bolivianos', acciones: [{ accion: 'metodo_pago', metodo: 'efectivo' }, { accion: 'monto_recibido', monto: 100 }] },
+  { frase: 'cobra la venta', acciones: [{ accion: 'procesar_pago' }] },
+]
+const ETIQUETA_METODO = { efectivo: 'Efectivo', qr: 'QR', tarjeta: 'Tarjeta', transferencia: 'Transferencia' }
+
 function ModalVentaRapida({ usuario, onClose }) {
   const { esModuloActivo } = useAuth()
   const recibosActivo = esModuloActivo('recibos')
@@ -391,13 +421,13 @@ function ModalVentaRapida({ usuario, onClose }) {
     )
   }
 
-  function agregarItem(prod) {
+  function agregarItem(prod, cantidad = 1) {
     const promo = getPromoParaProducto(prod.id)
     setCarrito(prev => {
       const idx = prev.findIndex(i => i.producto_id === prod.id && !i._es_gratis)
       if (idx >= 0) {
         const next = [...prev]
-        next[idx] = { ...next[idx], cantidad: next[idx].cantidad + 1 }
+        next[idx] = { ...next[idx], cantidad: next[idx].cantidad + cantidad }
         return next
       }
       let precioEfectivo = prod.precio_venta
@@ -411,7 +441,7 @@ function ModalVentaRapida({ usuario, onClose }) {
         nombre_producto: prod.nombre,
         precio_unitario: precioEfectivo,
         precio_original: (promo && promo.tipo !== '2x1') ? prod.precio_venta : null,
-        cantidad: 1,
+        cantidad,
         stock: prod.stock,
         promo_tipo: promo?.tipo || null,
         promo_nombre: promo?.nombre || null,
@@ -529,6 +559,138 @@ function ModalVentaRapida({ usuario, onClose }) {
     }
     await procesarVenta()
   }
+
+  // ─── Control por voz: los ejecutores actúan sobre el estado real de este formulario ───
+  // Refs con el último estado (los pasos por voz corren asíncronos y no deben ver un estado viejo).
+  const vozVentasHabilitada = useVozHabilitada('ventas')
+  const carritoRef = useRef(carrito); carritoRef.current = carrito
+  const metodoRef = useRef(metodoPago); metodoRef.current = metodoPago
+  const totalRef = useRef(total); totalRef.current = total
+  const montoRef = useRef(montoRec); montoRef.current = montoRec
+  const qrRef = useRef(qrConfirmado); qrRef.current = qrConfirmado
+  const exitoRef = useRef(exito); exitoRef.current = exito
+  const procesandoRef = useRef(procesando); procesandoRef.current = procesando
+  const cajaPromptRef = useRef(cajaCerradaPrompt); cajaPromptRef.current = cajaCerradaPrompt
+  const handleProcesarRef = useRef(handleProcesar); handleProcesarRef.current = handleProcesar
+  const candidatosRef = useRef([])
+
+  function agregarProductoResuelto(prod, cant) {
+    const yaEnCarrito = carritoRef.current.filter(i => i.producto_id === prod.id && !i._es_gratis).reduce((s, i) => s + i.cantidad, 0)
+    if (yaEnCarrito + cant > prod.stock) {
+      return { ok: false, mensaje: `Solo hay ${prod.stock} de ${prod.nombre} en stock${yaEnCarrito ? ` (ya tienes ${yaEnCarrito} en el carrito)` : ''}.` }
+    }
+    agregarItem(prod, cant)
+    return { ok: true, mensaje: `Agregado: ${cant} × ${prod.nombre} (Bs. ${Number(prod.precio_venta).toFixed(2)} c/u).` }
+  }
+
+  // Busca en el CARRITO el producto que dijo el usuario; solo si es uno claro.
+  function itemDelCarritoPorVoz(dicho) {
+    const candidatos = carritoRef.current
+      .filter(i => !i._es_gratis)
+      .map(i => ({ item: i, ...puntajeProducto(dicho, i.nombre_producto) }))
+      .filter(c => c.cobertura === 1)
+    return candidatos.length === 1 ? candidatos[0].item : null
+  }
+
+  const vozVenta = useControlVoz({
+    pantalla: 'venta_rapida',
+    catalogo: CATALOGO_VENTA_RAPIDA,
+    ejemplos: EJEMPLOS_VENTA_RAPIDA,
+    habilitado: vozVentasHabilitada,
+    getContexto: () => ({
+      carrito: carritoRef.current.filter(i => !i._es_gratis).map(i => ({ producto: i.nombre_producto, cantidad: i.cantidad })),
+      metodo_pago: metodoRef.current,
+      total_bs: Number(totalRef.current.toFixed(2)),
+    }),
+    ejecutores: {
+      agregar_producto: {
+        narrar: a => `Agregando ${a.cantidad ?? 1} × ${a.producto}…`,
+        ejecutar: async a => {
+          const r = await buscarProductoPorVoz(a.producto, q => window.api.inventario.buscarPOS(q))
+          if (r.tipo === 'ninguno') return { ok: false, mensaje: `No encontré «${a.producto}» en el inventario.` }
+          if (r.tipo === 'ambiguo') {
+            candidatosRef.current = r.candidatos
+            return { pregunta: {
+              texto: `¿Cuál producto quisiste decir con «${a.producto}»?`,
+              opciones: r.candidatos.map(c => ({ id: String(c.id), etiqueta: `${c.nombre} · Bs. ${Number(c.precio_venta).toFixed(2)}` })),
+            } }
+          }
+          return agregarProductoResuelto(r.producto, a.cantidad ?? 1)
+        },
+        continuar: async (a, idProducto) => {
+          const prod = candidatosRef.current.find(c => String(c.id) === String(idProducto))
+          return prod ? agregarProductoResuelto(prod, a.cantidad ?? 1) : { ok: false, mensaje: 'No pude identificar el producto elegido.' }
+        },
+      },
+      quitar_producto: {
+        narrar: a => `Quitando ${a.producto}…`,
+        ejecutar: async a => {
+          const item = itemDelCarritoPorVoz(a.producto)
+          if (!item) return { ok: false, mensaje: `No encuentro «${a.producto}» en el carrito (o hay varios parecidos).` }
+          setCarrito(prev => prev.filter(i => i.producto_id !== item.producto_id))
+          return { ok: true, mensaje: `Quitado del carrito: ${item.nombre_producto}.` }
+        },
+      },
+      cambiar_cantidad: {
+        narrar: a => `Cambiando la cantidad de ${a.producto} a ${a.cantidad}…`,
+        ejecutar: async a => {
+          const item = itemDelCarritoPorVoz(a.producto)
+          if (!item) return { ok: false, mensaje: `No encuentro «${a.producto}» en el carrito (o hay varios parecidos).` }
+          if (a.cantidad > item.stock) return { ok: false, mensaje: `Solo hay ${item.stock} de ${item.nombre_producto} en stock.` }
+          setCarrito(prev => prev.map(i => (i.producto_id === item.producto_id && !i._es_gratis ? { ...i, cantidad: a.cantidad } : i)))
+          return { ok: true, mensaje: `${item.nombre_producto}: ahora ${a.cantidad}.` }
+        },
+      },
+      metodo_pago: {
+        narrar: a => `Eligiendo pago con ${ETIQUETA_METODO[a.metodo]}…`,
+        ejecutar: async a => {
+          setMetodoPago(a.metodo); setRecibido(''); setQrConfirmado(false) // igual que tocar el botón del método
+          return { ok: true, mensaje: `Método de pago: ${ETIQUETA_METODO[a.metodo]}.` }
+        },
+      },
+      monto_recibido: {
+        narrar: a => `Anotando monto recibido: Bs. ${a.monto}…`,
+        ejecutar: async a => {
+          if (metodoRef.current !== 'efectivo') return { ok: false, mensaje: 'El monto recibido solo aplica al pago en efectivo. Primero elige efectivo.' }
+          setRecibido(String(a.monto))
+          const falta = totalRef.current - a.monto
+          return { ok: true, mensaje: `Monto recibido: Bs. ${a.monto}.` + (falta > 0.0001 ? ` Ojo: es menor al total (Bs. ${totalRef.current.toFixed(2)}), faltan Bs. ${falta.toFixed(2)}.` : '') }
+        },
+      },
+      procesar_pago: {
+        narrar: () => 'Procesando el pago…',
+        etiquetaConfirmar: 'Sí, procesar el pago',
+        // Mismas condiciones que el botón real "Registrar Venta" (puedeConfirmar), dichas en palabras.
+        validar: async () => {
+          if (carritoRef.current.length === 0) return { ok: false, mensaje: 'El carrito está vacío: no hay nada que cobrar.' }
+          if (procesandoRef.current) return { ok: false, mensaje: 'Ya se está procesando una venta.' }
+          if (metodoRef.current === 'efectivo' && montoRef.current < totalRef.current) {
+            return { ok: false, mensaje: `Falta el monto recibido: el total es Bs. ${totalRef.current.toFixed(2)} y tienes Bs. ${montoRef.current.toFixed(2)}.` }
+          }
+          if (metodoRef.current === 'qr' && !qrRef.current) {
+            return { ok: false, mensaje: 'Falta confirmar el pago por QR: toca "Pago Recibido" en la pantalla del QR (eso lo confirmas tú, no la voz).' }
+          }
+          return { ok: true }
+        },
+        confirmacion: () => {
+          const m = metodoRef.current
+          const extra = m === 'efectivo' ? ` Recibido Bs. ${montoRef.current.toFixed(2)}, vuelto Bs. ${Math.max(0, montoRef.current - totalRef.current).toFixed(2)}.` : ''
+          return `Total Bs. ${totalRef.current.toFixed(2)} pagando con ${ETIQUETA_METODO[m]}.${extra} ¿Confirmas procesar el pago?`
+        },
+        ejecutar: async () => {
+          const total0 = totalRef.current
+          await handleProcesarRef.current() // el MISMO camino del botón "Registrar Venta" (incluye el aviso de caja cerrada)
+          for (let i = 0; i < 40; i++) {
+            if (exitoRef.current) return { ok: true, mensaje: `Venta registrada: Bs. ${total0.toFixed(2)}.` }
+            if (cajaPromptRef.current) return { ok: false, mensaje: 'La caja está cerrada: abre la caja desde el aviso en pantalla para registrar la venta. No se cobró nada.' }
+            if (i > 3 && !procesandoRef.current) break
+            await new Promise(r => setTimeout(r, 200))
+          }
+          return exitoRef.current ? { ok: true, mensaje: `Venta registrada: Bs. ${total0.toFixed(2)}.` } : { ok: false, mensaje: 'No se pudo registrar la venta; revisa el aviso en pantalla.' }
+        },
+      },
+    },
+  })
 
   function imprimirRecibo() {
     setFormRecibo({
@@ -657,6 +819,7 @@ function ModalVentaRapida({ usuario, onClose }) {
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {!exito && <PanelControlVoz voz={vozVenta} ayuda="Ej: agrega 2 shaker y paga con tarjeta" />}
           {/* [NUEVO — Fase 2, punto 3] Transición entre "formulario de
               venta" y "confirmación" — antes era un salto instantáneo,
               ahora fade+slide con AnimatePresence mode="wait" (mismo

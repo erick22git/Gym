@@ -33,6 +33,7 @@ ambigüedad simplemente van todas a `requiere_revision`.
 | `POST /procesar-word` | `archivo` | .docx | Si tiene tabla(s): igual que Excel. Si es texto libre (párrafos): mismo Agente Estructurador (LLM) que las imágenes |
 | `POST /procesar-pdf` | `archivo` | .pdf | Si tiene tabla(s) detectable(s): igual que Excel. Si tiene texto sin tabla: Agente Estructurador (LLM). Si no tiene texto extraíble (escaneado): se convierte a imagen página por página y reusa el pipeline de OCR completo |
 | `POST /asistente-texto` | — (JSON `{"texto": "..."}`) | — | Agente Supervisor: clasifica la intención de un mensaje sin adjuntos (`importar` / `pregunta_sistema` / `charla_general`) y responde acorde. Preguntas del sistema se responden con base en `scripts/conocimiento_sistema.md` — si no está cubierto ahí, dice honestamente que no lo sabe |
+| `POST /interpretar-comando` | — (JSON `{texto, pantalla, catalogo, ejemplos, contexto}`) | — | Control por voz de Ventas/Caja: el supervisor decide comando / pregunta / charla (reusa `responder_pregunta_sistema` y `responder_charla_general`); el agente extractor convierte el comando en acciones **del catálogo que manda la pantalla**, con salida restringida por esquema JSON y validada al volver. Nunca inventa campos ni acciones. Las acciones irreversibles las frena la pantalla (confirmación explícita). |
 
 ### Entrada — `POST /procesar-imagen`
 

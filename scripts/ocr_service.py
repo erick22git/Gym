@@ -31,21 +31,56 @@ convierte a imagen pagina por pagina y reusa el pipeline de OCR completo.
 import base64
 import io
 import json
+import os
 import re
 import statistics
+import sys
+import tempfile
+import threading
 import time
 import urllib.request
 import uuid
 from pathlib import Path
 
+# Sin consola (proceso hijo de la app, o ejecutable empaquetado) Windows usa
+# cp1252 y los acentos de los print() romperian el servicio: forzar UTF-8.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+# ORDEN IMPORTANTE: ctranslate2 (motor del dictado, faster-whisper) debe cargarse ANTES que paddleocr.
+# Ambos traen su propio libiomp5md.dll; si Paddle carga el suyo primero, ctranslate2.dll falla con
+# WinError 127 (probado). Al reves conviven bien.
+try:
+    import ctranslate2  # noqa: F401
+except Exception:
+    pass
+
 from flask import Flask, request, jsonify
 from paddleocr import PaddleOCR
 
-PORT = 8420
+# Configuracion por variables de entorno (la app de escritorio las fija al
+# lanzar el servicio; los valores por defecto sirven para correrlo a mano).
+PORT = int(os.environ.get("GYM_OCR_PORT", "8420"))
 EXTREME_FUSION_THRESHOLD = 5
 RATIO_THRESHOLD = 4.0
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_BASE = os.environ.get("GYM_OLLAMA_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_URL = OLLAMA_BASE + "/api/generate"
 OLLAMA_MODEL = "qwen2.5:3b"
+
+# Recursos de solo lectura (conocimiento_sistema.md): junto al script, o dentro
+# del paquete cuando corre congelado con PyInstaller (sys._MEIPASS).
+BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+# Temporales de subida: SIEMPRE en una carpeta escribible (la app pasa una dentro
+# de userData); nunca en el directorio de trabajo, que instalado seria Program Files.
+TMP_DIR = Path(os.environ.get("GYM_OCR_TMP") or (Path(tempfile.gettempdir()) / "gimnasio-ocr"))
+TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _tmp_path(sufijo):
+    return TMP_DIR / f"_tmp_upload_{uuid.uuid4().hex}{sufijo}"
 
 app = Flask(__name__)
 
@@ -239,10 +274,11 @@ def is_informative(text):
 # Prueba B: LLM con formato compacto + verificacion de cobertura
 # ---------------------------------------------------------------------------
 
-def call_ollama(prompt, model=OLLAMA_MODEL):
+def call_ollama(prompt, model=OLLAMA_MODEL, formato=None):
     body = json.dumps({
         "model": model, "prompt": prompt, "stream": False,
         "options": {"temperature": 0},
+        **({"format": formato} if formato else {}),  # esquema JSON: el modelo solo puede responder con esa forma
     }).encode("utf-8")
     req = urllib.request.Request(OLLAMA_URL, data=body, headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=600) as resp:
@@ -802,7 +838,7 @@ def procesar_pdf_archivo(path):
 # "importar" y ni vale la pena preguntarle al LLM).
 # ---------------------------------------------------------------------------
 
-CONOCIMIENTO_PATH = Path(__file__).parent / "conocimiento_sistema.md"
+CONOCIMIENTO_PATH = BASE_DIR / "conocimiento_sistema.md"
 
 CATEGORIAS_INTENCION = ("importar", "pregunta_sistema", "charla_general")
 
@@ -914,12 +950,279 @@ def procesar_asistente_texto(texto):
 
 
 # ---------------------------------------------------------------------------
+# Control por voz (Ventas / Caja): mismo patron supervisor + agente que el chat de
+# importacion, adaptado. El SUPERVISOR decide si lo dicho es un comando sobre la pantalla,
+# una pregunta del sistema o charla (reusa responder_pregunta_sistema / responder_charla_general).
+# El AGENTE EXTRACTOR convierte el comando en acciones CONCRETAS sobre los campos reales de esa
+# pantalla: la pantalla manda su catalogo (acciones y parametros que existen) y el modelo solo
+# puede responder con esa forma (esquema JSON), que ademas se valida aca al volver. Nunca se
+# inventan campos ni acciones. Las acciones "irreversibles" las frena la pantalla (confirmacion).
+# ---------------------------------------------------------------------------
+
+MAX_ACCIONES_COMANDO = 12
+
+# Verbos/palabras que casi seguro indican un comando de pantalla: evita un llamado extra al LLM
+# (lento en CPU) solo para clasificar. Si no hay ninguna, si se le pregunta al supervisor.
+PATRON_COMANDO = re.compile(
+    r"\b(agrega|agregar|agregame|anade|anadir|pon|pone|poner|quita|quitar|elimina|eliminar|saca|sacar|"
+    r"cambia|cambiar|cobra|cobrar|paga|pagar|procesa|procesar|efectivo|tarjeta|transferencia|"
+    r"qr|recibi|registra|registrar|abre|abrir|cierra|cerrar|vacia|vaciar)\b",
+    re.IGNORECASE,
+)
+# Una pregunta ("como abro la caja", "donde veo las ventas") va al supervisor aunque nombre cosas de la pantalla.
+PATRON_PREGUNTA = re.compile(r"^\W*(como|donde|que|cual|cuales|cuando|por que|para que|quien)\b", re.IGNORECASE)
+
+
+def _sin_tildes(t):
+    return (t.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+            .replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U"))
+
+
+def clasificar_comando_voz(texto):
+    """Supervisor: 'comando' | 'pregunta_sistema' | 'charla_general'."""
+    plano = _sin_tildes(texto)
+    if PATRON_COMANDO.search(plano) and not PATRON_PREGUNTA.search(plano):
+        return "comando"
+    prompt = f"""Clasifica lo que dijo el usuario (por voz, en una pantalla de ventas o caja de un
+gimnasio) en EXACTAMENTE una de estas 3 categorias:
+
+- "comando": pide hacer algo en la pantalla (agregar/quitar productos, elegir metodo de pago,
+  poner un monto, cobrar, abrir o cerrar caja, registrar un ingreso o egreso).
+- "pregunta_sistema": pregunta como usar o donde encontrar algo del sistema.
+- "charla_general": saludo, agradecimiento o cualquier otra cosa.
+
+Lo que dijo: "{texto}"
+
+Responde SOLO con una palabra: comando, pregunta_sistema o charla_general.
+"""
+    raw = call_ollama(prompt).get("response", "").strip().lower()
+    for cat in ("comando", "pregunta_sistema", "charla_general"):
+        if cat in raw:
+            return cat
+    return "charla_general"
+
+
+def _esquema_acciones(catalogo):
+    """Esquema JSON que obliga al modelo a responder SOLO con acciones del catalogo."""
+    nombres = list(catalogo.keys())
+    props = {"accion": {"type": "string", "enum": nombres}}
+    for spec in catalogo.values():
+        for pn, ps in (spec.get("params") or {}).items():
+            tipo = ps.get("tipo", "texto")
+            if tipo == "entero":
+                props[pn] = {"type": "integer"}
+            elif tipo == "numero":
+                props[pn] = {"type": "number"}
+            elif tipo == "enum":
+                props[pn] = {"type": "string", "enum": ps.get("valores", [])}
+            else:
+                props[pn] = {"type": "string"}
+    return {
+        "type": "object",
+        "properties": {
+            "acciones": {"type": "array", "maxItems": MAX_ACCIONES_COMANDO,
+                         "items": {"type": "object", "properties": props, "required": ["accion"]}},
+            "aclaracion": {"type": "string"},
+        },
+        "required": ["acciones"],
+    }
+
+
+def _describir_catalogo(catalogo):
+    lineas = []
+    for nombre, spec in catalogo.items():
+        params = spec.get("params") or {}
+        ps = ", ".join(
+            f'{pn} ({ps_.get("tipo", "texto")}'
+            + (f': {"|".join(ps_.get("valores", []))}' if ps_.get("tipo") == "enum" else "")
+            + (", opcional" if ps_.get("opcional") else "") + ")"
+            for pn, ps_ in params.items()
+        ) or "sin parametros"
+        lineas.append(f'- "{nombre}": {spec.get("descripcion", "")} Parametros: {ps}.')
+    return "\n".join(lineas)
+
+
+def _validar_acciones(crudas, catalogo):
+    """Descarta lo que no exista en el catalogo o no cumpla los tipos; nunca inventa parametros."""
+    validas = []
+    descartadas = []
+    for a in (crudas or [])[:MAX_ACCIONES_COMANDO]:
+        if not isinstance(a, dict) or a.get("accion") not in catalogo:
+            descartadas.append(a)
+            continue
+        spec = catalogo[a["accion"]]
+        limpia = {"accion": a["accion"]}
+        ok = True
+        for pn, ps in (spec.get("params") or {}).items():
+            tipo = ps.get("tipo", "texto")
+            v = a.get(pn)
+            if v in (None, ""):
+                if ps.get("opcional"):
+                    if "por_defecto" in ps:
+                        limpia[pn] = ps["por_defecto"]
+                    continue
+                ok = False
+                break
+            try:
+                if tipo == "entero":
+                    v = int(round(float(v)))
+                    if v < ps.get("min", 1) or v > ps.get("max", 999):
+                        ok = False
+                        break
+                elif tipo == "numero":
+                    v = float(v)
+                    if v < ps.get("min", 0) or v > ps.get("max", 10_000_000):
+                        ok = False
+                        break
+                elif tipo == "enum":
+                    v = _sin_tildes(str(v)).strip().lower()
+                    if v not in ps.get("valores", []):
+                        ok = False
+                        break
+                else:
+                    v = str(v).strip()
+                    if not v:
+                        ok = False
+                        break
+            except (TypeError, ValueError):
+                ok = False
+                break
+            limpia[pn] = v
+        (validas if ok else descartadas).append(limpia if ok else a)
+    return validas, descartadas
+
+
+def extraer_acciones_voz(texto, pantalla, catalogo, contexto, ejemplos):
+    """Agente extractor: comando hablado -> acciones concretas sobre los campos reales."""
+    ej = "\n".join(
+        f'Frase: "{e["frase"]}"\nRespuesta: {json.dumps({"acciones": e["acciones"]}, ensure_ascii=False)}'
+        for e in (ejemplos or [])[:6]
+    )
+    prompt = f"""Eres el asistente de voz de la pantalla "{pantalla}" de un sistema de gestion de gimnasio.
+Convierte lo que dijo el usuario en una LISTA ORDENADA de acciones sobre esa pantalla, usando SOLO
+las acciones de abajo con sus parametros exactos. No inventes acciones ni parametros. Los numeros
+dichos con palabras ("dos", "tres") van como numeros. Los nombres de productos van tal cual los dijo
+el usuario. Si pide algo que no esta en la lista, no lo incluyas y explicalo en "aclaracion".
+
+ACCIONES DISPONIBLES:
+{_describir_catalogo(catalogo)}
+
+ESTADO ACTUAL DE LA PANTALLA (solo informativo):
+{json.dumps(contexto or {{}}, ensure_ascii=False)}
+
+EJEMPLOS:
+{ej}
+
+Frase del usuario: "{texto}"
+
+Responde SOLO con JSON con la forma {{"acciones": [...], "aclaracion": "..."}}.
+"""
+    result = call_ollama(prompt, formato=_esquema_acciones(catalogo))
+    try:
+        crudo = json.loads(result.get("response", "{}"))
+    except json.JSONDecodeError:
+        crudo = {}
+    validas, descartadas = _validar_acciones(crudo.get("acciones"), catalogo)
+    aclaracion = (crudo.get("aclaracion") or "").strip()
+    if descartadas and not validas and not aclaracion:
+        aclaracion = "No pude convertir eso en una acción válida de esta pantalla."
+    return {"acciones": validas, "descartadas": len(descartadas), "aclaracion": aclaracion}
+
+
+def procesar_comando_voz(datos):
+    texto = (datos.get("texto") or "").strip()
+    catalogo = datos.get("catalogo") or {}
+    if not texto:
+        return {"tipo": "vacio", "respuesta": "No escuché nada."}
+    tipo = clasificar_comando_voz(texto)
+    if tipo == "pregunta_sistema":
+        return {"tipo": tipo, "respuesta": responder_pregunta_sistema(texto)}
+    if tipo == "charla_general":
+        return {"tipo": tipo, "respuesta": responder_charla_general(texto)}
+    if not catalogo:
+        return {"tipo": "comando", "acciones": [], "aclaracion": "Esta pantalla no tiene acciones por voz."}
+    r = extraer_acciones_voz(texto, datos.get("pantalla", ""), catalogo, datos.get("contexto"), datos.get("ejemplos"))
+    return {"tipo": "comando", **r}
+
+
+# ---------------------------------------------------------------------------
 # Endpoints HTTP
 # ---------------------------------------------------------------------------
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "modelo_llm": OLLAMA_MODEL})
+    # "status": el servicio (y PaddleOCR, que se carga antes de abrir el puerto) esta listo.
+    # "ollama": el LLM responde y tiene el modelo — la app espera ambos antes de habilitar la IA.
+    ollama_ok = False
+    try:
+        with urllib.request.urlopen(OLLAMA_BASE + "/api/tags", timeout=1.5) as r:
+            nombres = [m.get("name", "") for m in json.loads(r.read()).get("models", [])]
+            ollama_ok = any(n == OLLAMA_MODEL or n.startswith(OLLAMA_MODEL + ":") for n in nombres)
+    except Exception:
+        ollama_ok = False
+    return jsonify({"status": "ok", "modelo_llm": OLLAMA_MODEL, "ollama": ollama_ok})
+
+
+# ── Dictado por voz local (faster-whisper / CTranslate2, modelo "small" multilingue) ───────────
+# Mismos pesos de Whisper "small" que usaba whisper.cpp, con un motor de inferencia mucho mas
+# rapido en CPU. Sin internet: el modelo viaja con la app (GYM_WHISPER_DIR) y se carga con
+# local_files_only. Se carga la primera vez que se dicta y queda en memoria.
+_whisper = None
+_whisper_lock = threading.Lock()
+
+
+def _cargar_whisper():
+    global _whisper
+    with _whisper_lock:
+        if _whisper is None:
+            from faster_whisper import WhisperModel
+            carpeta = os.environ.get("GYM_WHISPER_DIR") or "small"
+            hilos = max(2, min(8, os.cpu_count() or 4))
+            # float32 a partir de los pesos originales: sin cuantizar, sin perder precision.
+            _whisper = WhisperModel(carpeta, device="cpu", compute_type="float32",
+                                    cpu_threads=hilos, local_files_only=True)
+        return _whisper
+
+
+def transcribir_wav(datos):
+    """WAV PCM16 mono 16 kHz (lo arma el front con el AudioWorklet) -> texto en espanol."""
+    import wave
+    import numpy as np
+    with wave.open(io.BytesIO(datos), "rb") as w:
+        if w.getframerate() != 16000 or w.getnchannels() != 1 or w.getsampwidth() != 2:
+            raise ValueError("El audio debe ser WAV mono de 16 kHz y 16 bits.")
+        pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+    audio = pcm.astype(np.float32) / 32768.0
+    segmentos, _info = _cargar_whisper().transcribe(audio, language="es", beam_size=5, vad_filter=False)
+    return "".join(seg.text for seg in segmentos).strip()
+
+
+@app.route("/transcribir", methods=["OPTIONS"])
+def _transcribir_preflight():
+    return ("", 204)
+
+
+@app.route("/transcribir", methods=["POST"])
+def transcribir():
+    try:
+        t0 = time.time()
+        texto = transcribir_wav(request.get_data())
+        return jsonify({"texto": texto, "segundos": round(time.time() - t0, 1)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/interpretar-comando", methods=["OPTIONS"])
+def _interpretar_comando_preflight():
+    return ("", 204)
+
+
+@app.route("/interpretar-comando", methods=["POST"])
+def interpretar_comando():
+    try:
+        return jsonify(procesar_comando_voz(request.get_json(silent=True) or {}))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/procesar-imagen", methods=["POST"])
@@ -928,7 +1231,7 @@ def procesar_imagen():
     try:
         if "imagen" in request.files:
             f = request.files["imagen"]
-            tmp_path = Path(f"./_tmp_upload_{uuid.uuid4().hex}.jpg")
+            tmp_path = _tmp_path(".jpg")
             f.save(tmp_path)
         else:
             data = request.get_json(silent=True) or {}
@@ -938,7 +1241,7 @@ def procesar_imagen():
             if "," in b64[:50]:
                 b64 = b64.split(",", 1)[1]
             raw = base64.b64decode(b64)
-            tmp_path = Path(f"./_tmp_upload_{uuid.uuid4().hex}.jpg")
+            tmp_path = _tmp_path(".jpg")
             tmp_path.write_bytes(raw)
 
         result = process_image(tmp_path)
@@ -957,7 +1260,7 @@ def _guardar_archivo_subido(campo, extension):
     if campo not in request.files:
         raise ValueError(f"falta el campo '{campo}' (multipart/form-data)")
     f = request.files[campo]
-    tmp_path = Path(f"./_tmp_upload_{uuid.uuid4().hex}{extension}")
+    tmp_path = _tmp_path(extension)
     f.save(tmp_path)
     return tmp_path
 
@@ -1034,6 +1337,58 @@ def asistente_texto():
         return jsonify({"error": str(e)}), 500
 
 
+def _vigilar_padre():
+    """Si la app de escritorio que nos lanzo muere (cierre brusco, crash), no
+    quedar como proceso huerfano: apagar Ollama (que lanzo la misma app) y salir.
+    Solo actua si la app paso GYM_PARENT_PID; corrido a mano no hace nada."""
+    import ctypes
+    import subprocess
+    import threading
+
+    padre = int(os.environ.get("GYM_PARENT_PID") or 0)
+    ollama = int(os.environ.get("GYM_OLLAMA_PID") or 0)
+    carpeta_ollama = os.environ.get("GYM_OLLAMA_DIR") or ""
+    if not padre:
+        return
+
+    def vivo(pid):
+        k32 = ctypes.windll.kernel32
+        h = k32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if not h:
+            return False
+        try:
+            return k32.WaitForSingleObject(h, 0) == 258  # WAIT_TIMEOUT = sigue corriendo
+        finally:
+            k32.CloseHandle(h)
+
+    def bucle():
+        while True:
+            time.sleep(1)
+            if not vivo(padre):
+                print("[vigilante] padre muerto: limpiando", ollama, carpeta_ollama, flush=True)
+                try:
+                  if ollama:
+                    subprocess.run(["taskkill", "/PID", str(ollama), "/T", "/F"], capture_output=True)
+                  if carpeta_ollama:
+                    # El runner del modelo (llama-server.exe, ~2 GB) puede sobrevivir a taskkill /T: se mata por
+                    # RUTA del paquete (nunca un Ollama ajeno del usuario).
+                    ps = ("Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and "
+                          "$_.ExecutablePath.StartsWith($env:GYM_RUTA_MATAR + '\\', [StringComparison]::OrdinalIgnoreCase) } | "
+                          "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }")
+                    # powershell.exe vive en System32\\WindowsPowerShell\\v1.0 (no en System32): con un PATH minimo
+                    # no se encuentra por nombre, asi que se usa la ruta absoluta.
+                    powershell = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+                    subprocess.run([powershell, "-NoProfile", "-NonInteractive", "-Command", ps], capture_output=True,
+                                   env={**os.environ, "GYM_RUTA_MATAR": carpeta_ollama})
+                    print("[vigilante] limpieza por ruta hecha", flush=True)
+                except Exception as e:
+                    print("[vigilante] error:", repr(e), flush=True)  # pase lo que pase, abajo el servicio SIEMPRE se apaga
+                os._exit(0)
+
+    threading.Thread(target=bucle, daemon=True).start()
+
+
 if __name__ == "__main__":
+    _vigilar_padre()
     print(f"Servicio OCR escuchando en http://localhost:{PORT}")
     app.run(host="127.0.0.1", port=PORT, debug=False)

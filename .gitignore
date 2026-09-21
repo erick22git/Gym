@@ -23,3 +23,13 @@ venv-ocr/
 __pycache__/
 # Capturas y fotos de prueba (pesadas, con datos reales) — solo locales.
 scripts/test_images/
+
+# Recursos que se empaquetan dentro del instalador (binarios/modelos grandes, se regeneran con scripts/preparar-recursos)
+resources-build/
+
+# Artefacto generado por PyInstaller (se recrea con scripts/empaquetado/preparar-recursos.ps1)
+ocr-service.spec
+
+# Cualquier variante de .env (secretos)
+.env.*
+!.env.example

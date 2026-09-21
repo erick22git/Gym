@@ -13,6 +13,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/oxanium": "^5.3.0",
     "axios": "^1.16.0",
     "bcryptjs": "^3.0.3",
     "bytenode": "^1.5.7",
@@ -79,6 +81,28 @@
       {
         "from": "node_modules/sql.js/dist/sql-wasm.wasm",
         "to": "resources/sql-wasm.wasm"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "resources-build/ocr-service",
+        "to": "ocr-service"
+      },
+      {
+        "from": "resources-build/ollama",
+        "to": "ollama"
+      },
+      {
+        "from": "resources-build/ollama-models",
+        "to": "ollama-models"
+      },
+      {
+        "from": "resources-build/paddlex-models",
+        "to": "paddlex-models"
+      },
+      {
+        "from": "resources-build/whisper-model",
+        "to": "whisper-model"
       }
     ]
   }

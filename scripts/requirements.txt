@@ -1,6 +1,6 @@
 # Dependencias DIRECTAS de scripts/ocr_service.py, con las versiones exactas con
 # las que se probó (Python 3.11.9). Revisado contra los imports reales del archivo:
-#   flask, paddleocr, docx, openpyxl, pdfplumber, fitz.
+#   flask, paddleocr, docx, openpyxl, pdfplumber, fitz, faster_whisper (dictado).
 # paddlepaddle no se importa a mano pero paddleocr lo necesita para correr.
 # (No hace falta flask-cors: el servicio agrega los encabezados CORS a mano.)
 # El resto (paddlex, numpy, opencv...) lo instala paddleocr como dependencia.
@@ -15,3 +15,4 @@ openpyxl==3.1.5
 python-docx==1.2.0
 pdfplumber==0.11.10
 pymupdf==1.28.2
+faster-whisper==1.2.1

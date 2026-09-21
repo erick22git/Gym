@@ -190,6 +190,24 @@ contextBridge.exposeInMainWorld('api', {
     testPrint: (printerName) => ipcRenderer.invoke('pos:testPrint', printerName),
   },
 
+  // Dictado por voz local (faster-whisper empaquetado): recibe un WAV 16 kHz mono, devuelve el texto
+  voz: {
+    disponible: () => ipcRenderer.invoke('voz:disponible'),
+    getConfig: () => ipcRenderer.invoke('voz:getConfig'),
+    setConfig: (modulo, activo) => ipcRenderer.invoke('voz:setConfig', modulo, activo),
+    transcribir: (wavBytes) => ipcRenderer.invoke('voz:transcribir', wavBytes),
+  },
+
+  // Estado de los servicios locales de IA (Ollama + lector OCR) que lanza la app
+  servicios: {
+    getEstado: () => ipcRenderer.invoke('servicios:estado'),
+    onCambio: (cb) => {
+      const h = (_e, est) => cb(est)
+      ipcRenderer.on('servicios:cambio', h)
+      return () => ipcRenderer.removeListener('servicios:cambio', h)
+    },
+  },
+
   // Auditoría de importaciones por IA
   iaAuditoria: {
     crear: (data) => ipcRenderer.invoke('iaAuditoria:crear', data),

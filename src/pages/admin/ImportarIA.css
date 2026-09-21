@@ -25,3 +25,23 @@
   background: oklch(1 0 0 / .12);
   border-radius: 999px;
 }
+
+/* ─── Dictado por voz: micrófono animado mientras graba ─── */
+.ia-mic--grabando {
+  background: rgba(248, 81, 73, .28) !important;
+  box-shadow: 0 0 0 0 rgba(248, 81, 73, .55);
+  animation: ia-mic-pulso 1.15s ease-out infinite;
+}
+.ia-mic-punto {
+  width: 9px; height: 9px; border-radius: 999px; background: #f85149; flex-shrink: 0;
+  animation: ia-mic-parpadeo 1s ease-in-out infinite;
+}
+@keyframes ia-mic-pulso {
+  0%   { box-shadow: 0 0 0 0 rgba(248, 81, 73, .55); }
+  70%  { box-shadow: 0 0 0 12px rgba(248, 81, 73, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
+}
+@keyframes ia-mic-parpadeo { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) {
+  .ia-mic--grabando, .ia-mic-punto { animation: none; }
+}

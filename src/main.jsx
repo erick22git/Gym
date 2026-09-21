@@ -1,6 +1,15 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Toaster } from 'react-hot-toast'
+// Fuentes empaquetadas con la app (mismas familias y pesos que antes pedía a Google Fonts):
+// la app instalada no debe necesitar internet ni para verse igual.
+import '@fontsource/oxanium/600.css'
+import '@fontsource/oxanium/700.css'
+import '@fontsource/oxanium/800.css'
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
 import App from './App'
 import GlassMenuFilters from './components/GlassMenuFilters'
 import './index.css'

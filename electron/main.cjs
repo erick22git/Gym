@@ -4,6 +4,18 @@ const path = require('path')
 const fs = require('fs')
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
+// ─── Cero tráfico saliente del navegador en producción ──────────────────────────────────────────
+// La app instalada funciona 100% sin internet. Chromium, por su cuenta, sondeaba DNS-over-HTTPS hacia
+// 8.8.4.4:443 cuando el DNS de la PC es el de Google (visto en la prueba de "PC limpia"). En producción:
+//  · el navegador NO puede resolver ningún nombre que no sea localhost (ni DNS ni conexiones externas);
+//  · sin DNS seguro y sin "networking" en segundo plano (actualizaciones de componentes, métricas).
+// Lo que SÍ usa internet a propósito (facturación SIAT, correo) corre en Node, en este proceso, y no
+// pasa por estas reglas de Chromium.
+if (!isDev) {
+  app.commandLine.appendSwitch('host-resolver-rules', 'MAP * ~NOTFOUND , EXCLUDE localhost , EXCLUDE 127.0.0.1')
+  app.commandLine.appendSwitch('disable-background-networking')
+}
+
 let mainWindow
 
 function createWindow() {
@@ -63,6 +75,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  app.configureHostResolver({ secureDnsMode: 'off', enableBuiltInResolver: false }) // sin DoH hacia DNS públicos
   // Eliminar menú por defecto de Electron (tiene "View > Toggle Developer Tools")
   if (!isDev) Menu.setApplicationMenu(null)
 
@@ -75,10 +88,12 @@ app.whenReady().then(async () => {
           'Content-Security-Policy': [
             "default-src 'self'; " +
             "script-src 'self'; " +
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-            "font-src 'self' https://fonts.gstatic.com data:; " +
-            "img-src 'self' data: file:; " +
-            "connect-src 'self';"
+            "style-src 'self' 'unsafe-inline'; " +
+            "font-src 'self' data:; " +
+            "img-src 'self' data: file: blob:; " +
+            // El front solo habla con el servicio local de IA (Ollama lo consulta
+            // ese servicio, no el renderer). blob: = miniaturas de fotos adjuntas.
+            "connect-src 'self' http://localhost:8420;"
           ]
         }
       })
@@ -93,6 +108,15 @@ app.whenReady().then(async () => {
   registrarHandlersFacturacion(null)
   createWindow()
 
+  // Servicios locales de IA (Ollama + lector OCR): arrancan con la app, sin
+  // esperar a que el usuario abra la pantalla de IA. La UI consulta su estado.
+  require('./voz.cjs').registrar() // dictado local (faster-whisper)
+  const servicios = require('./servicios-locales.cjs')
+  ipcMain.handle('servicios:estado', () => servicios.getEstado())
+  servicios.iniciar(est => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('servicios:cambio', est)
+  }).catch(e => console.error('[servicios-locales]', e))
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
@@ -100,6 +124,8 @@ app.whenReady().then(async () => {
 
 // Save DB + auto-backup al cerrar
 app.on('before-quit', () => {
+  // Nunca dejar procesos huérfanos: cierra Ollama y el lector OCR que lanzó esta app.
+  try { require('./servicios-locales.cjs').detener() } catch (_) {}
   try { require('./database.cjs').saveDB() } catch (_) {}
   try {
     const backupDir = path.join(app.getPath('userData'), 'backups_auto')

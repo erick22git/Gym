@@ -16,10 +16,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, Plus, Send, X, Image as ImageIcon, FileText,
   FileSpreadsheet, File as FileIcon, Check, AlertTriangle, ChevronRight,
-  History, Paperclip, Copy, StopCircle, Search, Activity,
+  History, Paperclip, Copy, StopCircle, Search, Activity, Mic, Square, Volume2, VolumeX,
 } from 'lucide-react'
 import { buscarCoincidencia } from '../../utils/coincidenciasInventario'
 import { useAuth } from '../../context/AuthContext'
+import useDictado from '../../hooks/useDictado'
+import useVozHabilitada from '../../hooks/useVozHabilitada'
+import { guardarModoVoz } from '../../hooks/useModoVoz'
+import { hablar, detenerHabla, hablaSoportada } from '../../utils/voz'
+import OpcionesRapidas from '../../components/ia/OpcionesRapidas'
 import ComparacionProductos, { estadoDeCambio, filasDeshacer, filasDeLote } from './ComparacionProductos'
 import '../Clients.css'
 import './ImportarIA.css'
@@ -1018,7 +1023,7 @@ function ConfirmarSiNo({ resuelto, onSi, onNo }) {
 
 // ─── Burbuja de mensaje — usuario a la derecha, IA a la izquierda, ambas
 // sobre #dropdown-glass (pedido explícito), nunca #historial-glass acá ───
-function Burbuja({ msg, onConfirmarAgregado, onCancelarAgregado, onConfirmarEliminado, onCancelarEliminado, onCambiarRevision, onCambiarResuelto, onTerminarEdicionNombre, onElegirModo }) {
+function Burbuja({ msg, onConfirmarAgregado, onCancelarAgregado, onConfirmarEliminado, onCancelarEliminado, onCambiarRevision, onCambiarResuelto, onTerminarEdicionNombre, onElegirModo, onElegirOpcion }) {
   const esUsuario = msg.role === 'user'
 
   return (
@@ -1087,6 +1092,13 @@ function Burbuja({ msg, onConfirmarAgregado, onCancelarAgregado, onConfirmarElim
               onCambiarResuelto={(tipo, itemId, campo, valor) => onCambiarResuelto(msg.id, tipo, itemId, campo, valor)}
               onTerminarEdicionNombre={(tipo, itemId) => onTerminarEdicionNombre(msg.id, tipo, itemId)}
             />
+          )}
+
+          {msg.type === 'opciones' && (
+            <div>
+              <span style={{ fontSize: 13, color: 'oklch(0.97 0.01 250)', lineHeight: 1.5, textShadow: '0 1px 2px rgba(0,0,0,0.6)', whiteSpace: 'pre-wrap' }}>{msg.texto}</span>
+              <OpcionesRapidas opciones={msg.opciones} elegida={msg.elegida ?? null} onElegir={op => onElegirOpcion(msg.id, op)} />
+            </div>
           )}
 
           {msg.type === 'confirmarUndo' && (
@@ -1273,6 +1285,36 @@ export default function ImportarIA() {
   const [avisoArchivoViejo, setAvisoArchivoViejo] = useState(null) // { contenido, archivosEnviados } — pausa el envío para preguntar
   const [generando, setGenerando] = useState(false)
   const { usuario } = useAuth()
+  // Estado de Ollama + lector OCR, que lanza la app al arrancar (electron/servicios-locales.cjs).
+  // Sin la API (versión vieja del preload) o en desarrollo, se asume listo.
+  const [servicios, setServicios] = useState(null)
+  useEffect(() => {
+    if (!window.api?.servicios) return undefined
+    let vivo = true
+    window.api.servicios.getEstado().then(e => { if (vivo) setServicios(e) }).catch(() => {})
+    const quitar = window.api.servicios.onCambio(e => { if (vivo) setServicios(e) })
+    return () => { vivo = false; quitar() }
+  }, [])
+  const serviciosListos = !servicios || servicios.listo
+  // Dictado local (faster-whisper): el texto transcrito entra al campo como si se hubiera escrito;
+  // el usuario lo revisa/edita antes de enviarlo.
+  const vozIaHabilitada = useVozHabilitada('ia')
+  const dictado = useDictado({ onTexto: t => setTexto(prev => (prev.trim() ? `${prev.trimEnd()} ${t}` : t)) })
+
+  // ─── Modo voz: la IA lee en voz alta sus respuestas nuevas (voces locales de Windows, sin internet).
+  // Se recuerda entre sesiones. Nunca relee el historial: solo lo que llega después de activarlo.
+  const [modoVoz, setModoVoz] = useState(() => { try { return localStorage.getItem('ia_modo_voz') === '1' } catch { return false } })
+  const [avisoVoz, setAvisoVoz] = useState(null)
+  const hablados = useRef(new Set()) // ids de mensajes que ya se leyeron (o que no se deben leer)
+  useEffect(() => () => detenerHabla(), [])
+  function alternarModoVoz() {
+    const nuevo = !modoVoz
+    setModoVoz(nuevo)
+    setAvisoVoz(null)
+    guardarModoVoz(nuevo) // comparte el modo voz con Ventas y Caja
+    if (nuevo) mensajes.forEach(m => hablados.current.add(m.id)) // lo que ya está en pantalla no se lee
+    else detenerHabla()
+  }
   const abortRef = useRef(null) // AbortController de la petición HTTP en curso — "Detener" la cancela de verdad
   const auditoriaProcesoRef = useRef(null) // { id, crudo } de la importación en curso — para registrar un "Detener"
   const escribiendoRef = useRef(false) // evita doble escritura si se confirma dos veces seguidas
@@ -1339,6 +1381,25 @@ export default function ImportarIA() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mensajes])
 
+  useEffect(() => {
+    if (!modoVoz || dictado.estado !== 'inactivo') return
+    for (const m of mensajes) {
+      if (m.role !== 'ai' || hablados.current.has(m.id)) continue
+      let frase = null
+      if (m.type === 'text' || m.type === 'success' || m.type === 'opciones') frase = m.texto
+      else if (m.type === 'summary' && m.resultado) {
+        const n = m.resultado.nuevos.length
+        const e = m.resultado.existentes.length
+        frase = `Encontré ${n} producto${n === 1 ? '' : 's'} nuevo${n === 1 ? '' : 's'} y ${e} que ya existe${e === 1 ? '' : 'n'} en tu inventario.` +
+          (e > 0 ? ' Elige si las cantidades reemplazan el stock o se suman a él.' : ' Revisa la lista y confirma.')
+      }
+      if (frase === null) continue
+      hablados.current.add(m.id)
+      const r = hablar(frase)
+      setAvisoVoz(r.ok ? null : r.motivo)
+    }
+  }, [mensajes, modoVoz, dictado.estado])
+
   function agregarTimeout(fn, ms) {
     const id = setTimeout(fn, ms)
     timeoutsRef.current.push(id)
@@ -1374,6 +1435,7 @@ export default function ImportarIA() {
     abortRef.current?.abort()
     idGeneracionActualRef.current = null
     setGenerando(false)
+    detenerHabla()
     setMensajes([])
     setConversacionActualId(null)
     setModal(null)
@@ -1391,6 +1453,8 @@ export default function ImportarIA() {
     idGeneracionActualRef.current = null
     setGenerando(false)
     saltarProximoGuardadoRef.current = true
+    conv.mensajes.forEach(m => hablados.current.add(m.id))
+    detenerHabla()
     setMensajes(conv.mensajes)
     setConversacionActualId(conv.id)
     setModal(null)
@@ -1451,6 +1515,7 @@ export default function ImportarIA() {
     // invoca de todos modos, mejor no mandar un segundo mensaje que pise
     // la respuesta en curso en silencio.
     if (generando) return
+    detenerHabla()
     const contenido = texto.trim()
     if (!contenido && archivos.length === 0) return
 
@@ -1543,6 +1608,13 @@ export default function ImportarIA() {
     }
     idGeneracionActualRef.current = null
     setGenerando(false)
+  }
+
+  // Una opción de una burbuja de opciones: queda marcada y se agrega como respuesta del usuario.
+  // (Patrón listo para cuando la IA necesite preguntar algo rápido, p. ej. "¿recibo o factura?".)
+  function elegirOpcion(mensajeId, opcion) {
+    actualizarMensaje(mensajeId, { elegida: opcion.id })
+    setMensajes(prev => [...prev, { id: nuevoId(), role: 'user', type: 'text', texto: opcion.etiqueta, creadoEn: Date.now() }])
   }
 
   // Convierte una entrada requiere_revision del servicio (ver
@@ -1925,7 +1997,7 @@ export default function ImportarIA() {
   // idGeneracionActualRef la descartaba sin avisar a nadie). Ahora es
   // fisicamente imposible mandar dos a la vez — hay que esperar a que
   // termine (o cancelarla con "Detener") antes de poder enviar otra.
-  const puedeEnviar = !generando && !avisoArchivoViejo && (texto.trim().length > 0 || archivos.length > 0)
+  const puedeEnviar = serviciosListos && !generando && !avisoArchivoViejo && (texto.trim().length > 0 || archivos.length > 0)
 
   const msgModalAgregar = modal?.tipo === 'agregar' ? mensajes.find(m => m.id === modal.mensajeId) : null
   const resultadoFinalModal = msgModalAgregar ? construirResultadoFinal(msgModalAgregar) : null
@@ -1940,6 +2012,20 @@ export default function ImportarIA() {
           <p style={{ fontSize: 13, color: 'var(--dim)' }}>Cargá tu inventario a partir de documentos o fotos, con ayuda del asistente</p>
         </div>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginTop: 2 }}>
+          {hablaSoportada() && (
+            <button
+              onClick={alternarModoVoz}
+              className="clientes-action-icon"
+              aria-pressed={modoVoz}
+              data-testid="toggle-modo-voz"
+              title={modoVoz ? 'Modo voz activado: la IA lee sus respuestas en voz alta. Toca para desactivar.' : 'Activar modo voz: la IA leerá sus respuestas en voz alta (funciona sin internet)'}
+              style={{ width: 'auto', padding: '0 12px', gap: 6, display: 'flex', alignItems: 'center', fontSize: 12, fontWeight: 600, color: 'oklch(0.97 0.01 250)',
+                background: modoVoz ? 'oklch(0.78 0.16 155 / .22)' : undefined, border: modoVoz ? '1px solid oklch(0.78 0.16 155 / .7)' : undefined }}
+            >
+              {modoVoz ? <Volume2 size={17} color="oklch(0.97 0.01 250)" /> : <VolumeX size={17} color="oklch(0.97 0.01 250)" />}
+              Voz {modoVoz ? 'activada' : 'apagada'}
+            </button>
+          )}
           <button onClick={() => setPanelAbierto('archivos')} className="clientes-action-icon" title="Archivos adjuntos">
             <Paperclip size={18} color="oklch(0.97 0.01 250)" />
           </button>
@@ -1970,6 +2056,7 @@ export default function ImportarIA() {
                 onCambiarResuelto={cambiarCampoResuelto}
                 onTerminarEdicionNombre={reclasificarFilaResuelta}
                 onElegirModo={(id, modo) => actualizarMensaje(id, { modoStock: modo })}
+                onElegirOpcion={elegirOpcion}
               />
             ))}
           </AnimatePresence>
@@ -1998,6 +2085,39 @@ export default function ImportarIA() {
             <div className="clientes-glass-bg" />
             <span className="clientes-glass-content"><StopCircle size={13} /> Detener</span>
           </button>
+        </div>
+      )}
+
+      {/* Los servicios locales de IA arrancan con la app; hasta que estén listos no se puede enviar */}
+      {!serviciosListos && (
+        <div
+          data-testid="estado-servicios"
+          role="status"
+          style={{ margin: '6px 0 0', padding: '8px 12px', borderRadius: 10, fontSize: 12, color: 'oklch(0.82 0.14 75)', border: '1px solid oklch(0.82 0.14 75 / .4)', background: 'oklch(0.82 0.14 75 / .08)' }}
+        >
+          {[servicios.ollama, servicios.ocr].some(x => x.estado === 'error')
+            ? `El motor de IA no pudo iniciar: ${[servicios.ollama, servicios.ocr].filter(x => x.estado === 'error').map(x => x.detalle).join(' ')}`
+            : `Iniciando el motor de IA… ${[servicios.ollama, servicios.ocr].filter(x => x.estado === 'iniciando').map(x => x.detalle).join(' ')}`}
+        </div>
+      )}
+
+      {modoVoz && avisoVoz && (
+        <div role="status" data-testid="aviso-voz" style={{ margin: '6px 0 0', padding: '6px 12px', borderRadius: 10, fontSize: 12, color: 'oklch(0.82 0.14 75)', border: '1px solid oklch(0.82 0.14 75 / .4)' }}>
+          No pude leer en voz alta: {avisoVoz}
+        </div>
+      )}
+      {(dictado.estado !== 'inactivo' || dictado.error) && (
+        <div
+          data-testid="estado-dictado"
+          role="status"
+          style={{ margin: '6px 0 0', padding: '6px 12px', borderRadius: 10, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
+            color: dictado.error ? 'oklch(0.82 0.14 75)' : 'oklch(0.97 0.01 250)',
+            border: `1px solid ${dictado.error ? 'oklch(0.82 0.14 75 / .4)' : 'oklch(1 0 0 / .18)'}`, background: 'oklch(0.2 0.02 250 / .5)' }}
+        >
+          {dictado.estado === 'grabando' && <span className="ia-mic-punto" aria-hidden />}
+          {dictado.estado === 'grabando' && `Grabando… ${Math.floor(dictado.segundos / 60)}:${String(dictado.segundos % 60).padStart(2, '0')} — habla y toca el cuadrado para terminar`}
+          {dictado.estado === 'transcribiendo' && 'Transcribiendo en este equipo (sin internet)… puede tardar unos segundos'}
+          {dictado.estado === 'inactivo' && dictado.error}
         </div>
       )}
 
@@ -2037,6 +2157,21 @@ export default function ImportarIA() {
           }}
         />
 
+        {dictado.disponible && vozIaHabilitada && (
+          <button
+            onClick={() => { detenerHabla(); dictado.alternar() }}
+            disabled={dictado.estado === 'transcribiendo'}
+            title={dictado.estado === 'grabando' ? 'Terminar de grabar' : 'Dictar por voz (funciona sin internet)'}
+            aria-label={dictado.estado === 'grabando' ? 'Terminar de grabar' : 'Dictar por voz'}
+            aria-pressed={dictado.estado === 'grabando'}
+            data-testid="boton-microfono"
+            data-estado={dictado.estado}
+            className={`clientes-action-icon ia-mic ${dictado.estado === 'grabando' ? 'ia-mic--grabando' : ''}`}
+            style={{ flexShrink: 0, width: 40, height: 40, opacity: dictado.estado === 'transcribiendo' ? 0.5 : 1 }}
+          >
+            {dictado.estado === 'grabando' ? <Square size={16} color="oklch(0.97 0.01 250)" /> : <Mic size={18} color="oklch(0.97 0.01 250)" />}
+          </button>
+        )}
         <button
           onClick={handleEnviar}
           disabled={!puedeEnviar}

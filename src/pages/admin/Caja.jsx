@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from 'framer-motion'
 import CountUp from 'react-countup'
 import {
@@ -11,6 +11,9 @@ import { useAuth } from '../../context/AuthContext'
 import { useApp } from '../../context/AppContext'
 import { PAGES } from '../../constants'
 import Pagination from '../../components/ui/Pagination'
+import useControlVoz from '../../hooks/useControlVoz'
+import useVozHabilitada from '../../hooks/useVozHabilitada'
+import PanelControlVoz from '../../components/voz/PanelControlVoz'
 import './Caja.css'
 import '../Clients.css'
 
@@ -119,9 +122,9 @@ const TIPO_COLOR = {
 
 // ─── Modal Movimiento ─────────────────────────────────────────────────────────
 
-function ModalMovimiento({ tipo, onClose, onSaved, usuario }) {
-  const [concepto, setConcepto] = useState('')
-  const [monto, setMonto] = useState('')
+function ModalMovimiento({ tipo, onClose, onSaved, usuario, prefill }) {
+  const [concepto, setConcepto] = useState(prefill?.concepto ?? '')
+  const [monto, setMonto] = useState(prefill?.monto != null ? String(prefill.monto) : '')
   const [guardando, setGuardando] = useState(false)
 
   async function guardar() {
@@ -228,9 +231,9 @@ function ModalMovimiento({ tipo, onClose, onSaved, usuario }) {
 
 // ─── Modal Cerrar Caja ────────────────────────────────────────────────────────
 
-function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resumen, onClose, onCerrada, usuario }) {
-  const [montoCierre, setMontoCierre] = useState(efectivoEsperado.toFixed(2))
-  const [notas, setNotas] = useState('')
+function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resumen, onClose, onCerrada, usuario, prefill }) {
+  const [montoCierre, setMontoCierre] = useState(prefill?.monto_cierre != null ? String(prefill.monto_cierre) : efectivoEsperado.toFixed(2))
+  const [notas, setNotas] = useState(prefill?.notas ?? '')
   const [cerrando, setCerrando] = useState(false)
   const [verificados, setVerificados] = useState({})
 
@@ -679,8 +682,8 @@ function Historial({ onVolver }) {
 
 // ─── Modal Nota ──────────────────────────────────────────────────────────────
 
-function ModalNota({ sesionId, onClose, onSaved, usuario }) {
-  const [texto, setTexto] = useState('')
+function ModalNota({ sesionId, onClose, onSaved, usuario, prefill }) {
+  const [texto, setTexto] = useState(prefill?.texto ?? '')
   const [guardando, setGuardando] = useState(false)
 
   async function guardar() {
@@ -759,11 +762,18 @@ function ModalNota({ sesionId, onClose, onSaved, usuario }) {
 
 // ─── Vista Caja Cerrada ───────────────────────────────────────────────────────
 
-function CajaCerrada({ onAbierta, usuario }) {
+function CajaCerrada({ onAbierta, usuario, vozAccion }) {
   const reduceMotion = useReducedMotion()
   const [montoInicial, setMontoInicial] = useState('0')
   const [notas, setNotas] = useState('')
   const [abriendo, setAbriendo] = useState(false)
+
+  // Control por voz: rellena el formulario de apertura y se detiene; abrir la caja lo confirma la persona.
+  useEffect(() => {
+    if (vozAccion?.tipo !== 'abrir') return
+    setMontoInicial(String(vozAccion.valores?.monto_inicial ?? 0))
+    setNotas(vozAccion.valores?.notas ?? '')
+  }, [vozAccion])
 
   async function abrir() {
     setAbriendo(true)
@@ -840,7 +850,7 @@ function CajaCerrada({ onAbierta, usuario }) {
 
 // ─── Vista Caja Abierta ───────────────────────────────────────────────────────
 
-function CajaAbierta({ sesion, onCerrada, onRefresh }) {
+function CajaAbierta({ sesion, onCerrada, onRefresh, vozAccion }) {
   const { usuario } = useAuth()
   const { navigate } = useApp()
   const reduceMotion = useReducedMotion()
@@ -860,6 +870,12 @@ function CajaAbierta({ sesion, onCerrada, onRefresh }) {
   }, [sesion.id])
 
   useEffect(() => { cargar() }, [cargar])
+
+  // Control por voz: abre el formulario real ya rellenado. NO lo envía: el dinero lo confirma la persona.
+  useEffect(() => {
+    if (vozAccion && ['ingreso', 'egreso', 'nota', 'cerrar'].includes(vozAccion.tipo)) setModal(vozAccion.tipo)
+  }, [vozAccion])
+  const prefillModal = vozAccion && vozAccion.tipo === modal ? vozAccion.valores : undefined
 
   if (cargando) return <div style={{ textAlign: 'center', padding: 60 }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
   if (!resumen) return null
@@ -1093,10 +1109,10 @@ function CajaAbierta({ sesion, onCerrada, onRefresh }) {
       {/* Modales */}
       <AnimatePresence>
         {(modal === 'ingreso' || modal === 'egreso') && (
-          <ModalMovimiento tipo={modal} onClose={() => setModal(null)} onSaved={cargar} usuario={usuario} />
+          <ModalMovimiento tipo={modal} onClose={() => setModal(null)} onSaved={cargar} usuario={usuario} prefill={prefillModal} />
         )}
         {modal === 'nota' && (
-          <ModalNota sesionId={sesion.id} onClose={() => setModal(null)} onSaved={cargar} usuario={usuario} />
+          <ModalNota sesionId={sesion.id} onClose={() => setModal(null)} onSaved={cargar} usuario={usuario} prefill={prefillModal} />
         )}
         {modal === 'cerrar' && (
           <ModalCerrarCaja
@@ -1108,12 +1124,35 @@ function CajaAbierta({ sesion, onCerrada, onRefresh }) {
             onClose={() => setModal(null)}
             onCerrada={onCerrada}
             usuario={usuario}
+            prefill={prefillModal}
           />
         )}
       </AnimatePresence>
     </div>
   )
 }
+
+// ─── Control por voz de Caja ──────────────────────────────────────────────────
+// La voz ABRE y RELLENA los formularios reales (apertura, ingreso/egreso, nota, cierre) y se detiene:
+// nunca pulsa "Abrir Caja", "Confirmar" ni "Cerrar Turno". El dinero lo confirma siempre la persona.
+const CATALOGO_CAJA = {
+  abrir_caja: { descripcion: 'Rellena el formulario de apertura de caja con el monto inicial y notas (la persona lo confirma).',
+    params: { monto_inicial: { tipo: 'numero', opcional: true, por_defecto: 0, min: 0, max: 1000000 }, notas: { tipo: 'texto', opcional: true } } },
+  registrar_ingreso: { descripcion: 'Abre el formulario de un ingreso de dinero a la caja con su concepto y monto.',
+    params: { concepto: { tipo: 'texto' }, monto: { tipo: 'numero', min: 0.01, max: 1000000 } } },
+  registrar_egreso: { descripcion: 'Abre el formulario de un egreso (salida de dinero) de la caja con su concepto y monto.',
+    params: { concepto: { tipo: 'texto' }, monto: { tipo: 'numero', min: 0.01, max: 1000000 } } },
+  registrar_nota: { descripcion: 'Abre una nota de la sesion de caja con ese texto.', params: { texto: { tipo: 'texto' } } },
+  cerrar_caja: { descripcion: 'Abre el formulario de cierre de caja con el monto contado y notas (la persona lo confirma).',
+    params: { monto_cierre: { tipo: 'numero', opcional: true, min: 0, max: 1000000 }, notas: { tipo: 'texto', opcional: true } } },
+}
+const EJEMPLOS_CAJA = [
+  { frase: 'abre la caja con 200 bolivianos', acciones: [{ accion: 'abrir_caja', monto_inicial: 200 }] },
+  { frase: 'registra un egreso de 50 por pago de luz', acciones: [{ accion: 'registrar_egreso', concepto: 'pago de luz', monto: 50 }] },
+  { frase: 'ingreso de 120 por venta de suplementos', acciones: [{ accion: 'registrar_ingreso', concepto: 'venta de suplementos', monto: 120 }] },
+  { frase: 'anota que el datafono falla', acciones: [{ accion: 'registrar_nota', texto: 'el datafono falla' }] },
+  { frase: 'cierra la caja, conté 850', acciones: [{ accion: 'cerrar_caja', monto_cierre: 850 }] },
+]
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 
@@ -1125,6 +1164,65 @@ export default function Caja() {
   const [cargando, setCargando] = useState(true)
   const [rev, setRev] = useState(0)
 
+  // Control por voz (ver CATALOGO_CAJA arriba)
+  const vozHabilitada = useVozHabilitada('caja')
+  const [vozAccion, setVozAccion] = useState(null) // { n, tipo, valores }: lo que la voz pidió abrir/rellenar
+  const [vozAbierto, setVozAbierto] = useState(false)
+  const sesionRef = useRef(null)
+  const contadorVoz = useRef(0)
+  const pedir = (tipo, valores) => setVozAccion({ n: ++contadorVoz.current, tipo, valores })
+  const soloSiCajaAbierta = () => (sesionRef.current ? null : { ok: false, mensaje: 'La caja está cerrada: primero hay que abrirla.' })
+  const vozCaja = useControlVoz({
+    pantalla: 'caja',
+    catalogo: CATALOGO_CAJA,
+    ejemplos: EJEMPLOS_CAJA,
+    habilitado: vozHabilitada,
+    getContexto: () => ({ caja: sesionRef.current ? 'abierta' : 'cerrada' }),
+    ejecutores: {
+      abrir_caja: {
+        narrar: a => `Rellenando la apertura con Bs. ${a.monto_inicial ?? 0}…`,
+        ejecutar: async a => {
+          if (sesionRef.current) return { ok: false, mensaje: 'La caja ya está abierta.' }
+          setVista('caja')
+          pedir('abrir', { monto_inicial: a.monto_inicial ?? 0, notas: a.notas })
+          return { ok: true, mensaje: `Rellené la apertura con Bs. ${a.monto_inicial ?? 0}. Revísala y presiona «Abrir Caja»: yo no la abro por ti.` }
+        },
+      },
+      registrar_ingreso: {
+        narrar: a => `Preparando un ingreso de Bs. ${a.monto} por «${a.concepto}»…`,
+        ejecutar: async a => {
+          const e = soloSiCajaAbierta(); if (e) return e
+          setVista('caja'); pedir('ingreso', { concepto: a.concepto, monto: a.monto })
+          return { ok: true, mensaje: `Abrí el ingreso de Bs. ${a.monto} por «${a.concepto}». Revísalo y presiona «Confirmar»: el dinero lo confirmas tú.` }
+        },
+      },
+      registrar_egreso: {
+        narrar: a => `Preparando un egreso de Bs. ${a.monto} por «${a.concepto}»…`,
+        ejecutar: async a => {
+          const e = soloSiCajaAbierta(); if (e) return e
+          setVista('caja'); pedir('egreso', { concepto: a.concepto, monto: a.monto })
+          return { ok: true, mensaje: `Abrí el egreso de Bs. ${a.monto} por «${a.concepto}». Revísalo y presiona «Confirmar»: el dinero lo confirmas tú.` }
+        },
+      },
+      registrar_nota: {
+        narrar: a => `Preparando la nota «${a.texto}»…`,
+        ejecutar: async a => {
+          const e = soloSiCajaAbierta(); if (e) return e
+          setVista('caja'); pedir('nota', { texto: a.texto })
+          return { ok: true, mensaje: 'Abrí la nota. Revísala y presiona guardar.' }
+        },
+      },
+      cerrar_caja: {
+        narrar: () => 'Preparando el cierre de caja…',
+        ejecutar: async a => {
+          const e = soloSiCajaAbierta(); if (e) return e
+          setVista('caja'); pedir('cerrar', { monto_cierre: a.monto_cierre, notas: a.notas })
+          return { ok: true, mensaje: 'Abrí el cierre de caja con lo que dijiste. Revísalo y confírmalo tú: yo no cierro el turno.' }
+        },
+      },
+    },
+  })
+
   const cargar = useCallback(async () => {
     const s = await window.api.caja.getSesionActual()
     setSesion(s || null)
@@ -1132,6 +1230,7 @@ export default function Caja() {
   }, [])
 
   useEffect(() => { cargar() }, [cargar, rev])
+  sesionRef.current = sesion
 
   const onCerrada = () => setRev(r => r + 1)
   const onAbierta = () => setRev(r => r + 1)
@@ -1183,12 +1282,32 @@ export default function Caja() {
           ) : vista === 'historial' ? (
             <Historial onVolver={() => setVista('caja')} />
           ) : sesion ? (
-            <CajaAbierta sesion={sesion} onCerrada={onCerrada} onRefresh={cargar} />
+            <CajaAbierta sesion={sesion} onCerrada={onCerrada} onRefresh={cargar} vozAccion={vozAccion} />
           ) : (
-            <CajaCerrada onAbierta={onAbierta} usuario={usuario} />
+            <CajaCerrada onAbierta={onAbierta} usuario={usuario} vozAccion={vozAccion} />
           )}
         </motion.div>
       </AnimatePresence>
+
+      {vozHabilitada && (
+        <div style={{ position: 'fixed', right: 18, bottom: 18, zIndex: 9600, width: 'min(400px, calc(100vw - 36px))' }} data-testid="caja-dock-voz">
+          {vozAbierto && (
+            <div style={{ marginBottom: 8, maxHeight: '60vh', overflowY: 'auto', borderRadius: 14, boxShadow: '0 12px 40px oklch(0 0 0 / .6)' }}>
+              <PanelControlVoz voz={vozCaja} ayuda="Ej: registra un egreso de 50 por pago de luz" />
+            </div>
+          )}
+          <button
+            type="button"
+            data-testid="caja-voz-toggle"
+            onClick={() => setVozAbierto(v => !v)}
+            className="clientes-glass-btn"
+            style={{ marginLeft: 'auto', display: 'flex', borderRadius: 999, padding: '9px 16px', fontSize: 13, fontWeight: 700 }}
+          >
+            <div className="clientes-glass-bg" />
+            <span className="clientes-glass-content">{vozAbierto ? 'Ocultar control por voz' : 'Control por voz'}</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }
