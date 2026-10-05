@@ -75,7 +75,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  app.configureHostResolver({ secureDnsMode: 'off', enableBuiltInResolver: false }) // sin DoH hacia DNS públicos
+  if (!isDev) app.configureHostResolver({ secureDnsMode: 'off', enableBuiltInResolver: false }) // sin DoH hacia DNS públicos (solo producción: en dev rompía localhost)
   // Eliminar menú por defecto de Electron (tiene "View > Toggle Developer Tools")
   if (!isDev) Menu.setApplicationMenu(null)
 
