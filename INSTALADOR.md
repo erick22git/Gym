@@ -41,6 +41,13 @@ Al iniciar la app (no bajo demanda) `main` lanza como procesos hijos, con puerto
 
 El dictado (`electron/voz.cjs`) manda el WAV al servicio local (`POST 127.0.0.1:8420/transcribir`), que lo transcribe con **faster-whisper** (modelo small, `float32`, sin cuantizar). Whisper.cpp se retiró: tardaba 206–260 s por frase en la PC de desarrollo; faster-whisper, ~7–12 s (mismo modelo, mismo texto).
 
+## Chat, mascota y recorridos (rama feat/ia-chat-mascota)
+
+- El servicio OCR ahora también expone `/chat` (SSE), `/modelos` y `/benchmark` (ver `scripts/README.md`); lleva
+  `modelos_perfiles.json` dentro del `.exe`. La mascota flotante usa `bot-avatars`, `thinking-orbs` y `border-beam`
+  (libraries.dev, MIT, sin dependencias de runtime ni llamadas de red; se empaquetan con Vite, ≈ +0,7 MB en `dist`).
+- Verificado en `C:\GymApp` con proxy trampa + monitor: 0 peticiones externas del renderer y 0 conexiones no-loopback.
+
 ## Cero tráfico saliente (verificado)
 
 - CSP de producción: `connect-src 'self' http://localhost:8420`, `img-src … blob:`, sin fuentes externas

@@ -837,7 +837,7 @@ function CajaCerrada({ onAbierta, usuario, vozAccion }) {
             <input className="gym-input" value={notas} onChange={e => setNotas(e.target.value)} placeholder="Observaciones..." />
           </div>
         </div>
-        <CajaBtn onClick={abrir} disabled={abriendo} className="clientes-glass-btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: 16 }}>
+        <CajaBtn data-guide-id="caja-abrir" onClick={abrir} disabled={abriendo} className="clientes-glass-btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: 16 }}>
           <div className="clientes-glass-bg" />
           <span className="clientes-glass-content">
             <Unlock size={19} /> {abriendo ? 'Abriendo...' : 'Abrir Caja'}
@@ -1001,7 +1001,7 @@ function CajaAbierta({ sesion, onCerrada, onRefresh, vozAccion }) {
             <MessageSquarePlus size={16} /> Nota
           </span>
         </CajaBtn>
-        <CajaBtn onClick={() => setModal('cerrar')} className="caja-btn-cerrar clientes-glass-btn" style={{ padding: '10px 20px', borderRadius: 10, fontSize: 15, border: '1px solid oklch(0.66 0.22 25 / .4)', cursor: 'pointer' }}>
+        <CajaBtn data-guide-id="caja-cerrar" onClick={() => setModal('cerrar')} className="caja-btn-cerrar clientes-glass-btn" style={{ padding: '10px 20px', borderRadius: 10, fontSize: 15, border: '1px solid oklch(0.66 0.22 25 / .4)', cursor: 'pointer' }}>
           <div className="clientes-glass-bg" />
           <span className="clientes-glass-content" style={{ color: 'oklch(0.85 0.12 25)' }}>
             <Lock size={16} /> Cerrar Caja

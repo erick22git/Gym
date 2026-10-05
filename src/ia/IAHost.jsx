@@ -6,6 +6,9 @@ import { useApp } from '../context/AppContext'
 import { PAGES } from '../constants'
 import { registrarEjecutores, cargarPrefs, guardarPref } from './motorChat'
 import { DESTINOS } from './registroAcciones'
+import { guiaStore } from './guiaStore'
+import Mascota from '../components/ia/Mascota'
+import VisorGuia from '../components/ia/VisorGuia'
 
 const ETIQUETA_PAGINA = Object.fromEntries(Object.values(DESTINOS).map(d => [d.page, d.etiqueta]))
 
@@ -21,6 +24,7 @@ export default function IAHost() {
       navegar: destinoPage => navigate(destinoPage),
       getRuta: () => ETIQUETA_PAGINA[page] || String(page),
       aplicarTema,
+      iniciarGuia: id => guiaStore.iniciar(id),
       importarArchivo: () => {
         if (page === PAGES.IA_IMPORTAR) window.dispatchEvent(new Event('ia:abrir-selector'))
         else { window.__iaAbrirSelector = true; navigate(PAGES.IA_IMPORTAR) }
@@ -54,5 +58,10 @@ export default function IAHost() {
     return () => { vivo = false; clearTimeout(t) }
   }, [])
 
-  return null
+  return (
+    <>
+      <Mascota page={page} navigate={navigate} />
+      <VisorGuia />
+    </>
+  )
 }

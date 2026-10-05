@@ -1431,7 +1431,7 @@ export default function Inventario() {
   }, [rev])
 
   return (
-    <div className="clientes-page" style={{ padding: '0 2px' }}>
+    <div className="clientes-page" data-guide-id="inventario-lista" style={{ padding: '0 2px' }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 className="titulo-metalico" style={{ marginBottom: 6 }}>INVENTARIO</h1>

@@ -2,7 +2,7 @@
 // (sin internet), muestra el micro-benchmark de este equipo y permite cambiar de modelo/perfil.
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Cpu, Gauge, RefreshCw } from 'lucide-react'
+import { Cpu, Gauge, RefreshCw, Zap } from 'lucide-react'
 import { cargarPrefs, guardarPref } from '../../ia/motorChat'
 import '../../ia/ia.css'
 
@@ -31,6 +31,12 @@ export default function ConfigModeloIA() {
       setPrefs(await cargarPrefs(true))
     } catch (e) { toast.error(`No se pudo medir: ${e.message}`) }
     setMidiendo(false)
+  }
+
+  async function alternarRendimiento() {
+    await guardarPref('ia_modo_rendimiento', prefs.rendimiento === '1' ? '0' : '1')
+    setPrefs(await cargarPrefs(true))
+    window.dispatchEvent(new Event('ia:rendimiento'))
   }
 
   if (!prefs) return <div style={{ color: 'var(--dim)', fontSize: 13 }}>Cargando…</div>
@@ -71,6 +77,18 @@ export default function ConfigModeloIA() {
             <RefreshCw size={11} className={midiendo ? 'ia-giro' : ''} /> {midiendo ? 'Midiendo (~5 s)…' : 'Medir de nuevo'}
           </button>
         </div>
+      </div>
+
+      <div style={{ ...caja, display: 'flex', alignItems: 'center', gap: 14 }}>
+        <Zap size={18} style={{ flexShrink: 0 }} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Modo rendimiento</div>
+          <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .75)', marginTop: 2 }}>Simplifica las animaciones de la mascota (sin avatar animado, sin resorte ni brillos). Útil en equipos lentos.</div>
+        </div>
+        <button type="button" role="switch" aria-checked={prefs.rendimiento === '1'} aria-label="Modo rendimiento" data-testid="interruptor-rendimiento" onClick={alternarRendimiento}
+          style={{ width: 46, height: 26, borderRadius: 999, border: '1px solid oklch(1 0 0 / .25)', cursor: 'pointer', position: 'relative', flexShrink: 0, background: prefs.rendimiento === '1' ? 'oklch(0.78 0.16 155 / .55)' : 'oklch(0.2 0.02 250 / .6)' }}>
+          <span style={{ position: 'absolute', top: 2, left: prefs.rendimiento === '1' ? 22 : 2, width: 20, height: 20, borderRadius: 999, background: '#fff', transition: 'left .15s' }} />
+        </button>
       </div>
     </div>
   )

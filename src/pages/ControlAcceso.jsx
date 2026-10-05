@@ -1972,6 +1972,7 @@ export default function ControlAcceso() {
               </div>
               <motion.button
                 type="button"
+                data-guide-id="btn-nueva-venta"
                 onClick={() => setShowVentaRapida(true)}
                 className="ca-glass-btn ca-venta-btn"
                 style={{
@@ -2008,6 +2009,7 @@ export default function ControlAcceso() {
               </div>
               <motion.button
                 type="button"
+                data-guide-id="btn-nuevo-cliente"
                 onClick={abrirWizardNuevo}
                 className="btn-primary ca-glass-btn nuevo-cliente-btn"
                 style={{

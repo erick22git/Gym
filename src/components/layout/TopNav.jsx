@@ -130,6 +130,7 @@ function MenuItem({ item, index, isActive, onClick, onTooltipShow, onTooltipHide
 
   return (
     <button
+      data-guide-id={`nav-${item.key}`}
       className={`menu-item${isActive ? ' active' : ''}`}
       onClick={bloqueado ? undefined : onClick}
       disabled={bloqueado}

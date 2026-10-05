@@ -25,7 +25,7 @@ export async function cargarPrefs(forzar = false) {
   if (prefs && !forzar) return prefs
   let c = {}
   try { c = (await window.api?.ia?.getConfig?.()) || {} } catch { /* sin IPC */ }
-  prefs = { modelo: c.ia_modelo || null, perfil: c.ia_perfil || null, tema: c.ia_tema || 'clasico', benchmark: c.ia_benchmark || null }
+  prefs = { modelo: c.ia_modelo || null, perfil: c.ia_perfil || null, tema: c.ia_tema || 'clasico', benchmark: c.ia_benchmark || null, mascotaPos: c.mascota_pos || null, rendimiento: c.ia_modo_rendimiento || null }
   return prefs
 }
 export async function guardarPref(clave, valor) {
