@@ -1,0 +1,10 @@
+{
+  "_nota": "Perfiles de modelo. Hasta la Fase 4 (evaluacion con el set de documentos) los tres usan el modelo actual qwen2.5:3b y solo cambian los limites; no se cambia de modelo sin medir. El perfil se recomienda con un micro-benchmark de tokens/s.",
+  "perfil_por_defecto": "medio",
+  "perfiles": {
+    "basico": { "etiqueta": "Básico (equipos lentos)", "modelo": "qwen2.5:3b", "num_ctx": 2048, "max_tokens": 400, "temperatura_chat": 0.3 },
+    "medio":  { "etiqueta": "Medio",                    "modelo": "qwen2.5:3b", "num_ctx": 4096, "max_tokens": 700, "temperatura_chat": 0.3 },
+    "alto":   { "etiqueta": "Alto (equipos rápidos)",   "modelo": "qwen2.5:3b", "num_ctx": 8192, "max_tokens": 1200, "temperatura_chat": 0.3 }
+  },
+  "umbrales_tokens_por_segundo": { "basico": 0, "medio": 4, "alto": 12 }
+}

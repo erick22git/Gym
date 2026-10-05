@@ -1,0 +1,74 @@
+/* Tokens y estilos del chat de IA y la mascota. Todo color/medida nueva sale de variables --ia-*; el tema
+   «Clásico» es el diseño actual (valores por defecto). Los temas Oscuro/Claro se añaden más adelante
+   redefiniendo estas mismas variables bajo [data-ia-tema="oscuro"|"claro"]. */
+:root {
+  --ia-texto: oklch(0.97 0.01 250);
+  --ia-texto-suave: oklch(0.88 0.01 250 / .85);
+  --ia-fondo-tarjeta: oklch(0.15 0.02 250 / .55);
+  --ia-borde: oklch(1 0 0 / .14);
+  --ia-acento: oklch(0.78 0.16 250);
+  --ia-ok: oklch(0.78 0.16 155);
+  --ia-aviso: oklch(0.82 0.14 75);
+  --ia-error: oklch(0.7 0.19 25);
+  --ia-radio: 12px;
+  --ia-radio-pastilla: 999px;
+  --ia-sombra: 0 8px 24px oklch(0 0 0 / .3);
+  --ia-espacio: 8px;
+  --ia-resorte-rigidez: 380;
+  --ia-resorte-amortiguacion: 32;
+}
+
+/* ── Markdown ── */
+.ia-md { font-size: 13px; line-height: 1.55; color: var(--ia-texto); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.ia-md-p { margin: 0 0 6px; }
+.ia-md-p:last-child { margin-bottom: 0; }
+.ia-md-h { font-weight: 800; margin: 6px 0 4px; }
+.ia-md-lista { margin: 2px 0 6px; padding-left: 20px; }
+.ia-md-lista li { margin: 2px 0; }
+.ia-md-codigo { font-family: ui-monospace, Consolas, monospace; font-size: 12px; padding: 1px 6px; border-radius: 6px; background: oklch(1 0 0 / .1); border: 1px solid var(--ia-borde); }
+.ia-cursor { display: inline-block; width: 7px; height: 14px; margin-left: 2px; vertical-align: -2px; background: var(--ia-acento); animation: ia-parpadeo 1s steps(2, start) infinite; }
+@keyframes ia-parpadeo { to { visibility: hidden; } }
+
+/* ── Barra bajo cada respuesta (copiar / regenerar / métricas) ── */
+.ia-barra { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.ia-barra-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: var(--ia-radio-pastilla); color: var(--ia-texto-suave); background: transparent; border: 1px solid var(--ia-borde); cursor: pointer; }
+.ia-barra-btn:hover { color: var(--ia-texto); border-color: oklch(1 0 0 / .4); }
+.ia-metricas { font-size: 10px; color: var(--ia-texto-suave); opacity: .7; margin-left: auto; }
+
+/* ── Tarjetas (acciones, pasos) ── */
+.ia-tarjeta { margin-top: 6px; border-radius: var(--ia-radio); border: 1px solid var(--ia-borde); background: var(--ia-fondo-tarjeta); padding: 10px 12px; }
+.ia-tarjeta-aviso { border-color: oklch(0.82 0.14 75 / .45); }
+.ia-tarjeta-titulo { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--ia-texto); }
+.ia-tarjeta-lista { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.ia-tarjeta-lista li { font-size: 12.5px; color: var(--ia-texto); display: flex; gap: 6px; align-items: flex-start; }
+.ia-botones { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ia-boton { padding: 7px 16px; border-radius: var(--ia-radio-pastilla); font-size: 12.5px; font-weight: 700; cursor: pointer; color: var(--ia-texto); background: oklch(0.2 0.02 250 / .5); border: 1.5px solid var(--ia-borde); }
+.ia-boton:hover:not(:disabled) { border-color: oklch(1 0 0 / .5); }
+.ia-boton-principal { border-color: oklch(0.78 0.16 155 / .6); background: oklch(0.78 0.16 155 / .14); }
+.ia-boton:disabled { opacity: .45; cursor: default; }
+
+/* ── Pasos del pipeline ── */
+.ia-paso { border-top: 1px solid var(--ia-borde); }
+.ia-paso:first-child { border-top: none; }
+.ia-paso-cab { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 2px; background: none; border: none; color: var(--ia-texto); font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: left; }
+.ia-paso-detalle { padding: 0 2px 8px 26px; font-size: 12px; color: var(--ia-texto-suave); }
+.ia-estado-curso { color: var(--ia-acento); } .ia-estado-listo { color: var(--ia-ok); } .ia-estado-error { color: var(--ia-error); }
+@keyframes ia-giro { to { transform: rotate(360deg); } }
+.ia-giro { animation: ia-giro 1s linear infinite; }
+
+/* ── Comandos con barra (autocompletado) ── */
+.ia-comandos { position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 6px; z-index: 5; border-radius: var(--ia-radio); border: 1px solid var(--ia-borde); background: oklch(0.14 0.02 250 / .96); box-shadow: var(--ia-sombra); overflow: hidden; }
+.ia-comando { display: flex; gap: 10px; width: 100%; padding: 8px 12px; background: none; border: none; color: var(--ia-texto); font-size: 12.5px; cursor: pointer; text-align: left; align-items: baseline; }
+.ia-comando:hover, .ia-comando.activo { background: oklch(1 0 0 / .08); }
+.ia-comando b { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--ia-acento); }
+.ia-comando span { color: var(--ia-texto-suave); font-size: 11.5px; }
+
+/* ── Selector de modo ── */
+.ia-modo { display: inline-flex; border-radius: var(--ia-radio-pastilla); border: 1px solid var(--ia-borde); overflow: hidden; }
+.ia-modo button { padding: 4px 12px; font-size: 11.5px; font-weight: 700; background: transparent; border: none; color: var(--ia-texto-suave); cursor: pointer; }
+.ia-modo button.activo { background: oklch(1 0 0 / .14); color: var(--ia-texto); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ia-cursor, .ia-giro { animation: none; }
+}
+.ia-estado-espera { color: var(--ia-aviso); }

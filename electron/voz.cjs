@@ -43,6 +43,8 @@ function transcribirLocal(buf, segundosAudio) {
 function registrar() {
   // Interruptores del control por voz por módulo (ventas / caja / ia), persistidos en la BD.
   ipcMain.handle('voz:getConfig', () => require('./database.cjs').vozConfig.getAll())
+  ipcMain.handle('ia:getConfig', () => require('./database.cjs').iaConfig.getAll())
+  ipcMain.handle('ia:setConfig', (_e, clave, valor) => require('./database.cjs').iaConfig.set(clave, valor))
   ipcMain.handle('voz:setConfig', (_e, modulo, activo) => require('./database.cjs').vozConfig.set(modulo, !!activo))
 
   ipcMain.handle('voz:disponible', () => {

@@ -2675,7 +2675,7 @@ const iaAuditoria = {
 // Un interruptor por módulo, en la tabla `config` (clave/valor). Por defecto TODO activo: solo
 // se guarda algo cuando el administrador apaga un módulo.
 const vozConfig = {
-  MODULOS: ['ventas', 'caja', 'ia'],
+  MODULOS: ['ventas', 'caja', 'ia', 'mascota'],
   getAll() {
     const out = {}
     for (const m of vozConfig.MODULOS) {
@@ -2689,6 +2689,26 @@ const vozConfig = {
     run('INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
       ['voz_control_' + modulo, activo ? '1' : '0'])
     return { ok: true, config: vozConfig.getAll() }
+  },
+}
+
+// Preferencias del asistente de IA (modelo, perfil, tema, modo, posición de la mascota…). Clave/valor en
+// `config` con lista blanca: el renderer no puede escribir claves arbitrarias.
+const iaConfig = {
+  CLAVES: ['ia_modelo', 'ia_perfil', 'ia_benchmark', 'ia_modo', 'ia_tema', 'mascota_pos', 'ia_modo_rendimiento'],
+  getAll() {
+    const out = {}
+    for (const k of iaConfig.CLAVES) {
+      const fila = queryOne('SELECT value FROM config WHERE key=?', [k])
+      out[k] = fila ? fila.value : null
+    }
+    return out
+  },
+  set(clave, valor) {
+    if (!iaConfig.CLAVES.includes(clave)) return { ok: false, error: 'Preferencia desconocida.' }
+    run('INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+      [clave, valor == null ? '' : String(valor).slice(0, 2000)])
+    return { ok: true }
   },
 }
 
@@ -3616,7 +3636,7 @@ module.exports = {
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
   ventas, descuentos, configuracionPOS,
-  inventario, iaAuditoria, vozConfig, caja, papelera,
+  inventario, iaAuditoria, vozConfig, iaConfig, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,

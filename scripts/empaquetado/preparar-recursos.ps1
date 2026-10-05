@@ -54,6 +54,7 @@ for d in n:
 print(' '.join(ok))"
   $args = @('--noconfirm', '--clean', '--onedir', '--name', 'ocr-service', '--distpath', $rb,
             '--add-data', "$raiz\scripts\conocimiento_sistema.md;.",
+            '--add-data', "$raiz\scripts\modelos_perfiles.json;.",
             '--collect-all', 'paddleocr', '--collect-all', 'paddlex', '--collect-all', 'paddle', '--collect-all', 'pypdfium2', '--collect-all', 'pdfplumber')
   foreach ($m in 'pyclipper', 'shapely', 'safetensors', 'lxml', 'bidi', 'imagesize', 'faster_whisper', 'ctranslate2', 'av', 'onnxruntime', 'tokenizers') { $args += @('--collect-all', $m) }
   foreach ($d in ($meta -split ' ') + @('paddleocr', 'paddlex', 'paddlepaddle', 'python-docx', 'pdfplumber', 'pymupdf', 'Flask', 'openpyxl', 'pdfminer.six', 'faster-whisper', 'ctranslate2', 'av', 'onnxruntime', 'tokenizers', 'huggingface-hub')) { if ($d) { $args += @('--copy-metadata', $d) } }

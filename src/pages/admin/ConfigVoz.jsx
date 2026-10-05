@@ -2,13 +2,14 @@
 // (por ejemplo, si un empleado no debe tener ese acceso). Se guarda en la base de datos local.
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { ShoppingBag, Wallet, Sparkles, Mic } from 'lucide-react'
+import { ShoppingBag, Wallet, Sparkles, Mic, Bot } from 'lucide-react'
 import { EVENTO_VOZ_CONFIG } from '../../hooks/useVozHabilitada'
 
 const MODULOS = [
   { id: 'ventas', titulo: 'Ventas (Venta rápida)', detalle: 'Agregar productos, elegir método de pago y cobrar hablando. El cobro siempre pide confirmación.', icon: ShoppingBag },
   { id: 'caja', titulo: 'Caja', detalle: 'Abrir caja y rellenar movimientos o el cierre hablando. Nunca confirma dinero por sí sola.', icon: Wallet },
   { id: 'ia', titulo: 'IA / Importar datos', detalle: 'Dictar mensajes al asistente de importación con el micrófono.', icon: Sparkles },
+  { id: 'mascota', titulo: 'Mascota IA (asistente flotante)', detalle: 'Muestra el asistente flotante en todas las pantallas. Apagarlo lo oculta; la página de IA sigue disponible.', icon: Bot, mascota: true },
 ]
 
 export default function ConfigVoz() {
@@ -26,7 +27,8 @@ export default function ConfigVoz() {
       if (!r?.ok) throw new Error(r?.error || 'No se pudo guardar')
       setConfig(r.config)
       window.dispatchEvent(new Event(EVENTO_VOZ_CONFIG))
-      toast.success(`Control por voz ${activo ? 'activado' : 'desactivado'} en ${MODULOS.find(m => m.id === modulo).titulo}`)
+      const mod = MODULOS.find(m => m.id === modulo)
+      toast.success(mod.mascota ? `Mascota ${activo ? 'activada' : 'desactivada'}` : `Control por voz ${activo ? 'activado' : 'desactivado'} en ${mod.titulo}`)
     } catch (e) {
       toast.error(e.message)
     }
@@ -55,7 +57,7 @@ export default function ConfigVoz() {
               type="button"
               role="switch"
               aria-checked={activo}
-              aria-label={`Control por voz en ${m.titulo}`}
+              aria-label={m.mascota ? 'Mostrar la mascota' : `Control por voz en ${m.titulo}`}
               data-testid={`interruptor-voz-${m.id}`}
               disabled={guardando === m.id}
               onClick={() => cambiar(m.id, !activo)}

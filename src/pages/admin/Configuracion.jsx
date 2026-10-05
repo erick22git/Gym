@@ -15,6 +15,7 @@ import Respaldos from './Respaldos'
 import ConfiguracionRecibos from '../../modules/recibos/ConfiguracionRecibos'
 import ImportarIA from './ImportarIA'
 import ConfigVoz from './ConfigVoz'
+import ConfigModeloIA from './ConfigModeloIA'
 
 // ─── Secciones disponibles ────────────────────────────────────────────────────
 
@@ -88,6 +89,13 @@ const SECCIONES = [
     titulo: 'Control por voz',
     descripcion: 'Activar o desactivar el control por voz en Ventas, Caja e IA',
     color: 'oklch(0.78 0.16 155)',
+  },
+  {
+    id: 'modelo-ia',
+    icon: Sparkles,
+    titulo: 'Asistente IA (modelo)',
+    descripcion: 'Elegir el modelo de lenguaje y el perfil de rendimiento de este equipo',
+    color: 'oklch(0.78 0.16 250)',
   },
   {
     id: 'ia',
@@ -400,6 +408,7 @@ export default function Configuracion() {
                 — un solo componente, dos puntos de entrada, ver ImportarIA.jsx */}
             {seccion === 'ia' && <ImportarIA />}
             {seccion === 'voz' && <ConfigVoz />}
+            {seccion === 'modelo-ia' && <ConfigModeloIA />}
           </motion.div>
         )}
       </AnimatePresence>

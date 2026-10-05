@@ -1,3 +1,4 @@
+import IAHost from './ia/IAHost'
 import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -105,6 +106,7 @@ function PageContainer() {
 function AppInner() {
   return (
     <>
+      <IAHost />
       <VideoBackground />
       <div className="app-layout">
         <TitleBar />

@@ -11,6 +11,12 @@
 //   2. Configuracion.jsx → sección 'ia' (dentro del hub de Configuración)
 
 import { esNombreDeProducto } from '../../utils/nombreProducto'
+import { useChat, chatStore, nuevoId } from '../../ia/chatStore'
+import { responderA, detener as detenerChat, regenerar, aprobarAcciones, rechazarAcciones, manejarOpcion } from '../../ia/motorChat'
+import { resolverPorCodigo, sugerirComandos } from '../../ia/resolver'
+import { MODOS } from '../../ia/registroAcciones'
+import { TextoIA, TarjetaAcciones, TarjetaPasos } from '../../components/ia/MensajeIA'
+import '../../ia/ia.css'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -1023,7 +1029,7 @@ function ConfirmarSiNo({ resuelto, onSi, onNo }) {
 
 // ─── Burbuja de mensaje — usuario a la derecha, IA a la izquierda, ambas
 // sobre #dropdown-glass (pedido explícito), nunca #historial-glass acá ───
-function Burbuja({ msg, onConfirmarAgregado, onCancelarAgregado, onConfirmarEliminado, onCancelarEliminado, onCambiarRevision, onCambiarResuelto, onTerminarEdicionNombre, onElegirModo, onElegirOpcion }) {
+function Burbuja({ msg, esUltimoIA, puedeRegenerar, onRegenerar, onAprobar, onRechazar, onConfirmarAgregado, onCancelarAgregado, onConfirmarEliminado, onCancelarEliminado, onCambiarRevision, onCambiarResuelto, onTerminarEdicionNombre, onElegirModo, onElegirOpcion }) {
   const esUsuario = msg.role === 'user'
 
   return (
@@ -1058,7 +1064,14 @@ function Burbuja({ msg, onConfirmarAgregado, onCancelarAgregado, onConfirmarElim
             </div>
           )}
 
-          {(msg.type === 'text' || msg.type === 'success') && (
+          {msg.type === 'text' && !esUsuario && (
+            <TextoIA msg={msg} esUltimo={esUltimoIA} puedeRegenerar={puedeRegenerar} onRegenerar={onRegenerar} />
+          )}
+
+          {msg.type === 'acciones' && <TarjetaAcciones msg={msg} onAprobar={onAprobar} onRechazar={onRechazar} />}
+          {msg.type === 'pasos' && <TarjetaPasos msg={msg} />}
+
+          {(msg.type === 'success' || (msg.type === 'text' && esUsuario)) && (
             <div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                 {msg.type === 'success' && (
@@ -1272,11 +1285,11 @@ function EstadoVacio() {
 
 // ─── Página principal ──────────────────────────────────────────────────────
 
-let idCounter = 0
-function nuevoId() { idCounter += 1; return `m${idCounter}-${Date.now()}` }
-
 export default function ImportarIA() {
-  const [mensajes, setMensajes] = useState([])
+  // La conversación vive en un almacén compartido con la mascota flotante (src/ia/chatStore.js).
+  const { mensajes, generando, modo } = useChat()
+  const setMensajes = chatStore.setMensajes
+  const setGenerando = chatStore.setGenerando
   const [texto, setTexto] = useState('')
   const [archivos, setArchivos] = useState([])
   const [avisoLimite, setAvisoLimite] = useState(false)
@@ -1284,7 +1297,6 @@ export default function ImportarIA() {
   const [modal, setModal] = useState(null) // { tipo: 'agregar'|'eliminar', mensajeId }
   const archivosBloqueadosRef = useRef(new Set()) // ids de adjuntos que estaban en el compositor cuando un envío fue bloqueado
   const [avisoArchivoViejo, setAvisoArchivoViejo] = useState(null) // { contenido, archivosEnviados } — pausa el envío para preguntar
-  const [generando, setGenerando] = useState(false)
   const { usuario } = useAuth()
   // Estado de Ollama + lector OCR, que lanza la app al arrancar (electron/servicios-locales.cjs).
   // Sin la API (versión vieja del preload) o en desarrollo, se asume listo.
@@ -1427,6 +1439,7 @@ export default function ImportarIA() {
   }
 
   function detenerGeneracion() {
+    detenerChat()
     timeoutsRef.current.forEach(clearTimeout)
     timeoutsRef.current = []
     if (idGeneracionActualRef.current) {
@@ -1446,6 +1459,7 @@ export default function ImportarIA() {
   }
 
   function nuevaConversacion() {
+    detenerChat()
     timeoutsRef.current.forEach(clearTimeout)
     timeoutsRef.current = []
     abortRef.current?.abort()
@@ -1521,7 +1535,7 @@ export default function ImportarIA() {
   // // TODO: reemplazar por NLU real — hoy es un regex simple sobre
   // // palabras clave, ver BRIEF_IA_OCR_INVENTARIO.md.
   function esIntencionDeshacer(txt) {
-    return /elimin|borr|deshac|equivoqu|revert/i.test(txt)
+    return /elimin|borr|deshac|deshaz|equivoqu|revert/i.test(txt)
   }
 
   // ─── Enviar mensaje ────────────────────────────────────────────────────
@@ -1561,7 +1575,7 @@ export default function ImportarIA() {
       return
     }
 
-    if (esIntencionDeshacer(contenido)) {
+    if (!contenido.startsWith('/') && !resolverPorCodigo(contenido) && esIntencionDeshacer(contenido)) {
       responderDeshacer()
       return
     }
@@ -1569,7 +1583,7 @@ export default function ImportarIA() {
     // Texto libre sin archivos ni intención de deshacer — el Agente
     // Supervisor clasifica la intención (importar sin adjuntar / pregunta
     // sobre el sistema / charla general) y responde acorde.
-    responderConsultaTexto(contenido)
+    responderA(contenido)
   }
 
   // ─── Resolver el aviso de "archivo viejo pendiente" ───────────────────
@@ -1590,44 +1604,10 @@ export default function ImportarIA() {
     enviarConfirmado(contenido, [])
   }
 
-  // ─── Agente Supervisor: clasifica la intención de un mensaje de texto
-  // (sin archivos adjuntos — con archivos, siempre es "importar" y no vale
-  // la pena preguntarle al LLM, ver procesarArchivos) y responde acorde.
-  // Nunca pasa por la tarjeta de resumen/diff: eso es solo para
-  // resultados de importación real. ────────────────────────────────────
-  async function responderConsultaTexto(contenido) {
-    const idTyping = nuevoId()
-    idGeneracionActualRef.current = idTyping
-    setGenerando(true)
-    setMensajes(prev => [...prev, { id: idTyping, role: 'ai', type: 'typing' }])
-    const controller = new AbortController()
-    abortRef.current = controller
-
-    try {
-      const resp = await fetch(`${OCR_SERVICE_BASE}/asistente-texto`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto: contenido }),
-        signal: controller.signal,
-      })
-      if (!resp.ok) throw new Error(`El servicio respondió ${resp.status}`)
-      const data = await resp.json()
-      if (idGeneracionActualRef.current !== idTyping) return // se apretó "Detener"
-      actualizarMensaje(idTyping, { type: 'text', texto: data.respuesta })
-    } catch (err) {
-      if (idGeneracionActualRef.current !== idTyping) return
-      actualizarMensaje(idTyping, {
-        type: 'text',
-        texto: 'No pude conectarme al asistente (localhost:8420). Igual podés adjuntar fotos, Excel, Word o PDF de tu inventario con el botón "+".',
-      })
-    }
-    idGeneracionActualRef.current = null
-    setGenerando(false)
-  }
-
   // Una opción de una burbuja de opciones: queda marcada y se agrega como respuesta del usuario.
   // (Patrón listo para cuando la IA necesite preguntar algo rápido, p. ej. "¿recibo o factura?".)
-  function elegirOpcion(mensajeId, opcion) {
+  async function elegirOpcion(mensajeId, opcion) {
+    if (await manejarOpcion(mensajeId, opcion)) return
     actualizarMensaje(mensajeId, { elegida: opcion.id })
     setMensajes(prev => [...prev, { id: nuevoId(), role: 'user', type: 'text', texto: opcion.etiqueta, creadoEn: Date.now() }])
   }
@@ -1660,6 +1640,8 @@ export default function ImportarIA() {
     idGeneracionActualRef.current = idProceso
     setGenerando(true)
     setMensajes(prev => [...prev, { id: idProceso, role: 'ai', type: 'typing' }])
+    const idPasos = nuevoId()
+    const pasosPorArchivo = [] // pasos reales (con tiempos) que devuelve el servicio
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -1715,6 +1697,7 @@ export default function ImportarIA() {
         if (!resp.ok) throw new Error(`El servicio respondió ${resp.status}`)
         const data = await resp.json()
         crudoAuditoria.push({ archivo: archivo.nombre, respuesta: data })
+        pasosPorArchivo.push(...(data.pasos || []).map(p => ({ ...p, nombre: conPipelineReal.length > 1 ? `${p.nombre} — ${archivo.nombre}` : p.nombre })))
         // `id` propio (no viene del servicio) para poder editar cada
         // producto resuelto en la tarjeta de resumen sin depender del
         // nombre como key (el nombre es justo uno de los campos editables).
@@ -1780,7 +1763,12 @@ export default function ImportarIA() {
       detalle: archivosConError.length > 0 ? `Archivos con error: ${archivosConError.join(', ')}` : null,
     })
     auditoriaProcesoRef.current = null
-    actualizarMensaje(idProceso, { type: 'summary', resultado, revision: revisionTotal, resuelto: false, imagenesOriginales, auditoriaId })
+    // Tarjeta de pasos del pipeline: lo que de verdad hizo cada etapa (+ Importador, que espera tu confirmación)
+    setMensajes(prev => [...prev.filter(m => m.id !== idProceso), {
+      id: idPasos, role: 'ai', type: 'pasos', titulo: 'Cómo procesé tu documento',
+      pasos: [...pasosPorArchivo, { id: 'importador', nombre: 'Importador', estado: 'espera', detalle: 'Todavía no escribí nada en tu inventario: espero tu confirmación en la tarjeta de abajo.' }],
+    }, { id: idProceso, role: 'ai', type: 'typing' }])
+    actualizarMensaje(idProceso, { type: 'summary', resultado, revision: revisionTotal, resuelto: false, imagenesOriginales, auditoriaId, pasosId: idPasos })
     idGeneracionActualRef.current = null
     setGenerando(false)
   }
@@ -1924,12 +1912,14 @@ export default function ImportarIA() {
         detalle: msg.intentosFallidos ? `Guardado tras ${msg.intentosFallidos} intento(s) fallido(s).` : null,
       })
       actualizarMensaje(mensajeId, { resuelto: true })
+      if (msg.pasosId) chatStore.actualizarMensaje(msg.pasosId, m => ({ pasos: m.pasos.map(p => p.id === 'importador' ? { ...p, estado: 'listo', detalle: textoResultadoAgregado(resultados) } : p) }))
       agregarTimeout(() => {
         setMensajes(prev => [...prev, { id: nuevoId(), role: 'ai', type: 'success', texto: textoResultadoAgregado(resultados) }])
       }, 300)
     } catch (err) {
       auditoriaActualizar(msg.auditoriaId, { resultado: 'error', ediciones: calcularEdiciones(msg), detalle: `No se guardó nada: ${err.message}` })
       actualizarMensaje(mensajeId, { intentosFallidos: (msg.intentosFallidos || 0) + 1 })
+      if (msg.pasosId) chatStore.actualizarMensaje(msg.pasosId, m => ({ pasos: m.pasos.map(p => p.id === 'importador' ? { ...p, estado: 'error', detalle: `No se guardó nada: ${err.message}` } : p) }))
       setMensajes(prev => [...prev, {
         id: nuevoId(), role: 'ai', type: 'text',
         texto: `No se guardó nada en el inventario: ${err.message}\n\nPuedes corregirlo en la tarjeta y volver a confirmar.`,
@@ -2015,19 +2005,42 @@ export default function ImportarIA() {
   // termine (o cancelarla con "Detener") antes de poder enviar otra.
   const puedeEnviar = serviciosListos && !generando && !avisoArchivoViejo && (texto.trim().length > 0 || archivos.length > 0)
 
+  const idUltimoTextoIA = [...mensajes].reverse().find(m => m.role === 'ai' && m.type === 'text')?.id
+
+  // Comandos con barra: autocompletado simple bajo el cuadro de texto
+  const [indiceComando, setIndiceComando] = useState(0)
+  const sugerencias = sugerirComandos(texto)
+  function completarComando(c) { setTexto(`${c.cmd} `); setIndiceComando(0) }
+
+  // La mascota (u otra pantalla) pide abrir el selector de archivos / se vació la conversación
+  useEffect(() => {
+    const abrir = () => fileInputRef.current?.click()
+    window.addEventListener('ia:abrir-selector', abrir)
+    if (window.__iaAbrirSelector) { window.__iaAbrirSelector = false; setTimeout(abrir, 250) }
+    return () => window.removeEventListener('ia:abrir-selector', abrir)
+  }, [])
+  useEffect(() => {
+    if (mensajes.length === 0 && conversacionActualId) { setConversacionActualId(null); setModal(null); setPanelAbierto(null) }
+  }, [mensajes.length])
+
   const msgModalAgregar = modal?.tipo === 'agregar' ? mensajes.find(m => m.id === modal.mensajeId) : null
   const resultadoFinalModal = msgModalAgregar ? construirResultadoFinal(msgModalAgregar) : null
 
   return (
     <div className="clientes-page ia-importar-page" style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 className="titulo-metalico" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Sparkles size={22} color="oklch(0.78 0.16 250)" /> IA / IMPORTAR DATOS
           </h1>
           <p style={{ fontSize: 13, color: 'var(--dim)' }}>Cargá tu inventario a partir de documentos o fotos, con ayuda del asistente</p>
         </div>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginTop: 2 }}>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginTop: 2, alignItems: 'center' }}>
+          <div className="ia-modo" role="group" aria-label="Modo del asistente" data-testid="selector-modo">
+            {Object.entries(MODOS).map(([id, m]) => (
+              <button key={id} className={modo === id ? 'activo' : ''} aria-pressed={modo === id} title={m.detalle} onClick={() => chatStore.setModo(id)}>{m.etiqueta}</button>
+            ))}
+          </div>
           {hablaSoportada() && (
             <button
               onClick={alternarModoVoz}
@@ -2064,6 +2077,11 @@ export default function ImportarIA() {
               <Burbuja
                 key={msg.id}
                 msg={msg}
+                esUltimoIA={msg.id === idUltimoTextoIA}
+                puedeRegenerar={!generando}
+                onRegenerar={regenerar}
+                onAprobar={aprobarAcciones}
+                onRechazar={rechazarAcciones}
                 onConfirmarAgregado={pedirConfirmarAgregado}
                 onCancelarAgregado={cancelarAgregado}
                 onConfirmarEliminado={pedirConfirmarEliminado}
@@ -2140,7 +2158,16 @@ export default function ImportarIA() {
       {/* Input fijo abajo — el textarea tiene altura FIJA (sin auto-grow):
           si el texto no entra, hace scroll interno, nunca crece la caja,
           así los botones de al lado nunca se mueven de lugar */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '10px 0 2px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '10px 0 2px', position: 'relative' }}>
+        {sugerencias.length > 0 && (
+          <div className="ia-comandos" role="listbox" data-testid="comandos">
+            {sugerencias.map((c, i) => (
+              <button key={c.cmd} role="option" aria-selected={i === indiceComando} className={`ia-comando ${i === indiceComando ? 'activo' : ''}`} onMouseDown={e => { e.preventDefault(); completarComando(c) }}>
+                <b>{c.cmd}</b><span>{c.detalle}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -2153,6 +2180,7 @@ export default function ImportarIA() {
           onClick={() => puedeAdjuntarMas && fileInputRef.current?.click()}
           disabled={!puedeAdjuntarMas}
           title={puedeAdjuntarMas ? 'Adjuntar archivos' : `Máximo ${MAX_ARCHIVOS} archivos`}
+          data-guide-id="ia-adjuntar"
           className="clientes-action-icon"
           style={{ flexShrink: 0, opacity: puedeAdjuntarMas ? 1 : 0.4 }}
         >
@@ -2162,7 +2190,15 @@ export default function ImportarIA() {
         <textarea
           value={texto}
           onChange={e => setTexto(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (puedeEnviar) handleEnviar(); else if (generando) handleEnviar() } }}
+          data-guide-id="ia-compositor"
+          onKeyDown={e => {
+            if (sugerencias.length > 0) {
+              if (e.key === 'ArrowDown') { e.preventDefault(); setIndiceComando(i => (i + 1) % sugerencias.length); return }
+              if (e.key === 'ArrowUp') { e.preventDefault(); setIndiceComando(i => (i - 1 + sugerencias.length) % sugerencias.length); return }
+              if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey && texto.trim().toLowerCase() !== sugerencias[indiceComando]?.cmd)) { e.preventDefault(); completarComando(sugerencias[indiceComando] || sugerencias[0]); return }
+            }
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (puedeEnviar) handleEnviar(); else if (generando) handleEnviar() }
+          }}
           placeholder="Escribí o adjuntá fotos, PDF, Excel o Word de tu inventario..."
           style={{
             flex: 1, resize: 'none', height: 92, overflowY: 'auto',

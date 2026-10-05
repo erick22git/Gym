@@ -70,6 +70,10 @@ OLLAMA_BASE = os.environ.get("GYM_OLLAMA_URL", "http://localhost:11434").rstrip(
 OLLAMA_URL = OLLAMA_BASE + "/api/generate"
 OLLAMA_MODEL = "qwen2.5:3b"
 
+# Proveedor de modelo con interfaz OpenAI (ver proveedor_llm.py) y perfiles de hardware.
+from proveedor_llm import ProveedorOpenAI, cargar_perfiles  # noqa: E402
+PROVEEDOR = ProveedorOpenAI(OLLAMA_BASE)
+
 # Recursos de solo lectura (conocimiento_sistema.md): junto al script, o dentro
 # del paquete cuando corre congelado con PyInstaller (sys._MEIPASS).
 BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
@@ -77,6 +81,7 @@ BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
 # de userData); nunca en el directorio de trabajo, que instalado seria Program Files.
 TMP_DIR = Path(os.environ.get("GYM_OCR_TMP") or (Path(tempfile.gettempdir()) / "gimnasio-ocr"))
 TMP_DIR.mkdir(parents=True, exist_ok=True)
+PERFILES = cargar_perfiles(BASE_DIR)
 
 
 def _tmp_path(sufijo):
@@ -560,6 +565,7 @@ def process_image(image_path):
     t_start = time.perf_counter()
 
     recon = run_ocr_and_reconstruct(image_path)
+    t_lector = time.perf_counter()
     table = recon["table"]
     rows_raw = recon["rows_raw"]
     n_lines = recon["n_lines"]
@@ -636,6 +642,7 @@ def process_image(image_path):
         else:
             moderate_idx.append(i)
 
+    t_antes_llm = time.perf_counter()
     if moderate_idx:
         llm_resueltos, llm_revision = resolve_moderate_groups(rows_raw, moderate_idx)
         resueltos.extend(llm_resueltos)
@@ -643,10 +650,21 @@ def process_image(image_path):
 
     t_end = time.perf_counter()
 
+    # Pasos reales del pipeline (con tiempos medidos) para las tarjetas del chat.
+    pasos = [
+        {"id": "lector", "nombre": "Lector (OCR)", "estado": "listo", "ms": round((t_lector - t_start) * 1000),
+         "detalle": f"Leyó {n_lines} fragmentos de texto y los acomodó en {n_rows} filas."},
+        {"id": "estructurador", "nombre": "Estructurador (IA)", "estado": "listo", "ms": round((t_end - t_antes_llm) * 1000),
+         "detalle": (f"El modelo interpretó {len(moderate_idx)} grupo(s) de líneas ambiguas." if moderate_idx
+                     else "No hizo falta: las filas eran claras y se resolvieron por reglas.")},
+        {"id": "validador", "nombre": "Validador", "estado": "listo", "ms": round((t_antes_llm - t_lector) * 1000),
+         "detalle": f"{len(resueltos)} producto(s) listos y {len(requiere_revision)} para que los revises (nombres inválidos, cantidades que faltan o líneas mezcladas)."},
+    ]
     return {
         "resueltos": resueltos,
         "requiere_revision": requiere_revision,
         "tiempo_procesamiento_seg": round(t_end - t_start, 2),
+        "pasos": pasos,
     }
 
 
@@ -1134,6 +1152,13 @@ def procesar_comando_voz(datos):
     catalogo = datos.get("catalogo") or {}
     if not texto:
         return {"tipo": "vacio", "respuesta": "No escuché nada."}
+    if datos.get("solo_acciones"):
+        # Chat en modo "Actuar": el front ya probo comandos y palabras clave por codigo; el LLM solo interpreta
+        # lenguaje libre contra el registro de acciones, con salida JSON validada.
+        if not catalogo:
+            return {"tipo": "comando", "acciones": [], "aclaracion": ""}
+        r = extraer_acciones_voz(texto, datos.get("pantalla", ""), catalogo, datos.get("contexto"), datos.get("ejemplos"))
+        return {"tipo": "comando", **r}
     tipo = clasificar_comando_voz(texto)
     if tipo == "pregunta_sistema":
         return {"tipo": tipo, "respuesta": responder_pregunta_sistema(texto)}
@@ -1212,6 +1237,113 @@ def transcribir():
         return jsonify({"error": str(e)}), 500
 
 
+# ── Chat con streaming (SSE) ──────────────────────────────────────────────────────────────────
+SYSTEM_CHAT = """Eres el asistente de un sistema de gestión de gimnasio. Respondes SIEMPRE y SOLO en español
+(de Bolivia, tono simple y amable). Está prohibido mezclar otros idiomas: no uses palabras en portugués ni en
+inglés (nada de "uma", "ou", "você", "não", "also"), salvo nombres propios de productos.
+Responde de forma breve y clara. Puedes usar **negritas** y listas con guiones.
+Si el usuario saluda, agradece o charla, responde amable y breve (1 frase) y ofrece ayuda con el sistema.
+Usa SOLO la información del documento de abajo para explicar cómo usar el sistema; si algo no está cubierto,
+di honestamente "todavía no tengo esa información" en vez de inventar. No tienes acceso a fecha, hora, clima
+ni noticias. Si el usuario quiere cargar inventario, dile que adjunte una foto, Excel, Word o PDF con el botón "+".
+{extra}
+--- DOCUMENTO ---
+{conocimiento}
+--- FIN DOCUMENTO ---"""
+
+EXTRA_MODO = {
+    "preguntar": "Modo PREGUNTAR: solo explicas y respondes preguntas. No propones ni ejecutas acciones.",
+    "actuar": "Modo ACTUAR: puedes sugerir qué hacer, pero nunca ejecutas nada tú: toda acción la confirma el usuario.",
+}
+
+
+def _perfil(nombre):
+    perfiles = PERFILES.get("perfiles", {})
+    return perfiles.get(nombre) or perfiles.get(PERFILES.get("perfil_por_defecto", "medio")) or {}
+
+
+@app.route("/modelos", methods=["GET"])
+def modelos():
+    """Modelos instalados en el servidor local + perfiles disponibles (para el selector de Configuracion)."""
+    try:
+        instalados = PROVEEDOR.listar_modelos()
+    except Exception as e:
+        return jsonify({"error": f"No pude leer los modelos del servidor local: {e}", "modelos": []}), 200
+    return jsonify({"modelos": instalados, "modelo_por_defecto": OLLAMA_MODEL,
+                    "perfiles": PERFILES.get("perfiles", {}), "perfil_por_defecto": PERFILES.get("perfil_por_defecto")})
+
+
+@app.route("/benchmark", methods=["POST"])
+def benchmark():
+    """Micro-benchmark (~5 s): tokens/s del modelo en ESTE equipo -> perfil recomendado."""
+    datos = request.get_json(silent=True) or {}
+    modelo = datos.get("modelo") or OLLAMA_MODEL
+    try:
+        t0 = time.time()
+        n = 0
+        primero = None
+        for ev in PROVEEDOR.chat_stream(
+                [{"role": "user", "content": "Cuenta en palabras del uno al cincuenta, separados por comas."}],
+                modelo, temperature=0, max_tokens=80, num_ctx=1024):
+            if ev.get("token"):
+                if primero is None:
+                    primero = time.time()
+                n += 1
+            if time.time() - t0 > 5 and primero is not None:
+                break  # basta con unos 5 s de medicion (cerrar el generador corta la generacion)
+        if n < 12:
+            return jsonify({"error": "Medición insuficiente (el modelo respondió muy poco); se reintentará."}), 500
+        dur = max(1.0, time.time() - primero)
+        tps = round(n / dur, 1)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    umbrales = PERFILES.get("umbrales_tokens_por_segundo", {})
+    recomendado = "basico"
+    for nombre in ("basico", "medio", "alto"):
+        if tps >= umbrales.get(nombre, 0):
+            recomendado = nombre
+    return jsonify({"modelo": modelo, "tokens_por_segundo": tps, "ms_primer_token": round(((primero or t0) - t0) * 1000),
+                    "perfil_recomendado": recomendado})
+
+
+@app.route("/chat", methods=["OPTIONS"])
+@app.route("/modelos", methods=["OPTIONS"])
+@app.route("/benchmark", methods=["OPTIONS"])
+def _chat_preflight():
+    return ("", 204)
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    """Chat en streaming (Server-Sent Events). Cuerpo: {mensajes:[{role,content}], modo, modelo, perfil, ruta}."""
+    from flask import Response, stream_with_context
+    datos = request.get_json(silent=True) or {}
+    historial = [m for m in (datos.get("mensajes") or []) if m.get("role") in ("user", "assistant") and str(m.get("content", "")).strip()]
+    if not historial:
+        return jsonify({"error": "Falta el mensaje."}), 400
+    perfil = _perfil(datos.get("perfil"))
+    modelo = datos.get("modelo") or perfil.get("modelo") or OLLAMA_MODEL
+    modo = datos.get("modo") if datos.get("modo") in EXTRA_MODO else "preguntar"
+    extra = EXTRA_MODO[modo]
+    if datos.get("ruta"):
+        extra += f' El usuario está ahora en la pantalla "{str(datos["ruta"])[:60]}".'
+    mensajes = [{"role": "system", "content": SYSTEM_CHAT.format(extra=extra, conocimiento=cargar_conocimiento())}]
+    mensajes += [{"role": m["role"], "content": str(m["content"])[:2000]} for m in historial[-8:]]
+
+    def generar():
+        try:
+            for ev in PROVEEDOR.chat_stream(mensajes, modelo, temperature=perfil.get("temperatura_chat", 0.3),
+                                            max_tokens=perfil.get("max_tokens"), num_ctx=perfil.get("num_ctx")):
+                yield "data: " + json.dumps(ev, ensure_ascii=False) + "\n\n"
+        except GeneratorExit:
+            raise  # el usuario pulso Detener: proveedor.chat_stream cierra la conexion en su finally
+        except Exception as e:
+            yield "data: " + json.dumps({"error": f"El modelo no respondió: {e}"}, ensure_ascii=False) + "\n\n"
+
+    return Response(stream_with_context(generar()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.route("/interpretar-comando", methods=["OPTIONS"])
 def _interpretar_comando_preflight():
     return ("", 204)
@@ -1253,6 +1385,17 @@ def procesar_imagen():
             tmp_path.unlink()
 
 
+def _con_pasos(res, nombre_lector):
+    """Pasos del pipeline para formatos ya estructurados (Excel/Word/PDF): el lector hace todo el trabajo."""
+    ms = round(float(res.get("tiempo_procesamiento_seg") or 0) * 1000)
+    res["pasos"] = [
+        {"id": "lector", "nombre": nombre_lector, "estado": "listo", "ms": ms, "detalle": "Leyó las filas del documento (ya vienen estructuradas: no hace falta OCR)."},
+        {"id": "validador", "nombre": "Validador", "estado": "listo", "ms": 0,
+         "detalle": f"{len(res.get('resueltos', []))} producto(s) listos y {len(res.get('requiere_revision', []))} para que los revises."},
+    ]
+    return res
+
+
 def _guardar_archivo_subido(campo, extension):
     """Comun a los 3 endpoints nuevos: guarda el archivo subido (multipart,
     campo `campo`) a un temporal y devuelve su Path. Lanza ValueError si no
@@ -1277,7 +1420,7 @@ def procesar_excel():
     tmp_path = None
     try:
         tmp_path = _guardar_archivo_subido("archivo", ".xlsx")
-        return jsonify(procesar_excel_archivo(tmp_path))
+        return jsonify(_con_pasos(procesar_excel_archivo(tmp_path), "Lector (Excel)"))
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
@@ -1292,7 +1435,7 @@ def procesar_word():
     tmp_path = None
     try:
         tmp_path = _guardar_archivo_subido("archivo", ".docx")
-        return jsonify(procesar_word_archivo(tmp_path))
+        return jsonify(_con_pasos(procesar_word_archivo(tmp_path), "Lector (Word)"))
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
@@ -1307,7 +1450,7 @@ def procesar_pdf():
     tmp_path = None
     try:
         tmp_path = _guardar_archivo_subido("archivo", ".pdf")
-        return jsonify(procesar_pdf_archivo(tmp_path))
+        return jsonify(_con_pasos(procesar_pdf_archivo(tmp_path), "Lector (PDF)"))
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:

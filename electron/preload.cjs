@@ -191,6 +191,10 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   // Dictado por voz local (faster-whisper empaquetado): recibe un WAV 16 kHz mono, devuelve el texto
+  ia: {
+    getConfig: () => ipcRenderer.invoke('ia:getConfig'),
+    setConfig: (clave, valor) => ipcRenderer.invoke('ia:setConfig', clave, valor),
+  },
   voz: {
     disponible: () => ipcRenderer.invoke('voz:disponible'),
     getConfig: () => ipcRenderer.invoke('voz:getConfig'),
