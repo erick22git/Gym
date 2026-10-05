@@ -10,6 +10,7 @@
 //   1. TopNav.jsx → PAGES.IA_IMPORTAR (ruta independiente, ver App.jsx)
 //   2. Configuracion.jsx → sección 'ia' (dentro del hub de Configuración)
 
+import { esNombreDeProducto } from '../../utils/nombreProducto'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -244,12 +245,11 @@ function listarTodosLosArchivos(conversaciones) {
 const MAX_ARCHIVOS = 10
 const ACCEPT_ARCHIVOS = '.jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,image/jpeg,image/png,image/webp,application/pdf'
 
-// Si al enviar hay texto Y archivos, y el archivo más antiguo lleva más de
-// esto adjuntado sin haberse enviado, probablemente es un adjunto "viejo"
-// que quedó pegado en el compositor (p.ej. de un envío anterior bloqueado
-// por `generando`) y no algo que el usuario quiera mandar junto con el
-// texto nuevo — en ese caso no asumimos nada, se le pregunta.
-const UMBRAL_ARCHIVO_VIEJO_MS = 12000
+// Si al enviar hay texto Y archivos, solo se pregunta cuando un envío anterior quedó BLOQUEADO (la IA
+// seguía respondiendo) mientras ese archivo esperaba en el compositor: ahí sí puede ser un adjunto "viejo"
+// que el usuario no quiso mandar con el texto nuevo. Tardar en escribir NO es motivo para preguntar.
+// Si el texto alude al archivo ("esta foto", "sube", "adjunto"), se mandan ambos sin preguntar.
+const ALUDE_AL_ARCHIVO = /(esta|esa|este|ese|la|el|mi|mis|las|los|estas|estos)\s+(foto|fotos|imagen|imagenes|imágenes|archivo|archivos|adjunto|adjuntos|lista|listas|excel|pdf|word|documento|documentos|planilla|captura)|(adjunt\w*|sub[eoi]\w*|import\w*|lee|lea|leer|procesa\w*)/i
 
 // ─── Conexión con el servicio real de OCR/estructuración (ver
 // scripts/ocr_service.py y scripts/README.md) — procesa imágenes, Excel,
@@ -1224,7 +1224,7 @@ function ModalArchivoViejo({ archivos, onEnviarConArchivo, onQuitarArchivo, onCl
               Tienes {archivos.length > 1 ? 'archivos' : 'un archivo'} sin enviar
             </h3>
             <p style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)', lineHeight: 1.6, margin: '8px 0 0', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
-              <strong>{nombres}</strong> lleva un rato adjuntado sin mandarse. ¿Lo mandas junto con este mensaje, o lo quitas y envías solo el texto?
+              Intentaste enviar un mensaje mientras la IA todavía respondía, y <strong>{nombres}</strong> se quedó esperando. ¿Lo mandas junto con este mensaje, o lo quitas y envías solo el texto?
             </p>
           </div>
         </div>
@@ -1282,6 +1282,7 @@ export default function ImportarIA() {
   const [avisoLimite, setAvisoLimite] = useState(false)
   const [noPreguntarSesion, setNoPreguntarSesion] = useState(false)
   const [modal, setModal] = useState(null) // { tipo: 'agregar'|'eliminar', mensajeId }
+  const archivosBloqueadosRef = useRef(new Set()) // ids de adjuntos que estaban en el compositor cuando un envío fue bloqueado
   const [avisoArchivoViejo, setAvisoArchivoViejo] = useState(null) // { contenido, archivosEnviados } — pausa el envío para preguntar
   const [generando, setGenerando] = useState(false)
   const { usuario } = useAuth()
@@ -1342,8 +1343,23 @@ export default function ImportarIA() {
     }
   }, [])
 
+  // Bajar al fondo SOLO cuando llega un mensaje nuevo, o si el usuario ya estaba a < 80 px del fondo
+  // (p.ej. leyendo una respuesta que crece). Antes se disparaba con CUALQUIER cambio de `mensajes`, y
+  // editar un campo de una tarjeta de revisión (Cantidad, Nombre…) actualiza `mensajes` -> saltaba al fondo.
+  const cantidadMensajesRef = useRef(0)
+  const pegadoAlFondoRef = useRef(true)
+  function alScrollMensajes() {
+    const el = scrollRef.current
+    if (el) pegadoAlFondoRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    const el = scrollRef.current
+    const llegoMensajeNuevo = mensajes.length > cantidadMensajesRef.current
+    cantidadMensajesRef.current = mensajes.length
+    if (el && (llegoMensajeNuevo || pegadoAlFondoRef.current)) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      if (llegoMensajeNuevo) pegadoAlFondoRef.current = true
+    }
   }, [mensajes])
 
   // Guarda/actualiza la conversación actual apenas tiene al menos un
@@ -1514,25 +1530,23 @@ export default function ImportarIA() {
     // acá (botón deshabilitado, Enter ignorado), pero si algo más lo
     // invoca de todos modos, mejor no mandar un segundo mensaje que pise
     // la respuesta en curso en silencio.
-    if (generando) return
+    if (generando) { archivos.forEach(a => archivosBloqueadosRef.current.add(a.id)); return }
     detenerHabla()
     const contenido = texto.trim()
     if (!contenido && archivos.length === 0) return
 
     const archivosEnviados = archivos
 
-    // Hay texto Y archivos a la vez: esto es normal cuando el usuario
-    // realmente quiere mandar ambos juntos ("aquí está mi lista" + foto).
-    // Pero si el archivo lleva rato adjuntado sin enviarse, es más probable
-    // que sea uno "viejo" que quedó pegado del compositor — no lo asumimos,
-    // preguntamos antes de mandar nada.
+    // Hay texto Y archivos: lo normal es mandarlos juntos. Solo se pregunta si un envío anterior quedó
+    // bloqueado con este archivo ya esperando Y el texto no habla del archivo.
     if (contenido && archivosEnviados.length > 0) {
-      const masAntiguo = Math.min(...archivosEnviados.map(a => a.adjuntadoEn || Date.now()))
-      if (Date.now() - masAntiguo > UMBRAL_ARCHIVO_VIEJO_MS) {
+      const quedoBloqueado = archivosEnviados.some(a => archivosBloqueadosRef.current.has(a.id))
+      if (quedoBloqueado && !ALUDE_AL_ARCHIVO.test(contenido)) {
         setAvisoArchivoViejo({ contenido, archivosEnviados })
         return
       }
     }
+    archivosBloqueadosRef.current.clear()
 
     enviarConfirmado(contenido, archivosEnviados)
   }
@@ -1563,6 +1577,7 @@ export default function ImportarIA() {
     if (!avisoArchivoViejo) return
     const { contenido, archivosEnviados } = avisoArchivoViejo
     setAvisoArchivoViejo(null)
+    archivosBloqueadosRef.current.clear()
     enviarConfirmado(contenido, archivosEnviados)
   }
 
@@ -1625,9 +1640,10 @@ export default function ImportarIA() {
     return {
       id: nuevoId(),
       texto_ocr_crudo: r.texto_ocr_crudo || [],
-      nombre: r.nombre_sugerido || '',
+      // Un encabezado/total/fecha que el OCR confundió con producto ("Todo", "Total"…) NO se precarga.
+      nombre: esNombreDeProducto(r.nombre_sugerido) ? r.nombre_sugerido : '',
       cantidad: r.cantidad_sugerida ?? '',
-      nombre_original: r.nombre_sugerido || '',
+      nombre_original: esNombreDeProducto(r.nombre_sugerido) ? r.nombre_sugerido : '',
       cantidad_original: r.cantidad_sugerida ?? null,
       motivo: r.motivo,
     }
@@ -2039,7 +2055,7 @@ export default function ImportarIA() {
       </div>
 
       {/* Área de mensajes — sola scrollea, el resto de la página queda fija */}
-      <div ref={scrollRef} className="ia-mensajes" style={{ display: 'flex', flexDirection: 'column' }}>
+      <div ref={scrollRef} onScroll={alScrollMensajes} className="ia-mensajes" style={{ display: 'flex', flexDirection: 'column' }}>
         {mensajes.length === 0 ? (
           <EstadoVacio />
         ) : (
@@ -2146,7 +2162,7 @@ export default function ImportarIA() {
         <textarea
           value={texto}
           onChange={e => setTexto(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (puedeEnviar) handleEnviar() } }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (puedeEnviar) handleEnviar(); else if (generando) handleEnviar() } }}
           placeholder="Escribí o adjuntá fotos, PDF, Excel o Word de tu inventario..."
           style={{
             flex: 1, resize: 'none', height: 92, overflowY: 'auto',
