@@ -862,12 +862,12 @@ CATEGORIAS_INTENCION = ("importar", "pregunta_sistema", "charla_general")
 
 CHARLA_GENERAL_RESPUESTA = (
     "¡Hola! Puedo ayudarte a cargar tu inventario a partir de fotos, Excel, Word o PDF "
-    "— solo adjuntá el archivo con el botón \"+\" de abajo. También puedo responder "
+    "— solo adjunta el archivo con el botón \"+\" de abajo. También puedo responder "
     "preguntas sobre cómo usar el sistema."
 )
 
 IMPORTAR_SIN_ARCHIVO_RESPUESTA = (
-    "Para importar datos, adjuntá una foto o un archivo (Excel, Word o PDF) de tu "
+    "Para importar datos, adjunta una foto o un archivo (Excel, Word o PDF) de tu "
     "inventario con el botón \"+\" de abajo, y yo me encargo del resto."
 )
 

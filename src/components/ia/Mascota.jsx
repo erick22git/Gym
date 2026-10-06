@@ -26,6 +26,8 @@ const BURBUJA = 64
 const PANEL_W = 380
 const PANEL_H = 540
 const MARGEN = 12
+// Por defecto la burbuja queda sobre la franja inferior derecha donde Caja ancla su píldora «Control por voz» (bottom 18 px + ~40 px de alto)
+const RESERVA_INFERIOR = 84
 const clamp = (v, a, b) => Math.min(Math.max(v, a), Math.max(a, b))
 
 export function useModoRendimiento() {
@@ -91,7 +93,7 @@ export default function Mascota({ page, navigate }) {
       let guardada = null
       try { guardada = p.mascotaPos ? JSON.parse(p.mascotaPos) : null } catch { /* sin posición guardada */ }
       const x = guardada?.x ?? window.innerWidth - BURBUJA - 24
-      const y = guardada?.y ?? window.innerHeight - BURBUJA - 24
+      const y = guardada?.y ?? window.innerHeight - BURBUJA - RESERVA_INFERIOR
       setPos({ x: clamp(x, MARGEN, window.innerWidth - BURBUJA - MARGEN), y: clamp(y, MARGEN, window.innerHeight - BURBUJA - MARGEN) })
     })
     const alRedim = () => setPos(p => p && ({ x: clamp(p.x, MARGEN, window.innerWidth - BURBUJA - MARGEN), y: clamp(p.y, MARGEN, window.innerHeight - BURBUJA - MARGEN) }))

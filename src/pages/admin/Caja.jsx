@@ -294,10 +294,12 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
           position: 'relative', zIndex: 1, width: '100%', maxWidth: 480,
           borderRadius: 16, padding: '24px 28px',
           boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .08), inset -14px -14px 28px oklch(1 0 0 / .07), inset -5px -5px 9px oklch(1 0 0 / .10), 0 0 10px 1px oklch(1 0 0 / .05), 0 24px 60px oklch(0 0 0 / .5)',
-          maxHeight: '92vh', overflowY: 'auto',
+          maxHeight: 'min(82vh, 660px)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
           textShadow: '0 1px 2px rgba(0,0,0,0.6)',
         }}
       >
+        {/* Solo diseño: el contenido se desplaza dentro de la tarjeta y los botones quedan siempre visibles abajo */}
+        <div data-testid="caja-cierre-contenido" style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', margin: '0 -10px', padding: '0 10px' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <Lock size={21} color="oklch(0.75 0.18 25)" />
@@ -440,14 +442,15 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
           </label>
           <input className="gym-input" value={notas} onChange={e => setNotas(e.target.value)} placeholder="Observaciones del cierre..." />
         </div>
+        </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div data-testid="caja-cierre-botones" style={{ display: 'flex', gap: 10, flexShrink: 0, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
           <CajaBtn onClick={onClose} className="btn-secondary clientes-glass-btn" style={{ flex: 1 }}>
             <div className="clientes-glass-bg" />
             <span className="clientes-glass-content">Cancelar</span>
           </CajaBtn>
           <CajaBtn onClick={cerrar} disabled={cerrando} className="clientes-glass-btn" style={{
-            flex: 2, padding: '9px 16px', borderRadius: 9, fontSize: 15, fontWeight: 700,
+            flex: 2, padding: '9px 14px', borderRadius: 9, fontSize: 14, fontWeight: 700,
             border: '1px solid oklch(0.66 0.22 25 / .5)',
             cursor: cerrando ? 'not-allowed' : 'pointer',
             opacity: cerrando ? .6 : 1,

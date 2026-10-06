@@ -12,7 +12,8 @@
 
 import { esNombreDeProducto } from '../../utils/nombreProducto'
 import { useChat, chatStore, nuevoId } from '../../ia/chatStore'
-import { responderA, detener as detenerChat, regenerar, aprobarAcciones, rechazarAcciones, manejarOpcion } from '../../ia/motorChat'
+import { responderA, detener as detenerChat, regenerar, aprobarAcciones, rechazarAcciones, manejarOpcion, cargarPrefs } from '../../ia/motorChat'
+import { useApariencia, esLusion } from '../../ia/apariencia'
 import { resolverPorCodigo, sugerirComandos } from '../../ia/resolver'
 import { MODOS } from '../../ia/registroAcciones'
 import { TextoIA, TarjetaAcciones, TarjetaPasos } from '../../components/ia/MensajeIA'
@@ -319,7 +320,7 @@ function iconoPorArchivo(archivo) {
 // resto de la app (duration corta, easeOut, sin curva inventada) ────────
 function TypingDots() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 2px' }}>
+    <div className="ia-typing" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 2px' }}>
       {[0, 1, 2].map(i => (
         <motion.span
           key={i}
@@ -334,6 +335,60 @@ function TypingDots() {
       ))}
     </div>
   )
+}
+
+// Marca de tiempo del mensaje: `creadoEn` (si existe) o la que lleva el id (`m12-1718000000000`).
+function marcaDeMensaje(msg) {
+  if (msg?.creadoEn) return msg.creadoEn
+  const n = Number(String(msg?.id || '').split('-').pop())
+  return Number.isFinite(n) && n > 1e12 ? n : null
+}
+const horaDe = ts => (ts ? new Date(ts).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', hour12: false }) : '')
+
+// «Pensando… N s»: la persona ve que el asistente trabaja (con el modelo en frío puede tardar) y cuánto lleva.
+// En las apariencias Lusion los puntos se cambian por un esqueleto de carga (CSS), este texto se mantiene.
+function Transcurrido({ desde, prefijo = 'Pensando…' }) {
+  const [seg, setSeg] = useState(0)
+  useEffect(() => {
+    const t0 = desde || Date.now()
+    const f = () => setSeg(Math.max(0, Math.floor((Date.now() - t0) / 1000)))
+    f()
+    const iv = setInterval(f, 1000)
+    return () => clearInterval(iv)
+  }, [desde])
+  return <span className="ia-meta ia-transcurrido" data-testid="ia-transcurrido" style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)' }}>{prefijo} {seg} s</span>
+}
+function EsqueletoCarga() {
+  return <div className="ia-esqueleto" aria-hidden="true"><i /><i /><i /></div>
+}
+
+// Modelo activo (solo lectura: se cambia en Configuración → Asistente IA). Se muestra como metadato en mono.
+function useModeloActivo() {
+  const [modelo, setModelo] = useState('')
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      try {
+        const p = await cargarPrefs()
+        let nombre = p?.modelo
+        if (!nombre) nombre = (await (await fetch('http://localhost:8420/modelos')).json())?.modelo_por_defecto
+        if (vivo && nombre) setModelo(nombre)
+      } catch { /* servicio aún no listo: sin etiqueta */ }
+    })()
+    return () => { vivo = false }
+  }, [])
+  return modelo
+}
+
+// ¿Cabe el historial acoplado a la izquierda (apariencias Lusion)? Con menos ancho vuelve a ser un panel que se abre.
+function useAnchoMinimo(px) {
+  const [ok, setOk] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= px : true))
+  useEffect(() => {
+    const f = () => setOk(window.innerWidth >= px)
+    window.addEventListener('resize', f)
+    return () => window.removeEventListener('resize', f)
+  }, [px])
+  return ok
 }
 
 // ─── Chip de archivo adjunto (antes de enviar, o dentro de una burbuja ya
@@ -533,7 +588,9 @@ function PanelCambios({ usuario, onRestaurado }) {
   })
 }
 
-function PanelLateral({ modo, conversaciones, conversacionActualId, busqueda, onBusqueda, onNuevaConversacion, onAbrirConversacionId, onClose, usuario, onRestaurado }) {
+// `incrustado`: en las apariencias Lusion el historial es una columna fija a la izquierda (como en ChatGPT) en vez de un panel que se abre.
+function PanelLateral({ modo: modoProp, conversaciones, conversacionActualId, busqueda, onBusqueda, onNuevaConversacion, onAbrirConversacionId, onClose, usuario, onRestaurado, incrustado = false, onAbrirOtro }) {
+  const modo = incrustado ? 'historial' : modoProp
   if (!modo) return null
   const esHistorial = modo === 'historial'
   const esCambios = modo === 'cambios'
@@ -544,35 +601,17 @@ function PanelLateral({ modo, conversaciones, conversacionActualId, busqueda, on
   const grupos = esHistorial ? agruparPorFecha(conversacionesFiltradas) : []
   const archivos = modo === 'archivos' ? listarTodosLosArchivos(conversaciones) : []
 
-  return createPortal(
-    <AnimatePresence>
-      <motion.div
-        key="ia-panel-overlay"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        onClick={onClose}
-        className="ia-scope"
-        style={{ position: 'fixed', inset: 0, zIndex: 9400, background: 'oklch(0 0 0 / .35)', backdropFilter: 'blur(4px)' }}
-      />
-      <motion.div
-        key="ia-panel"
-        initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
-        transition={{ duration: 0.22, ease: 'easeOut' }}
-        className="ia-scope"
-        style={{
-          position: 'fixed', top: 0, left: 0, bottom: 0, width: esCambios ? 460 : 320, maxWidth: '100vw', zIndex: 9401,
-          background: 'oklch(0.12 0.02 250 / .6)', backdropFilter: 'url(#dropdown-glass)', WebkitBackdropFilter: 'url(#dropdown-glass)',
-          borderRight: '1px solid oklch(1 0 0 / .1)', boxShadow: '20px 0 50px oklch(0 0 0 / .4)',
-          display: 'flex', flexDirection: 'column',
-        }}
-      >
+  const contenido = (
+    <>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 12px' }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>
             {esHistorial ? 'Historial de conversaciones' : esCambios ? 'Actividad de IA' : 'Archivos adjuntos'}
           </span>
-          <button onClick={onClose} className="clientes-action-icon" title="Cerrar">
-            <X size={16} color="oklch(0.97 0.01 250)" />
-          </button>
+          {!incrustado && (
+            <button onClick={onClose} className="clientes-action-icon" title="Cerrar">
+              <X size={16} color="oklch(0.97 0.01 250)" />
+            </button>
+          )}
         </div>
 
         {esHistorial && (
@@ -614,6 +653,8 @@ function PanelLateral({ modo, conversaciones, conversacionActualId, busqueda, on
                   <button
                     key={c.id}
                     onClick={() => onAbrirConversacionId(c.id)}
+                    className={c.id === conversacionActualId ? 'ia-conv ia-conv-activa' : 'ia-conv'}
+                    aria-current={c.id === conversacionActualId ? 'true' : undefined}
                     style={{
                       display: 'block', width: '100%', textAlign: 'left', padding: '9px 10px', borderRadius: 9,
                       background: c.id === conversacionActualId ? 'oklch(1 0 0 / .1)' : 'transparent',
@@ -655,6 +696,44 @@ function PanelLateral({ modo, conversaciones, conversacionActualId, busqueda, on
             })
           )}
         </div>
+    </>
+  )
+
+  if (incrustado) {
+    return (
+      <aside className="ia-lu-lateral ia-scope" data-testid="historial-acoplado" aria-label="Conversaciones">
+        {contenido}
+        <div className="ia-lu-lateral-pie">
+          <button type="button" onClick={() => onAbrirOtro?.('archivos')} className="ia-lu-enlace"><Paperclip size={14} /> Archivos adjuntos</button>
+          <button type="button" onClick={() => onAbrirOtro?.('cambios')} className="ia-lu-enlace" data-testid="abrir-actividad"><Activity size={14} /> Actividad de IA</button>
+        </div>
+      </aside>
+    )
+  }
+
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        key="ia-panel-overlay"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+        className="ia-scope"
+        style={{ position: 'fixed', inset: 0, zIndex: 9400, background: 'oklch(0 0 0 / .35)', backdropFilter: 'blur(4px)' }}
+      />
+      <motion.div
+        key="ia-panel"
+        initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className="ia-scope"
+        style={{
+          position: 'fixed', top: 0, left: 0, bottom: 0, width: esCambios ? 460 : 320, maxWidth: '100vw', zIndex: 9401,
+          background: 'oklch(0.12 0.02 250 / .6)', backdropFilter: 'url(#dropdown-glass)', WebkitBackdropFilter: 'url(#dropdown-glass)',
+          borderRight: '1px solid oklch(1 0 0 / .1)', boxShadow: '20px 0 50px oklch(0 0 0 / .4)',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {contenido}
       </motion.div>
     </AnimatePresence>,
     document.body
@@ -692,7 +771,7 @@ function SeccionRevision({ revision, resuelto, onCambiar }) {
               }}
             >
               <div style={{ fontSize: 10.5, color: 'oklch(0.88 0.01 250 / .6)', marginBottom: 3 }}>
-                Texto detectado: <span style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>{(item.texto_ocr_crudo || []).join(' · ')}</span>
+                {item.origen ? <span className="ia-meta ia-origen" data-testid="origen-dato">Origen: {item.origen} · </span> : null}Texto detectado: <span style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>{(item.texto_ocr_crudo || []).join(' · ')}</span>
               </div>
               <div style={{ fontSize: 11, color: 'oklch(0.82 0.14 75)', marginBottom: 8, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                 {motivoHumano(item.motivo)}
@@ -918,6 +997,11 @@ function TarjetaResumen({ resultado, revision, resuelto, imagenesOriginales, mod
                       }}
                     />
                   )}
+                  {p.origen && (
+                    <div className="ia-meta ia-origen" data-testid="origen-dato" title={`Dato leído de ${p.origen}`} style={{ fontSize: 10, padding: '0 6px 2px', color: 'oklch(0.88 0.01 250 / .75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 360 }}>
+                      Origen: {p.origen}{Array.isArray(p.texto_ocr_crudo) && p.texto_ocr_crudo.length ? ` · «${p.texto_ocr_crudo.join(' ')}»` : ''}
+                    </div>
+                  )}
                   {p.estado === 'existente' && (
                     <div style={{ fontSize: 10, padding: '0 6px 2px', color: 'oklch(0.82 0.14 75 / .9)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                       {p.coincidencia === 'aproximada' ? 'Parecido a' : 'Coincide con'}: {p.nombreExistente} · stock actual {p.cantidadAnterior}
@@ -1040,17 +1124,19 @@ function Burbuja({ msg, esUltimoIA, puedeRegenerar, onRegenerar, onAprobar, onRe
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
+      className={`ia-fila ${esUsuario ? 'ia-fila-usuario' : 'ia-fila-ia'}`}
       style={{ display: 'flex', justifyContent: esUsuario ? 'flex-end' : 'flex-start', marginBottom: 12 }}
     >
-      <div style={{ maxWidth: '78%', display: 'flex', flexDirection: 'column', alignItems: esUsuario ? 'flex-end' : 'flex-start' }}>
+      <div className="ia-columna" style={{ maxWidth: '78%', display: 'flex', flexDirection: 'column', alignItems: esUsuario ? 'flex-end' : 'flex-start' }}>
         {!esUsuario && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, marginLeft: 2 }}>
+          <div className="ia-etiqueta" style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, marginLeft: 2 }}>
             <Sparkles size={12} color="oklch(0.78 0.16 250)" />
             <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.06em', color: 'oklch(0.88 0.01 250 / .85)', textTransform: 'uppercase' }}>Asistente IA</span>
+            <span className="ia-meta ia-meta-hora">{horaDe(marcaDeMensaje(msg))}</span>
           </div>
         )}
 
-        <div style={{
+        <div className="ia-cuerpo" style={{
           background: esUsuario ? 'oklch(0.2 0.1 260 / .4)' : 'oklch(0.15 0.02 250 / .5)',
           backdropFilter: 'url(#dropdown-glass)', WebkitBackdropFilter: 'url(#dropdown-glass)',
           border: `1px solid ${esUsuario ? 'oklch(0.7 0.15 260 / .3)' : 'oklch(1 0 0 / .12)'}`,
@@ -1058,12 +1144,20 @@ function Burbuja({ msg, esUltimoIA, puedeRegenerar, onRegenerar, onAprobar, onRe
           padding: '10px 14px',
           boxShadow: '0 8px 24px oklch(0 0 0 / .3)',
         }}>
-          {msg.type === 'typing' && <TypingDots />}
+          {msg.type === 'typing' && (
+            <div className="ia-pensando" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <TypingDots />
+              <Transcurrido desde={marcaDeMensaje(msg)} />
+              <EsqueletoCarga />
+            </div>
+          )}
 
           {msg.type === 'progress' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="ia-pensando" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <TypingDots />
               <span style={{ fontSize: 13, color: 'oklch(0.97 0.01 250)', textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>{msg.texto}</span>
+              <Transcurrido desde={marcaDeMensaje(msg)} prefijo="Llevo" />
+              <EsqueletoCarga />
             </div>
           )}
 
@@ -1261,7 +1355,8 @@ function ModalArchivoViejo({ archivos, onEnviarConArchivo, onQuitarArchivo, onCl
 }
 
 // ─── Estado vacío (bienvenida) ─────────────────────────────────────────────
-function EstadoVacio() {
+function EstadoVacio({ lu, onElegir }) {
+  const EJEMPLOS = ['Quiero cargar mi inventario desde un Excel', '/ayuda', 'Llévame a Caja', '/guia abrir caja']
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -1282,6 +1377,11 @@ function EstadoVacio() {
           Puedes escribirme o adjuntar fotos, PDF, Excel o Word de tu inventario y te ayudo a cargarlo.
         </p>
       </div>
+      {lu && (
+        <div className="ia-ejemplos" data-testid="ejemplos-vacio" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 560 }}>
+          {EJEMPLOS.map(e => <button key={e} type="button" className="ia-ejemplo" onClick={() => onElegir?.(e)}>{e}</button>)}
+        </div>
+      )}
     </div>
   )
 }
@@ -1291,6 +1391,11 @@ function EstadoVacio() {
 export default function ImportarIA() {
   // La conversación vive en un almacén compartido con la mascota flotante (src/ia/chatStore.js).
   const { mensajes, generando, modo } = useChat()
+  const { apariencia } = useApariencia()
+  const lu = esLusion(apariencia)                  // apariencias Lusion: estructura nueva (historial acoplado, columna central, compositor tipo terminal)
+  const anchoSuficiente = useAnchoMinimo(1100)
+  const acoplado = lu && anchoSuficiente           // con poco ancho el historial vuelve a ser un panel que se abre
+  const modeloActivo = useModeloActivo()
   const setMensajes = chatStore.setMensajes
   const setGenerando = chatStore.setGenerando
   const [texto, setTexto] = useState('')
@@ -1706,8 +1811,8 @@ export default function ImportarIA() {
         // `id` propio (no viene del servicio) para poder editar cada
         // producto resuelto en la tarjeta de resumen sin depender del
         // nombre como key (el nombre es justo uno de los campos editables).
-        resueltosTotal.push(...(data.resueltos || []).map(item => ({ ...item, id: nuevoId(), nombre_original: item.nombre, cantidad_original: item.cantidad })))
-        revisionTotal.push(...(data.requiere_revision || []).map(revisionDesdeServicio))
+        resueltosTotal.push(...(data.resueltos || []).map(item => ({ ...item, id: nuevoId(), nombre_original: item.nombre, cantidad_original: item.cantidad, origen: archivo.nombre })))
+        revisionTotal.push(...(data.requiere_revision || []).map(r => ({ ...revisionDesdeServicio(r), origen: archivo.nombre })))
       } catch (err) {
         if (err?.name === 'AbortError') return // el usuario detuvo el proceso; ya quedó registrado como 'detenido'
         huboErrorServicio = true
@@ -1736,7 +1841,7 @@ export default function ImportarIA() {
     if (huboErrorServicio && resueltosTotal.length === 0 && revisionTotal.length === 0) {
       actualizarMensaje(idProceso, {
         type: 'text',
-        texto: 'No pude conectarme al servicio de análisis (localhost:8420). Verificá que esté corriendo (venv-ocr\\Scripts\\python.exe scripts\\ocr_service.py) e intentá de nuevo.',
+        texto: 'No pude conectarme al servicio de análisis (localhost:8420). Verifica que esté corriendo (venv-ocr\\Scripts\\python.exe scripts\\ocr_service.py) e inténtalo de nuevo.',
       })
       auditoriaActualizar(auditoriaId, { resultado: 'error', crudo: crudoAuditoria, detalle: 'No se pudo procesar ningún archivo (servicio no disponible o respondió con error).' })
       auditoriaProcesoRef.current = null
@@ -1860,7 +1965,7 @@ export default function ImportarIA() {
     if (msg) auditoriaActualizar(msg.auditoriaId, { resultado: 'cancelado', ediciones: calcularEdiciones(msg), detalle: 'El usuario canceló antes de agregar.' })
     actualizarMensaje(mensajeId, { resuelto: true })
     agregarTimeout(() => {
-      setMensajes(prev => [...prev, { id: nuevoId(), role: 'ai', type: 'text', texto: 'Sin problema, no agregué nada. Avisame si querés que lo intente de nuevo.' }])
+      setMensajes(prev => [...prev, { id: nuevoId(), role: 'ai', type: 'text', texto: 'Sin problema, no agregué nada. Avísame si quieres que lo intente de nuevo.' }])
     }, 300)
   }
 
@@ -2031,16 +2136,37 @@ export default function ImportarIA() {
   const msgModalAgregar = modal?.tipo === 'agregar' ? mensajes.find(m => m.id === modal.mensajeId) : null
   const resultadoFinalModal = msgModalAgregar ? construirResultadoFinal(msgModalAgregar) : null
 
+  const HINT_MODO = modo === 'actuar'
+    ? 'Actuar: puedo proponer acciones, pero solo se hacen si tú las apruebas.'
+    : 'Preguntar: solo respondo y explico; no toco nada.'
+
   return (
-    <div className="clientes-page ia-importar-page ia-scope" style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+    <div className={`clientes-page ia-importar-page ia-scope${lu ? ' ia-lu' : ''}`} style={{ maxWidth: lu ? 'none' : 820, margin: '0 auto', display: 'flex', flexDirection: acoplado ? 'row' : 'column' }}>
+      {acoplado && (
+        <PanelLateral
+          incrustado
+          conversaciones={conversaciones}
+          conversacionActualId={conversacionActualId}
+          busqueda={busquedaHistorial}
+          onBusqueda={setBusquedaHistorial}
+          onNuevaConversacion={nuevaConversacion}
+          onAbrirConversacionId={abrirConversacionId}
+          onAbrirOtro={setPanelAbierto}
+          usuario={usuario}
+        />
+      )}
+      {/* En Transparente el envoltorio no existe (display: contents): el diseño actual queda idéntico. */}
+      <div className={lu ? 'ia-lu-principal' : undefined} style={lu ? { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' } : { display: 'contents' }}>
+      <div className="ia-cabecera" style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 className="titulo-metalico" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Sparkles size={22} color="oklch(0.78 0.16 250)" /> IA / IMPORTAR DATOS
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--dim)' }}>Cargá tu inventario a partir de documentos o fotos, con ayuda del asistente</p>
+          <p style={{ fontSize: 13, color: 'var(--dim)' }}>Carga tu inventario a partir de documentos o fotos, con ayuda del asistente</p>
+          <p data-testid="modo-explicacion" className="ia-modo-explicacion" style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 4, maxWidth: 520 }}>{HINT_MODO}</p>
         </div>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginTop: 2, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginTop: 2, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {modeloActivo && <span className="ia-meta ia-modelo-etiqueta" data-testid="modelo-activo" title="Modelo que usa el asistente (se cambia en Configuración → Asistente IA)">modelo · {modeloActivo}</span>}
           <div className="ia-modo" role="group" aria-label="Modo del asistente" data-testid="selector-modo">
             {Object.entries(MODOS).map(([id, m]) => (
               <button key={id} className={modo === id ? 'activo' : ''} aria-pressed={modo === id} title={m.detalle} onClick={() => chatStore.setModo(id)}>{m.etiqueta}</button>
@@ -2060,6 +2186,7 @@ export default function ImportarIA() {
               Voz {modoVoz ? 'activada' : 'apagada'}
             </button>
           )}
+          {!acoplado && <>
           <button onClick={() => setPanelAbierto('archivos')} className="clientes-action-icon" title="Archivos adjuntos">
             <Paperclip size={18} color="oklch(0.97 0.01 250)" />
           </button>
@@ -2069,13 +2196,14 @@ export default function ImportarIA() {
           <button onClick={() => setPanelAbierto('historial')} className="clientes-action-icon" title="Historial de conversaciones">
             <History size={18} color="oklch(0.97 0.01 250)" />
           </button>
+          </>}
         </div>
       </div>
 
       {/* Área de mensajes — sola scrollea, el resto de la página queda fija */}
       <div ref={scrollRef} onScroll={alScrollMensajes} className="ia-mensajes" style={{ display: 'flex', flexDirection: 'column' }}>
         {mensajes.length === 0 ? (
-          <EstadoVacio />
+          <EstadoVacio lu={lu} onElegir={t => { setTexto(t); setTimeout(() => document.querySelector('[data-guide-id="ia-compositor"]')?.focus(), 0) }} />
         ) : (
           <AnimatePresence initial={false}>
             {mensajes.map(msg => (
@@ -2163,7 +2291,7 @@ export default function ImportarIA() {
       {/* Input fijo abajo — el textarea tiene altura FIJA (sin auto-grow):
           si el texto no entra, hace scroll interno, nunca crece la caja,
           así los botones de al lado nunca se mueven de lugar */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '10px 0 2px', position: 'relative' }}>
+      <div className="ia-compositor-fila" style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '10px 0 2px', position: 'relative' }}>
         {sugerencias.length > 0 && (
           <div className="ia-comandos" role="listbox" data-testid="comandos">
             {sugerencias.map((c, i) => (
@@ -2192,6 +2320,7 @@ export default function ImportarIA() {
           <Plus size={20} color="oklch(0.97 0.01 250)" />
         </button>
 
+        <span className="ia-prompt" aria-hidden="true">{'>'}</span>
         <textarea
           value={texto}
           onChange={e => setTexto(e.target.value)}
@@ -2204,7 +2333,7 @@ export default function ImportarIA() {
             }
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (puedeEnviar) handleEnviar(); else if (generando) handleEnviar() }
           }}
-          placeholder="Escribí o adjuntá fotos, PDF, Excel o Word de tu inventario..."
+          placeholder="Escribe o adjunta fotos, PDF, Excel o Word de tu inventario..."
           style={{
             flex: 1, resize: 'none', height: 92, overflowY: 'auto',
             background: 'oklch(0.2 0.02 250 / .5)', border: '1px solid oklch(1 0 0 / .18)',
@@ -2241,8 +2370,13 @@ export default function ImportarIA() {
         </button>
       </div>
 
+      <div className="ia-meta-linea" aria-hidden="true">
+        <span>Enter envía</span><span>Mayús + Enter: nueva línea</span><span>/ para comandos</span>{modeloActivo && <span>modelo · {modeloActivo}</span>}
+      </div>
+      </div>{/* /ia-lu-principal */}
+
       <PanelLateral
-        modo={panelAbierto}
+        modo={acoplado && panelAbierto === 'historial' ? null : panelAbierto}
         conversaciones={conversaciones}
         conversacionActualId={conversacionActualId}
         busqueda={busquedaHistorial}

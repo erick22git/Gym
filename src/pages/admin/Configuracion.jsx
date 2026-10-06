@@ -110,7 +110,7 @@ const SECCIONES = [
     id: 'ia',
     icon: Sparkles,
     titulo: 'IA / Importar datos',
-    descripcion: 'Asistente que lee documentos y fotos de tu inventario y los carga por vos',
+    descripcion: 'Asistente que lee documentos y fotos de tu inventario y los carga por ti',
     color: 'oklch(0.72 0.18 305)',
   },
 ]
