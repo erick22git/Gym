@@ -3,6 +3,7 @@ import { Save, Upload, QrCode, Settings2, ToggleLeft, ToggleRight, Printer, Refr
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
 import '../Clients.css'
+import { fijarNombreNegocio } from '../../ia/negocio'
 
 const METODOS_DISPONIBLES = [
   { id: 'efectivo', label: 'Efectivo', emoji: '💵' },
@@ -131,6 +132,7 @@ export default function ConfiguracionPOS() {
     setGuardando(true)
     try {
       await window.api.pos.saveConfig(config)
+      fijarNombreNegocio(config.gym_nombre)
       toast.success('Configuración guardada')
     } catch {
       toast.error('Error al guardar')
@@ -170,7 +172,7 @@ export default function ConfiguracionPOS() {
 
       <Section title="Datos del establecimiento" delay={0}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del gimnasio', 'gym_nombre', { placeholder: 'Gimnasio' })}</div>
+          <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del negocio', 'gym_nombre', { placeholder: 'Gimnasio' })}</div>
           {inp('Dirección', 'gym_direccion')}
           {inp('Teléfono', 'gym_telefono')}
           {inp('Email', 'gym_email', { placeholder: 'contacto@gym.com' })}

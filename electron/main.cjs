@@ -326,6 +326,34 @@ ipcMain.handle('descuentos:update', (_, id, data) => require('./database.cjs').d
 ipcMain.handle('descuentos:delete', (_, id) => require('./database.cjs').descuentos.delete(id))
 
 // Configuración POS
+// ─── Fondo propio (foto elegida por la persona) ─────────────────────────────────────────────────
+// Se guarda en userData/fondo/fondo.webp (reducida a 1920×1080 máx. con sharp, calidad 82). Todo local: nada sale de la PC.
+const FONDO_DIR = () => path.join(app.getPath('userData'), 'fondo')
+const FONDO_ARCHIVO = () => path.join(FONDO_DIR(), 'fondo.webp')
+const fondoComoDataUri = () => { try { return 'data:image/webp;base64,' + fs.readFileSync(FONDO_ARCHIVO()).toString('base64') } catch { return null } }
+ipcMain.handle('fondo:obtener', () => fondoComoDataUri())
+ipcMain.handle('fondo:restaurar', () => { try { fs.rmSync(FONDO_ARCHIVO(), { force: true }) } catch (_) {} return { ok: true } })
+ipcMain.handle('fondo:elegir', async () => {
+  const r = await dialog.showOpenDialog(mainWindow, {
+    title: 'Elegir foto de fondo',
+    filters: [{ name: 'Imágenes', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'tif', 'tiff'] }],
+    properties: ['openFile'],
+  })
+  if (r.canceled || !r.filePaths[0]) return { cancelado: true }
+  try {
+    const origen = r.filePaths[0]
+    if (fs.statSync(origen).size > 40 * 1024 * 1024) return { ok: false, error: 'La imagen pesa más de 40 MB. Elige una más liviana.' }
+    const sharp = require('sharp')
+    fs.mkdirSync(FONDO_DIR(), { recursive: true })
+    const tmp = FONDO_ARCHIVO() + '.tmp'
+    await sharp(origen, { limitInputPixels: 120e6 }).rotate().resize({ width: 1920, height: 1080, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toFile(tmp)
+    fs.renameSync(tmp, FONDO_ARCHIVO())
+    return { ok: true, dataUri: fondoComoDataUri() }
+  } catch (e) {
+    return { ok: false, error: 'No se pudo usar esa imagen. Prueba con otra (JPG o PNG).' }
+  }
+})
+
 ipcMain.handle('pos:getConfig', () => require('./database.cjs').configuracionPOS.get())
 ipcMain.handle('pos:saveConfig', (_, data) => require('./database.cjs').configuracionPOS.save(data))
 ipcMain.handle('pos:getPrinters', (event) => event.sender.getPrinters())

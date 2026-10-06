@@ -17,6 +17,7 @@ import ImportarIA from './ImportarIA'
 import ConfigVoz from './ConfigVoz'
 import ConfigModeloIA from './ConfigModeloIA'
 import ConfigApariencia from './ConfigApariencia'
+import { useNegocio, fijarNombreNegocio } from '../../ia/negocio'
 
 // ─── Secciones disponibles ────────────────────────────────────────────────────
 
@@ -183,6 +184,7 @@ function SeccionNegocio() {
     try {
       const current = await window.api.pos.getConfig()
       await window.api.pos.saveConfig({ ...current, ...form })
+      fijarNombreNegocio(form.gym_nombre)
       toast.success('Datos del negocio guardados')
     } catch {
       toast.error('Error al guardar')
@@ -207,7 +209,7 @@ function SeccionNegocio() {
         textShadow: '0 1px 2px rgba(0,0,0,0.6)',
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del gimnasio *', 'gym_nombre', { placeholder: 'Gimnasio' })}</div>
+          <div style={{ gridColumn: '1/-1' }}>{inp('Nombre del negocio *', 'gym_nombre', { placeholder: 'Gimnasio' })}</div>
           <div style={{ gridColumn: '1/-1' }}>{inp('Dirección', 'gym_direccion', { placeholder: 'Av. Principal #123' })}</div>
           {inp('Teléfono', 'gym_telefono', { placeholder: '+591 7XXXXXXX' })}
           {inp('Email', 'gym_email', { placeholder: 'contacto@gym.com' })}
@@ -318,6 +320,7 @@ function SeccionSeguridad() {
 // ─── Sección: Sobre el Sistema ────────────────────────────────────────────────
 
 function SeccionSobre() {
+  const { nombre: nombreNegocio } = useNegocio()
   return (
     <div style={{ maxWidth: 500 }}>
       <div style={{
@@ -331,7 +334,7 @@ function SeccionSobre() {
             <Info size={22} color="var(--muted)" />
           </div>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Gimnasio</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{nombreNegocio}</div>
             <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .85)', marginTop: 2, fontFamily: 'Oxanium, sans-serif', letterSpacing: '.08em' }}>SISTEMA DE GESTIÓN v1.0</div>
           </div>
         </div>

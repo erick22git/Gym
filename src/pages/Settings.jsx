@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Settings as SettingsIcon, Lock, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
+import { useNegocio } from '../ia/negocio'
 
 const cardV = (delay) => ({
   initial: { opacity: 0, y: 10 },
@@ -10,6 +11,7 @@ const cardV = (delay) => ({
 })
 
 export default function Settings() {
+  const { nombre: nombreNegocio } = useNegocio()
   const [currentPass, setCurrentPass] = useState('')
   const [newPass, setNewPass] = useState('')
   const [confirmPass, setConfirmPass] = useState('')
@@ -62,7 +64,7 @@ export default function Settings() {
           </div>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.04em' }}>Acerca del Sistema</h2>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--muted)' }}>Gimnasio — Sistema de Gestión v1.0</p>
+        <p style={{ fontSize: 13, color: 'var(--muted)' }}>{nombreNegocio} — Sistema de Gestión v1.0</p>
         <p style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6 }}>Incluye módulo de Facturación Electrónica SFE Bolivia</p>
       </motion.div>
     </div>

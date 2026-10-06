@@ -11,6 +11,7 @@ import { PAGES } from '../../constants'
 import VistaRecibo from '../../modules/recibos/VistaRecibo'
 import { waterContainer, waterCard, waterContainerReduced, waterCardReduced } from '../../animations/waterVariants'
 import './NuevoClienteWizard.css'
+import { useNegocio } from '../../ia/negocio'
 
 // Propiedades de layout que van al wrapper interno (.glass-content) en
 // vez de al <button> exterior — ver NcGlassButton.
@@ -696,6 +697,7 @@ const TODOS_METODOS = [
 ]
 
 function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando, onOverlayHijoChange }) {
+  const { nombre: nombreNegocio } = useNegocio()
   const [metodo, setMetodo] = useState('efectivo')
   const [recibido, setRecibido] = useState('')
   const [qrConfirmado, setQrConfirmado] = useState(false)
@@ -959,7 +961,7 @@ function PasoPago({ seleccion, total, onPagar, onBack, onCancel, procesando, onO
 
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--display)', fontSize: 22, fontWeight: 800, letterSpacing: '.12em', color: 'var(--ink)', marginBottom: 6 }}>
-              GIMNASIO
+              {nombreNegocio.toUpperCase()}
             </div>
             <div style={{ fontSize: 18, color: 'var(--muted)' }}>
               Pago por <span style={{ color: 'var(--red)', fontWeight: 700 }}>Bs. {total.toFixed(2)}</span>

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useGlassCard } from '../glass-engine/useGlassCard'
 import { useGlassButton } from '../glass-engine/useGlassButton'
 import './Login.css'
+import { useNegocio } from '../ia/negocio'
 
 // ─── Fondo "vidrio mojado" — dos fotos reales, una sobre otra ───────────────
 // Abajo: login.png (limpia, fondo del div). Encima: sobre_login.png (con
@@ -503,6 +504,7 @@ const SHAKE_VARIANTS = {
 // nodos 3D independientes, no se puede compartir un único elemento
 // entre las dos) ──────────────────────────────────────────────────────
 function LogoTitulo({ titulo, shakeKey, logoGlow }) {
+  const { nombre: nombreNegocio } = useNegocio()
   return (
     <motion.div
       key={shakeKey}
@@ -516,7 +518,7 @@ function LogoTitulo({ titulo, shakeKey, logoGlow }) {
       >
         <img
           src="/logo.png"
-          alt="Gimnasio"
+          alt={nombreNegocio}
           style={{ width: '100%', height: '100%', objectFit: 'contain', background: 'transparent' }}
           onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }}
         />
@@ -540,7 +542,7 @@ function LogoTitulo({ titulo, shakeKey, logoGlow }) {
           transition: 'filter .2s',
         }}
       >
-        GIMNASIO
+        {nombreNegocio.toUpperCase()}
       </h1>
       <p style={{ color: '#d0d0d5', fontSize: 'calc(12.65px * var(--login-font-scale, 1))', letterSpacing: '.1em', textTransform: 'uppercase', margin: '5px 0 0' }}>
         {titulo}

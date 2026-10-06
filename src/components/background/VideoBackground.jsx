@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { VIDEO_TRANSITIONS, PAGE_TO_TRANSITION } from '../../config/videoTransitions'
 import { PAGES } from '../../constants'
 import { useApariencia, esLusion } from '../../ia/apariencia'
+import { useNegocio } from '../../ia/negocio'
 
 // ─── Fondo de video en frames, sincronizado con la navegación ──────────────
 // Reemplaza a .bg-atmospheric (mismo z-index:0, detrás de .app-layout) —
@@ -55,6 +56,8 @@ export default function VideoBackground() {
   // esté en Lusion (opaca) no se reproducen frames (al salir de ella vuelve el fondo con su flujo normal).
   const { apariencia, videoFondo } = useApariencia()
   const cubierto = page === PAGES.IA_IMPORTAR && esLusion(apariencia)
+  const { fondo } = useNegocio() // foto propia (userData): reemplaza al video en todo el sistema
+  const fondoImgRef = useRef(null)
   const canvasRef = useRef(null)
   const ctxRef = useRef(null)
   const cacheRef = useRef(new Map()) // src -> { img, promise }
@@ -140,6 +143,7 @@ export default function VideoBackground() {
     function resize() {
       canvas.width = canvas.offsetWidth
       canvas.height = canvas.offsetHeight
+      if (fondoImgRef.current) { drawCover(fondoImgRef.current); return }
       if (lastDrawnRef.current) {
         const { img } = getImage(framePath(lastDrawnRef.current.video, lastDrawnRef.current.frame))
         if (img.complete) drawCover(img)
@@ -152,6 +156,14 @@ export default function VideoBackground() {
 
   useEffect(() => {
     const token = ++tokenRef.current
+    // ── Fondo propio: una sola foto, quieta, en todas las pantallas (sin frames ni reproducción).
+    if (fondo) {
+      const img = new Image()
+      img.onload = () => { if (token !== tokenRef.current) return; fondoImgRef.current = img; drawCover(img) }
+      img.src = fondo
+      return () => { tokenRef.current++ }
+    }
+    fondoImgRef.current = null
     const transitionKey = PAGE_TO_TRANSITION[page]
 
     if (!transitionKey) return // página sin fondo de video: no tocar nada
@@ -198,7 +210,7 @@ export default function VideoBackground() {
     })()
 
     return () => { tokenRef.current++ }
-  }, [page, videoFondo, cubierto])
+  }, [page, videoFondo, cubierto, fondo])
 
   return (
     <canvas

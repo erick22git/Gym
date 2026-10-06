@@ -7,10 +7,12 @@ import { useApp } from '../../context/AppContext'
 import { PAGES } from '../../constants'
 import CambiarPasswordModal from '../../pages/CambiarPassword'
 import TopNav from './TopNav'
+import { useNegocio } from '../../ia/negocio'
 
 // ─── Diálogo de confirmación de cierre ───────────────────────────────────────
 
 function CloseConfirmDialog({ onConfirm, onCancel }) {
+  const { nombre: nombreNegocio } = useNegocio()
   const [noPreguntar, setNoPreguntar] = useState(false)
   return createPortal(
     <div style={{
@@ -37,7 +39,7 @@ function CloseConfirmDialog({ onConfirm, onCancel }) {
       >
         <div style={{ fontSize: 22, marginBottom: 12, textAlign: 'center' }}>⚠️</div>
         <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700, color: 'oklch(0.97 0.01 250)', textAlign: 'center' }}>
-          ¿Cerrar Gimnasio?
+          ¿Cerrar {nombreNegocio}?
         </h3>
         <p style={{ margin: '0 0 20px', fontSize: 12.5, color: 'oklch(0.78 0.02 250 / .65)', textAlign: 'center', lineHeight: 1.5 }}>
           Asegúrate de haber guardado los cambios pendientes antes de cerrar.

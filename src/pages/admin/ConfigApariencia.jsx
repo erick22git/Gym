@@ -2,7 +2,9 @@
 // cambian al instante, sin recargar. Solo afectan a la página de IA y a la mascota; el resto del sistema
 // mantiene el diseño Transparente. El «Video de fondo» solo existe en Transparente.
 import toast from 'react-hot-toast'
-import { Palette, Film } from 'lucide-react'
+import { useState } from 'react'
+import { Palette, Film, Image as IconoImagen } from 'lucide-react'
+import { useNegocio, elegirFondo, restaurarFondo } from '../../ia/negocio'
 import { APARIENCIAS, useApariencia, setApariencia, setVideoFondo } from '../../ia/apariencia'
 import '../../ia/ia.css'
 
@@ -26,6 +28,18 @@ function Miniatura({ id }) {
 
 export default function ConfigApariencia() {
   const { apariencia, videoFondo } = useApariencia()
+  const { fondo } = useNegocio()
+  const [ocupado, setOcupado] = useState(false)
+
+  async function cambiarFondo() {
+    setOcupado(true)
+    try {
+      const r = await elegirFondo()
+      if (r?.ok) toast.success('Fondo actualizado')
+      else if (!r?.cancelado) toast.error(r?.error || 'No se pudo usar esa imagen')
+    } finally { setOcupado(false) }
+  }
+  async function quitarFondo() { await restaurarFondo(); toast.success('Se restauró el fondo original') }
 
   async function elegir(id) {
     if (id === apariencia) return
@@ -73,6 +87,21 @@ export default function ConfigApariencia() {
           </button>
         </div>
       )}
+      <div data-testid="bloque-fondo-propio" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 12, background: 'oklch(0.13 0.02 250 / .34)', border: '1px solid var(--line)', flexWrap: 'wrap' }}>
+        <div aria-hidden="true" style={{ width: 96, height: 54, borderRadius: 10, flexShrink: 0, border: '1px solid var(--line)', background: fondo ? `center / cover url(${fondo})` : 'oklch(0.2 0.02 250)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {!fondo && <IconoImagen size={20} />}
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Fondo propio</div>
+          <div style={{ fontSize: 12, color: 'oklch(0.88 0.01 250 / .75)', marginTop: 2 }}>
+            {fondo ? 'Tu foto reemplaza el video de fondo en todo el sistema.' : 'Usa una foto tuya (JPG, PNG o WebP) en lugar del video de fondo. Se guarda en este equipo, reducida y sin conexión.'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" className="clientes-glass-btn btn-primary" data-testid="elegir-fondo" disabled={ocupado} onClick={cambiarFondo}><div className="clientes-glass-bg" /><span className="clientes-glass-content">{ocupado ? 'Procesando…' : fondo ? 'Cambiar foto' : 'Elegir foto'}</span></button>
+          {fondo && <button type="button" className="clientes-glass-btn" data-testid="restaurar-fondo" onClick={quitarFondo}><div className="clientes-glass-bg" /><span className="clientes-glass-content">Restaurar fondo original</span></button>}
+        </div>
+      </div>
       <div style={{ fontSize: 12, color: 'var(--ink)', padding: '10px 14px', borderRadius: 12, background: 'oklch(0.13 0.02 250 / .34)', border: '1px solid var(--line)' }}>También puedes cambiarla escribiendo <code className="ia-md-codigo">/tema oscuro</code>, <code className="ia-md-codigo">/tema claro</code> o <code className="ia-md-codigo">/tema transparente</code> en el chat.</div>
     </div>
   )

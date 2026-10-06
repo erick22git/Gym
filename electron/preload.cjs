@@ -190,6 +190,13 @@ contextBridge.exposeInMainWorld('api', {
     testPrint: (printerName) => ipcRenderer.invoke('pos:testPrint', printerName),
   },
 
+  // Fondo propio: foto elegida, guardada en userData como webp
+  fondo: {
+    obtener: () => ipcRenderer.invoke('fondo:obtener'),
+    elegir: () => ipcRenderer.invoke('fondo:elegir'),
+    restaurar: () => ipcRenderer.invoke('fondo:restaurar'),
+  },
+
   // Dictado por voz local (faster-whisper empaquetado): recibe un WAV 16 kHz mono, devuelve el texto
   ia: {
     getConfig: () => ipcRenderer.invoke('ia:getConfig'),

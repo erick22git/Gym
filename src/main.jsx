@@ -14,6 +14,7 @@ import '@fontsource/inter/700.css'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/500.css'
 import App from './App'
+import { cargarNegocio } from './ia/negocio'
 import GlassMenuFilters from './components/GlassMenuFilters'
 import './index.css'
 import './glass-engine/variables.css'
@@ -25,6 +26,8 @@ import './glass-engine/menu.css'
 // cargara antes, esas bases (sin @media, siempre activas) ganarían
 // por orden de aparición pese a que el breakpoint sí matchea.
 import './styles/responsive.css'
+
+cargarNegocio()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
