@@ -7,14 +7,14 @@ import { PAGES } from '../constants'
 import { registrarEjecutores, cargarPrefs, guardarPref } from './motorChat'
 import { DESTINOS } from './registroAcciones'
 import { guiaStore } from './guiaStore'
+import './apariencias.css'
+import { cargarApariencia, setApariencia } from './apariencia'
 import Mascota from '../components/ia/Mascota'
 import VisorGuia from '../components/ia/VisorGuia'
 
 const ETIQUETA_PAGINA = Object.fromEntries(Object.values(DESTINOS).map(d => [d.page, d.etiqueta]))
 
-export function aplicarTema(tema) {
-  document.documentElement.setAttribute('data-ia-tema', tema)
-}
+export const aplicarTema = tema => setApariencia(tema)
 
 export default function IAHost() {
   const { page, navigate } = useApp()
@@ -33,8 +33,8 @@ export default function IAHost() {
     return quitar
   }, [page, navigate])
 
-  // Tema guardado (solo la preferencia: los temas completos llegan con el rediseño)
-  useEffect(() => { cargarPrefs().then(p => aplicarTema(p.tema || 'clasico')) }, [])
+  // Apariencia guardada (y video de fondo / efecto líquido)
+  useEffect(() => { cargarApariencia() }, [])
 
   // Micro-benchmark de ~5 s la primera vez que el asistente local está listo: recomienda un perfil.
   useEffect(() => {

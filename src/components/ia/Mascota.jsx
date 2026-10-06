@@ -185,7 +185,7 @@ export default function Mascota({ page, navigate }) {
 
   return (
     <motion.div
-      className="mascota"
+      className="mascota ia-scope"
       data-testid="mascota"
       data-estado={estado}
       data-abierta={abierta}

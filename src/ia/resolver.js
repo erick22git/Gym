@@ -8,13 +8,19 @@
 //   { tipo: 'acciones', acciones: [{accion, ...}] }    petición en lenguaje natural: en modo «Actuar» pide aprobación
 import { DESTINOS, TEMAS, MODOS } from './registroAcciones'
 import { GUIAS, guiaDesdeTexto } from './guias'
+import { normalizarApariencia, APARIENCIAS, IDS_APARIENCIA } from './apariencia'
+
+function esAparienciaConocida(arg) {
+  const n = normalizarApariencia(arg)
+  return n === arg || APARIENCIAS[n].alias.includes(arg)
+}
 
 export function normalizar(t) {
   return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[¿?¡!.,;:]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
 export const COMANDOS = [
-  { cmd: '/tema', uso: '/tema oscuro | claro | clasico', detalle: 'Cambia el tema visual' },
+  { cmd: '/tema', uso: '/tema transparente | oscuro | claro', detalle: 'Cambia la apariencia (IA y mascota)' },
   { cmd: '/modelo', uso: '/modelo [nombre]', detalle: 'Muestra o cambia el modelo de IA' },
   { cmd: '/modo', uso: '/modo preguntar | actuar', detalle: 'Cambia entre solo preguntar o poder actuar' },
   { cmd: '/guia', uso: '/guia [recorrido]', detalle: 'Inicia un recorrido paso a paso' },
@@ -39,7 +45,7 @@ const PIDE_GUIA = /\b(guia|guiame|guiarme|ensename|ensenarme|muestrame como|most
 const VERBO_IR = /^(ir a|ve a|vamos a|llevame a|llevarme a|abre|abrir|abreme|muestrame|mostrar|quiero ver|quiero ir a|necesito ver|dame)\s+(la |el |las |los )?(pantalla de |seccion de |modulo de |pagina de |ventana de )?(.+)$/
 const PIDE_IMPORTAR = /\b(quiero|necesito|voy a|puedo|deseo)\b.*\b(importar|subir|cargar|adjuntar)\b.*\b(foto|imagen|archivo|lista|excel|pdf|word|inventario|productos)\b/
 const PIDE_LIMPIAR = /^(limpia|limpiar|borra|borrar|reinicia|reiniciar)( el| la)? (chat|conversacion)$|^(nueva|otra) conversacion$/
-const TEMA_NL = /\b(modo|tema)\s+(oscuro|claro|clasico)\b|\b(ponlo|ponla|ponme|cambia(?:lo|r)?|activa(?:r)?)\b.*\b(oscuro|claro|clasico)\b/
+const TEMA_NL = /\b(modo|tema|apariencia)\s+(lusion\s+)?(oscuro|claro|clasico|transparente)\b|\b(ponlo|ponla|ponme|cambia(?:lo|r)?|activa(?:r)?)\b.*\b(oscuro|claro|clasico|transparente)\b/
 
 export function resolverPorCodigo(textoOriginal) {
   const crudo = String(textoOriginal || '').trim()
@@ -53,8 +59,8 @@ export function resolverPorCodigo(textoOriginal) {
       case '/ayuda': return { tipo: 'respuesta', texto: textoAyuda() }
       case '/limpiar': return { tipo: 'comando', accion: { accion: 'limpiar_chat' } }
       case '/tema':
-        if (TEMAS.includes(arg)) return { tipo: 'comando', accion: { accion: 'cambiar_tema', tema: arg } }
-        return { tipo: 'respuesta', texto: 'Uso: `/tema oscuro`, `/tema claro` o `/tema clasico`.' }
+        if (arg && esAparienciaConocida(arg)) return { tipo: 'comando', accion: { accion: 'cambiar_tema', tema: normalizarApariencia(arg) } }
+        return { tipo: 'respuesta', texto: 'Apariencias: **Transparente**, **Lusion Oscuro** y **Lusion Claro**.\nUso: `/tema transparente`, `/tema oscuro` o `/tema claro`.' }
       case '/modelo': return { tipo: 'comando', accion: { accion: 'modelo', nombre: resto.join(' ').trim() } }
       case '/modo':
         if (MODOS[arg]) return { tipo: 'comando', accion: { accion: 'modo', modo: arg } }
@@ -79,8 +85,8 @@ export function resolverPorCodigo(textoOriginal) {
   if (PIDE_LIMPIAR.test(t)) return { tipo: 'acciones', acciones: [{ accion: 'limpiar_chat' }] }
   const mt = t.match(TEMA_NL)
   if (mt) {
-    const tema = TEMAS.find(x => t.includes(x))
-    if (tema) return { tipo: 'acciones', acciones: [{ accion: 'cambiar_tema', tema }] }
+    const palabra = ['transparente', 'clasico', 'oscuro', 'claro'].find(x => t.includes(x))
+    if (palabra) return { tipo: 'acciones', acciones: [{ accion: 'cambiar_tema', tema: normalizarApariencia(palabra) }] }
   }
   if (PIDE_IMPORTAR.test(t)) return { tipo: 'acciones', acciones: [{ accion: 'importar_archivo' }] }
 

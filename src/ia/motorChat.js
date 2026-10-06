@@ -9,6 +9,7 @@ import { chatStore, nuevoId } from './chatStore'
 import { resolverPorCodigo, guiaSugerida, pareceOrden, textoAyuda } from './resolver'
 import { CATALOGO, EJEMPLOS_LLM, DESTINOS, TEMAS, MODOS, describirAccion, validarAccion } from './registroAcciones'
 import { GUIAS } from './guias'
+import { APARIENCIAS } from './apariencia'
 
 const BASE = 'http://localhost:8420'
 let controlador = null
@@ -25,7 +26,7 @@ export async function cargarPrefs(forzar = false) {
   if (prefs && !forzar) return prefs
   let c = {}
   try { c = (await window.api?.ia?.getConfig?.()) || {} } catch { /* sin IPC */ }
-  prefs = { modelo: c.ia_modelo || null, perfil: c.ia_perfil || null, tema: c.ia_tema || 'clasico', benchmark: c.ia_benchmark || null, mascotaPos: c.mascota_pos || null, rendimiento: c.ia_modo_rendimiento || null }
+  prefs = { modelo: c.ia_modelo || null, perfil: c.ia_perfil || null, tema: c.ia_tema || 'transparente', benchmark: c.ia_benchmark || null, mascotaPos: c.mascota_pos || null, rendimiento: c.ia_modo_rendimiento || null }
   return prefs
 }
 export async function guardarPref(clave, valor) {
@@ -191,7 +192,7 @@ async function ejecutarUna(a) {
   switch (a.accion) {
     case 'navegar': ejecutores.navegar?.(DESTINOS[a.destino].page); return `Listo, te llevé a «${DESTINOS[a.destino].etiqueta}».`
     case 'iniciar_guia': ejecutores.iniciarGuia?.(a.guia); return `Empecemos: ${GUIAS[a.guia].titulo}. Sigue el resaltado (Esc para salir).`
-    case 'cambiar_tema': await guardarPref('ia_tema', a.tema); ejecutores.aplicarTema?.(a.tema); return `Tema «${a.tema}» guardado. Los temas completos llegan con el rediseño; la preferencia ya queda recordada.`
+    case 'cambiar_tema': await ejecutores.aplicarTema?.(a.tema); return `Apariencia «${APARIENCIAS[a.tema].etiqueta}» aplicada.${a.tema !== 'transparente' ? ' Solo cambia la IA y la mascota; el resto del sistema mantiene el diseño Transparente.' : ''}`
     case 'importar_archivo': ejecutores.importarArchivo?.(); return 'Abrí el selector de archivos en la pantalla de IA. Revisarás todo antes de agregar nada.'
     case 'limpiar_chat': limpiarChat(); return null
     case 'modo': chatStore.setModo(a.modo); return `Modo «${MODOS[a.modo].etiqueta}»: ${MODOS[a.modo].detalle}`

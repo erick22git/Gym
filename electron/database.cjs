@@ -2695,7 +2695,7 @@ const vozConfig = {
 // Preferencias del asistente de IA (modelo, perfil, tema, modo, posición de la mascota…). Clave/valor en
 // `config` con lista blanca: el renderer no puede escribir claves arbitrarias.
 const iaConfig = {
-  CLAVES: ['ia_modelo', 'ia_perfil', 'ia_benchmark', 'ia_modo', 'ia_tema', 'mascota_pos', 'ia_modo_rendimiento'],
+  CLAVES: ['ia_modelo', 'ia_perfil', 'ia_benchmark', 'ia_modo', 'ia_tema', 'mascota_pos', 'ia_modo_rendimiento', 'ia_video_fondo', 'ia_efecto_liquido', 'negocio_fondo', 'negocio_nombre'],
   getAll() {
     const out = {}
     for (const k of iaConfig.CLAVES) {

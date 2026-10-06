@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Building2, Puzzle, Users, CreditCard, HardDrive, Receipt,
-  Shield, Info, ChevronRight, ArrowLeft, Lock, Save, FileText, Sparkles, Mic,
+  Shield, Info, ChevronRight, ArrowLeft, Lock, Save, FileText, Sparkles, Mic, Palette,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import '../Clients.css'
@@ -16,6 +16,7 @@ import ConfiguracionRecibos from '../../modules/recibos/ConfiguracionRecibos'
 import ImportarIA from './ImportarIA'
 import ConfigVoz from './ConfigVoz'
 import ConfigModeloIA from './ConfigModeloIA'
+import ConfigApariencia from './ConfigApariencia'
 
 // ─── Secciones disponibles ────────────────────────────────────────────────────
 
@@ -89,6 +90,13 @@ const SECCIONES = [
     titulo: 'Control por voz',
     descripcion: 'Activar o desactivar el control por voz en Ventas, Caja e IA',
     color: 'oklch(0.78 0.16 155)',
+  },
+  {
+    id: 'apariencia',
+    icon: Palette,
+    titulo: 'Apariencia del módulo de IA',
+    descripcion: 'Transparente, Lusion Oscuro o Lusion Claro (solo IA y mascota) y video de fondo',
+    color: 'oklch(0.82 0.1 340)',
   },
   {
     id: 'modelo-ia',
@@ -409,6 +417,7 @@ export default function Configuracion() {
             {seccion === 'ia' && <ImportarIA />}
             {seccion === 'voz' && <ConfigVoz />}
             {seccion === 'modelo-ia' && <ConfigModeloIA />}
+            {seccion === 'apariencia' && <ConfigApariencia />}
           </motion.div>
         )}
       </AnimatePresence>

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { VIDEO_TRANSITIONS, PAGE_TO_TRANSITION } from '../../config/videoTransitions'
+import { PAGES } from '../../constants'
+import { useApariencia, esLusion } from '../../ia/apariencia'
 
 // ─── Fondo de video en frames, sincronizado con la navegación ──────────────
 // Reemplaza a .bg-atmospheric (mismo z-index:0, detrás de .app-layout) —
@@ -49,6 +51,10 @@ function parseStaticFrame(staticFrame) {
 
 export default function VideoBackground() {
   const { page } = useApp()
+  // Apariencias: «Video de fondo» apagado (solo Transparente) = último frame estático; y mientras la página de IA
+  // esté en Lusion (opaca) no se reproducen frames (al salir de ella vuelve el fondo con su flujo normal).
+  const { apariencia, videoFondo } = useApariencia()
+  const cubierto = page === PAGES.IA_IMPORTAR && esLusion(apariencia)
   const canvasRef = useRef(null)
   const ctxRef = useRef(null)
   const cacheRef = useRef(new Map()) // src -> { img, promise }
@@ -149,10 +155,26 @@ export default function VideoBackground() {
     const transitionKey = PAGE_TO_TRANSITION[page]
 
     if (!transitionKey) return // página sin fondo de video: no tocar nada
+    if (cubierto) return // página de IA en Lusion: nada que reproducir (token ya invalidado arriba)
 
     const entry = VIDEO_TRANSITIONS[transitionKey]
 
     ;(async () => {
+      // ── «Video de fondo» apagado: solo el ÚLTIMO frame de esta página, estático (sin reproducir).
+      if (!videoFondo) {
+        // Algunos JPG del final del rango faltan en disco (ver videoTransitions.ts): se usa el último frame que SÍ existe,
+        // el mismo en el que se queda la animación normal al terminar.
+        const fin = entry.static ? parseStaticFrame(entry.staticFrame) : { video: entry.video, frame: entry.frameEnd }
+        const piso = entry.static ? fin.frame : entry.frameStart
+        for (let f = fin.frame; f >= piso; f--) {
+          const { img, promise } = getImage(framePath(fin.video, f))
+          await promise
+          if (token !== tokenRef.current) return
+          if (img.naturalWidth > 0) { drawFrame(fin.video, f); return }
+        }
+        return
+      }
+
       // ── Destino estático (ej. Facturación): corte directo, sin animar.
       if (entry.static) {
         await preload([`/frames/${entry.staticFrame}`])
@@ -176,7 +198,7 @@ export default function VideoBackground() {
     })()
 
     return () => { tokenRef.current++ }
-  }, [page])
+  }, [page, videoFondo, cubierto])
 
   return (
     <canvas
@@ -189,6 +211,7 @@ export default function VideoBackground() {
         height: '100%',
         display: 'block',
         background: '#060709',
+        visibility: cubierto ? 'hidden' : 'visible',
       }}
     />
   )

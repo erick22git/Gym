@@ -33,3 +33,6 @@ ocr-service.spec
 # Cualquier variante de .env (secretos)
 .env.*
 !.env.example
+
+# Capturas de verificacion de la Fase 3 (pesadas, solo locales)
+docs/capturas-fase3/

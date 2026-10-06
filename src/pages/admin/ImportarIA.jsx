@@ -551,12 +551,14 @@ function PanelLateral({ modo, conversaciones, conversacionActualId, busqueda, on
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         onClick={onClose}
+        className="ia-scope"
         style={{ position: 'fixed', inset: 0, zIndex: 9400, background: 'oklch(0 0 0 / .35)', backdropFilter: 'blur(4px)' }}
       />
       <motion.div
         key="ia-panel"
         initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
+        className="ia-scope"
         style={{
           position: 'fixed', top: 0, left: 0, bottom: 0, width: esCambios ? 460 : 320, maxWidth: '100vw', zIndex: 9401,
           background: 'oklch(0.12 0.02 250 / .6)', backdropFilter: 'url(#dropdown-glass)', WebkitBackdropFilter: 'url(#dropdown-glass)',
@@ -767,6 +769,7 @@ function ImagenesOriginales({ urls }) {
       {ampliada && createPortal(
         <div
           onClick={() => setAmpliada(null)}
+          className="ia-scope"
           style={{
             position: 'fixed', inset: 0, zIndex: 9600, background: 'oklch(0 0 0 / .75)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 30, cursor: 'zoom-out',
@@ -1149,7 +1152,7 @@ function ModalConfirmarAccion({ titulo, cuerpo, textoConfirmar, noPreguntar, onT
   }, [onClose])
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div className="ia-scope" style={{ position: 'fixed', inset: 0, zIndex: 9500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .35)', backdropFilter: 'blur(8px)' }} />
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -1190,7 +1193,7 @@ function ModalConfirmarAccion({ titulo, cuerpo, textoConfirmar, noPreguntar, onT
             <div className="clientes-glass-bg" />
             <span className="clientes-glass-content">Cancelar</span>
           </button>
-          <button onClick={onConfirm} className="clientes-glass-btn" style={{ minWidth: 110, padding: '8px 18px', borderRadius: 9, fontSize: 13, fontWeight: 700 }}>
+          <button onClick={onConfirm} data-principal="1" className="clientes-glass-btn" style={{ minWidth: 110, padding: '8px 18px', borderRadius: 9, fontSize: 13, fontWeight: 700 }}>
             <div className="clientes-glass-bg" />
             <span className="clientes-glass-content" style={{ color: 'oklch(0.82 0.14 75)' }}>{textoConfirmar}</span>
           </button>
@@ -1211,7 +1214,7 @@ function ModalArchivoViejo({ archivos, onEnviarConArchivo, onQuitarArchivo, onCl
   const nombres = archivos.map(a => a.nombre).join(', ')
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div className="ia-scope" style={{ position: 'fixed', inset: 0, zIndex: 9500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'oklch(0 0 0 / .35)', backdropFilter: 'blur(8px)' }} />
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
@@ -1380,6 +1383,8 @@ export default function ImportarIA() {
   // una sola vez, con las primeras palabras del primer mensaje.
   useEffect(() => {
     if (mensajes.length === 0) return
+    // Una conversación hecha solo de comandos con barra (/tema, /ayuda…) no es una conversación que valga la pena guardar
+    if (mensajes.every(m => m.role !== 'user' || String(m.texto || '').trim().startsWith('/'))) return
     if (saltarProximoGuardadoRef.current) { saltarProximoGuardadoRef.current = false; return }
 
     const ahora = Date.now()
@@ -2027,7 +2032,7 @@ export default function ImportarIA() {
   const resultadoFinalModal = msgModalAgregar ? construirResultadoFinal(msgModalAgregar) : null
 
   return (
-    <div className="clientes-page ia-importar-page" style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
+    <div className="clientes-page ia-importar-page ia-scope" style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 className="titulo-metalico" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -9,6 +9,21 @@ import '../../ia/ia.css'
 const MARGEN = 8
 const ESPERA_MAX_MS = 2500
 
+// Si el elemento queda fuera de la vista dentro de un contenedor que se desplaza (el menú de arriba es horizontal y con
+// scroll: si estaba movido, «Caja» podía quedar a la izquierda de la pantalla), se centra en cada ancestro desplazable.
+// scrollIntoView() no basta aquí: el menú es un contenedor propio y no siempre responde.
+function asegurarVisible(el) {
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    const cs = getComputedStyle(a)
+    const dx = a.scrollWidth > a.clientWidth + 1 && /(auto|scroll)/.test(cs.overflowX)
+    const dy = a.scrollHeight > a.clientHeight + 1 && /(auto|scroll)/.test(cs.overflowY)
+    if (!dx && !dy) continue
+    const e = el.getBoundingClientRect(); const c = a.getBoundingClientRect()
+    if (dx) a.scrollLeft += (e.left + e.width / 2) - (c.left + c.width / 2)
+    if (dy) a.scrollTop += (e.top + e.height / 2) - (c.top + c.height / 2)
+  }
+}
+
 function rectDe(el) {
   const r = el.getBoundingClientRect()
   return { x: r.left - MARGEN, y: r.top - MARGEN, w: r.width + MARGEN * 2, h: r.height + MARGEN * 2 }
@@ -33,7 +48,7 @@ export default function VisorGuia() {
       const el = document.querySelector(`[data-guide-id="${p.id}"]`)
       if (el) {
         elRef.current = el
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        asegurarVisible(el)
         setRect(rectDe(el)); setBuscando(false)
         return
       }
@@ -92,7 +107,7 @@ export default function VisorGuia() {
       ) : (
         <div style={{ ...oscuro, inset: 0, background: 'oklch(0 0 0 / .5)' }} />
       )}
-      <div className="ia-guia-tarjeta" style={{ ...tarjetaPos, zIndex: 9992 }} role="dialog" aria-label={guia.titulo}>
+      <div className="ia-guia-tarjeta ia-scope" style={{ ...tarjetaPos, zIndex: 9992 }} role="dialog" aria-label={guia.titulo}>
         <div className="ia-guia-cab">{guia.titulo} · paso {paso + 1} de {total}</div>
         <div className="ia-guia-texto" data-testid="guia-texto">
           {buscando ? 'Buscando el botón…' : rect ? p.texto : `${p.respaldo} (No encuentro ese botón en esta pantalla.)`}

@@ -7,6 +7,7 @@
 // la apariencia o se abre el selector de archivos.
 import { PAGES } from '../constants'
 import { GUIAS } from './guias'
+import { IDS_APARIENCIA, APARIENCIAS } from './apariencia'
 
 export const DESTINOS = {
   control_acceso: { page: PAGES.CONTROL_ACCESO, etiqueta: 'Control de acceso', alias: ['control de acceso', 'acceso', 'recepcion', 'inicio'] },
@@ -21,7 +22,7 @@ export const DESTINOS = {
   configuracion: { page: PAGES.CONFIGURACION, etiqueta: 'Configuración', alias: ['configuracion', 'ajustes'] },
 }
 
-export const TEMAS = ['oscuro', 'claro', 'clasico']
+export const TEMAS = IDS_APARIENCIA // ['transparente', 'lusion-oscuro', 'lusion-claro']
 
 export const MODOS = {
   preguntar: { etiqueta: 'Preguntar', detalle: 'Solo explica y responde. No hace nada en el sistema.' },
@@ -39,7 +40,7 @@ export const CATALOGO = {
     params: { guia: { tipo: 'enum', valores: Object.keys(GUIAS) } },
   },
   cambiar_tema: {
-    descripcion: 'Cambiar el tema visual del asistente.',
+    descripcion: 'Cambiar la apariencia del módulo de IA y la mascota (transparente, lusion-oscuro, lusion-claro).',
     params: { tema: { tipo: 'enum', valores: TEMAS } },
   },
   importar_archivo: {
@@ -52,7 +53,7 @@ export const CATALOGO = {
 export const EJEMPLOS_LLM = [
   { frase: 'quiero ir a ver mis clientes', acciones: [{ accion: 'navegar', destino: 'clientes' }] },
   { frase: 'enséñame a cerrar la caja', acciones: [{ accion: 'iniciar_guia', guia: 'cerrar_caja' }] },
-  { frase: 'ponlo en modo oscuro', acciones: [{ accion: 'cambiar_tema', tema: 'oscuro' }] },
+  { frase: 'ponlo en modo oscuro', acciones: [{ accion: 'cambiar_tema', tema: 'lusion-oscuro' }] },
   { frase: 'quiero subir una foto de mi lista de productos', acciones: [{ accion: 'importar_archivo' }] },
 ]
 
@@ -61,7 +62,7 @@ export function describirAccion(a) {
   switch (a.accion) {
     case 'navegar': return `Ir a la pantalla «${DESTINOS[a.destino]?.etiqueta || a.destino}»`
     case 'iniciar_guia': return `Mostrarte paso a paso: ${GUIAS[a.guia]?.titulo || a.guia}`
-    case 'cambiar_tema': return `Cambiar el tema a «${a.tema}»`
+    case 'cambiar_tema': return `Cambiar la apariencia a «${APARIENCIAS[a.tema]?.etiqueta || a.tema}»`
     case 'importar_archivo': return 'Abrir el selector para adjuntar un archivo de inventario'
     case 'limpiar_chat': return 'Empezar una conversación nueva'
     default: return a.accion

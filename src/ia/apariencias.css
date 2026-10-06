@@ -1,0 +1,163 @@
+/* Apariencias del módulo de IA y la mascota (ver DISENO.md).
+   «Transparente» NO define nada aquí: es el diseño actual y se queda exactamente como estaba.
+   «Lusion Oscuro» y «Lusion Claro» solo actúan dentro de `.ia-scope` (página de IA, sus modales, la mascota y el
+   visor de recorridos): el resto del sistema no cambia con ninguna selección.
+   Reglas de Lusion que se respetan: superficies 100 % opacas (sin backdrop-filter ni fondos rgba), sin degradados,
+   texto con peso 400–500 y tracking -0.02em, radios solo 3 / 15 / 18 / 87.5 / 100 px, una única sombra al 4 %,
+   hover SIN cambiar el relleno (opacidad / subrayado), anillo de foco Ink o Paper White de 2 px.
+   Prohibidos en todo el proyecto: el índigo y el lima de Lusion (ver la verificación por grep en DISENO.md). */
+
+/* ── Tokens crudos de Lusion (solo los permitidos) + los tres de estado tomados de Cursor ── */
+:root {
+  --lu-lavender: #f0f1fa;   /* Lavender Mist */
+  --lu-paper: #ffffff;      /* Paper White */
+  --lu-ink: #000000;        /* Ink */
+  --lu-graphite: #2b2e3a;   /* Graphite */
+  --lu-haze: #e4e6ef;       /* Haze */
+  --lu-slate: #34393f;      /* Slate Hollow */
+  --lu-forest: #34785c;     /* estado: correcto (Cursor Forest) */
+  --lu-crimson: #cf2d56;    /* estado: error (Cursor Crimson) */
+  --lu-amber: #c08532;      /* estado: aviso (Cursor Amber) */
+  --lu-sombra: 0 6px 10px 0 rgba(0, 0, 0, .04), 0 2px 4px 0 rgba(0, 0, 0, .04);
+  --lu-r-detalle: 3px; --lu-r-tarjeta: 15px; --lu-r-campo: 18px; --lu-r-boton: 87.5px; --lu-r-imagen: 100px;
+  --lu-fuente: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --lu-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* ── Tokens semánticos por apariencia ── */
+[data-ia-tema="lusion-claro"] .ia-scope {
+  --ia-lienzo: var(--lu-lavender);
+  --ia-superficie: var(--lu-paper);
+  --ia-superficie-2: var(--lu-haze);
+  --ia-borde: var(--lu-haze);
+  --ia-texto: var(--lu-ink);
+  --ia-texto-suave: var(--lu-graphite);
+  --ia-accion: var(--lu-graphite);
+  --ia-accion-texto: var(--lu-paper);
+  --ia-foco: var(--lu-ink);
+  --ia-acento: var(--lu-ink);
+  --ia-ok: var(--lu-forest); --ia-error: var(--lu-crimson); --ia-aviso: var(--lu-amber);
+  --ia-fondo-tarjeta: var(--lu-paper);
+  --ia-sombra: var(--lu-sombra);
+  --ia-radio: var(--lu-r-tarjeta); --ia-radio-pastilla: var(--lu-r-boton);
+}
+[data-ia-tema="lusion-oscuro"] .ia-scope {
+  --ia-lienzo: var(--lu-ink);
+  --ia-superficie: var(--lu-graphite);
+  --ia-superficie-2: var(--lu-slate);
+  --ia-borde: var(--lu-slate);
+  --ia-texto: var(--lu-paper);
+  --ia-texto-suave: var(--lu-haze);
+  --ia-accion: var(--lu-paper);
+  --ia-accion-texto: var(--lu-ink);
+  --ia-foco: var(--lu-paper);
+  --ia-acento: var(--lu-paper);
+  --ia-ok: var(--lu-forest); --ia-error: var(--lu-crimson); --ia-aviso: var(--lu-amber);
+  --ia-fondo-tarjeta: var(--lu-graphite);
+  --ia-sombra: var(--lu-sombra);
+  --ia-radio: var(--lu-r-tarjeta); --ia-radio-pastilla: var(--lu-r-boton);
+}
+
+/* ── Piel común Lusion (claro y oscuro) ── */
+[data-ia-tema^="lusion"] .ia-scope,
+[data-ia-tema^="lusion"] .ia-scope * {
+  color: var(--ia-texto) !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: var(--lu-fuente) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.02em !important;
+  background-image: none !important;
+  filter: none !important;
+}
+[data-ia-tema^="lusion"] .ia-scope strong, [data-ia-tema^="lusion"] .ia-scope b, [data-ia-tema^="lusion"] .ia-scope h1,
+[data-ia-tema^="lusion"] .ia-scope h2, [data-ia-tema^="lusion"] .ia-scope h3, [data-ia-tema^="lusion"] .ia-scope button,
+[data-ia-tema^="lusion"] .ia-scope .ia-md-h, [data-ia-tema^="lusion"] .ia-scope .ia-guia-cab { font-weight: 500 !important; }
+[data-ia-tema^="lusion"] .ia-scope code, [data-ia-tema^="lusion"] .ia-scope .ia-md-codigo, [data-ia-tema^="lusion"] .ia-scope .ia-metricas,
+[data-ia-tema^="lusion"] .ia-scope pre { font-family: var(--lu-mono) !important; letter-spacing: 0 !important; }
+[data-ia-tema^="lusion"] .ia-scope svg { stroke: currentColor !important; }
+[data-ia-tema^="lusion"] .ia-scope .titulo-metalico { background: none !important; -webkit-text-fill-color: currentColor !important; }
+
+/* Superficies opacas: todo lo que tenía vidrio / fondo translúcido en línea pasa a la superficie del tema */
+[data-ia-tema^="lusion"] .ia-scope [style*="background"],
+[data-ia-tema^="lusion"] .ia-scope[style*="background"],
+[data-ia-tema^="lusion"] .ia-scope .ia-tarjeta,
+[data-ia-tema^="lusion"] .ia-scope .ia-burbuja,
+[data-ia-tema^="lusion"] .ia-scope .ia-comandos,
+[data-ia-tema^="lusion"] .ia-scope .clientes-action-icon,
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn {
+  background: var(--ia-superficie) !important;
+  border-color: var(--ia-borde) !important;
+  box-shadow: none !important;
+}
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-bg, [data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn::before,
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn::after { display: none !important; }
+/* Telón de los modales: OPACO (Lusion: sin fondos translúcidos ni blur). El modal queda sobre un lienzo liso del tema. */
+[data-ia-tema^="lusion"] .ia-scope[style*="inset: 0"][style*="oklch"], [data-ia-tema^="lusion"] .ia-scope [style*="inset: 0"][style*="oklch"] { background: var(--ia-lienzo) !important; }
+
+/* Bordes y radios (solo 3 / 15 / 18 / 87.5 / 100) y una única sombra */
+[data-ia-tema^="lusion"] .ia-scope [style*="border"] { border-color: var(--ia-borde) !important; }
+[data-ia-tema^="lusion"] .ia-scope [style*="border-radius"] { border-radius: var(--lu-r-tarjeta) !important; }
+[data-ia-tema^="lusion"] .ia-scope textarea, [data-ia-tema^="lusion"] .ia-scope input:not([type=checkbox]):not([type=file]),
+[data-ia-tema^="lusion"] .ia-scope select { border-radius: var(--lu-r-campo) !important; background: var(--ia-superficie) !important; border: 1px solid var(--ia-borde) !important; }
+[data-ia-tema^="lusion"] .ia-scope [style*="border-radius: 999"], [data-ia-tema^="lusion"] .ia-scope .ia-barra-btn,
+[data-ia-tema^="lusion"] .ia-scope .ia-boton, [data-ia-tema^="lusion"] .ia-scope .ia-modo, [data-ia-tema^="lusion"] .ia-scope .ia-modo button,
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn, [data-ia-tema^="lusion"] .ia-scope .clientes-action-icon { border-radius: var(--lu-r-boton) !important; }
+[data-ia-tema^="lusion"] .ia-scope .ia-md-codigo { border-radius: var(--lu-r-detalle) !important; }
+[data-ia-tema^="lusion"] .ia-scope [style*="box-shadow"], [data-ia-tema^="lusion"] .ia-scope .ia-tarjeta, [data-ia-tema^="lusion"] .ia-scope .ia-burbuja { box-shadow: var(--lu-sombra) !important; }
+
+/* Botón principal: relleno Graphite (claro) / Paper White (oscuro); el texto invierte */
+[data-ia-tema^="lusion"] .ia-scope .btn-primary, [data-ia-tema^="lusion"] .ia-scope [data-principal], [data-ia-tema^="lusion"] .ia-scope .ia-boton-principal {
+  background: var(--ia-accion) !important; border-color: var(--ia-accion) !important;
+}
+[data-ia-tema^="lusion"] .ia-scope .btn-primary *, [data-ia-tema^="lusion"] .ia-scope [data-principal] *, [data-ia-tema^="lusion"] .ia-scope [data-principal], [data-ia-tema^="lusion"] .ia-scope .ia-boton-principal { color: var(--ia-accion-texto) !important; }
+[data-ia-tema^="lusion"] .ia-scope .btn-primary svg, [data-ia-tema^="lusion"] .ia-scope [data-principal] svg { stroke: var(--ia-accion-texto) !important; }
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn:not(.btn-primary):not([data-principal]) { border: 1px solid var(--ia-borde) !important; }
+[data-ia-tema^="lusion"] .ia-scope .ia-modo button.activo { background: var(--ia-accion) !important; color: var(--ia-accion-texto) !important; }
+
+/* Hover: nunca cambia el relleno (opacidad / subrayado) */
+[data-ia-tema^="lusion"] .ia-scope button:hover:not(:disabled), [data-ia-tema^="lusion"] .ia-scope .clientes-action-icon:hover { opacity: .72; }
+[data-ia-tema^="lusion"] .ia-scope a:hover { text-decoration: underline; }
+[data-ia-tema^="lusion"] .ia-scope .ia-boton:hover:not(:disabled), [data-ia-tema^="lusion"] .ia-scope .mascota-icono:hover:not(:disabled), [data-ia-tema^="lusion"] .ia-scope .ia-comando:hover { background: var(--ia-superficie) !important; }
+
+/* Foco visible: anillo de 2 px Ink (claro) / Paper White (oscuro) — sustituye al índigo de Lusion */
+[data-ia-tema^="lusion"] .ia-scope :focus-visible { outline: 2px solid var(--ia-foco) !important; outline-offset: 2px !important; }
+
+/* Estado: verde / rojo / ámbar (tomados de Cursor) SOLO como relleno de una chapa pequeña con texto Paper White o Ink.
+   Nunca como color de texto ni de icono: sobre Graphite o Lavender varios de esos pares no llegan a AA (ver DISENO.md). */
+[data-ia-tema^="lusion"] .ia-scope span.ia-estado-listo, [data-ia-tema^="lusion"] .ia-scope span.ia-estado-error, [data-ia-tema^="lusion"] .ia-scope span.ia-estado-espera {
+  padding: 1px 8px; border-radius: var(--lu-r-boton) !important; background: var(--lu-forest) !important; color: var(--lu-paper) !important; font-size: 11px;
+}
+[data-ia-tema^="lusion"] .ia-scope span.ia-estado-error { background: var(--lu-crimson) !important; }
+[data-ia-tema^="lusion"] .ia-scope span.ia-estado-espera { background: var(--lu-amber) !important; color: var(--lu-ink) !important; }
+[data-ia-tema^="lusion"] .ia-scope svg.ia-estado-listo, [data-ia-tema^="lusion"] .ia-scope svg.ia-estado-error, [data-ia-tema^="lusion"] .ia-scope svg.ia-estado-espera, [data-ia-tema^="lusion"] .ia-scope svg.ia-estado-curso { color: var(--ia-texto) !important; }
+
+/* El lienzo: la página de IA es un plano opaco (el fondo de video no se ve ni se reproduce) */
+[data-ia-tema^="lusion"] .ia-importar-page.ia-scope {
+  max-width: none !important; margin: 0 !important; padding: 20px 28px 12px !important;
+  background: var(--ia-lienzo) !important; border-radius: var(--lu-r-campo) !important;
+}
+[data-ia-tema^="lusion"] .ia-importar-page.ia-scope > *:not([style*="position: fixed"]) { width: 100%; max-width: 820px; margin-left: auto; margin-right: auto; }
+
+/* Mascota y visor de recorridos */
+[data-ia-tema^="lusion"] .mascota.ia-scope { background: var(--ia-superficie) !important; border: 1px solid var(--ia-borde) !important; box-shadow: var(--lu-sombra) !important; }
+[data-ia-tema^="lusion"] .ia-guia-tarjeta.ia-scope { background: var(--ia-superficie) !important; border: 1px solid var(--ia-borde) !important; box-shadow: var(--lu-sombra) !important; }
+[data-ia-tema^="lusion"] .mascota .mascota-caja, [data-ia-tema^="lusion"] .mascota .ia-burbuja-usuario { background: var(--ia-superficie-2) !important; }
+
+/* Marcadores de posición y botones desactivados legibles (AA) */
+[data-ia-tema^="lusion"] .ia-scope ::placeholder { color: var(--ia-texto-suave) !important; opacity: 1 !important; }
+[data-ia-tema^="lusion"] .ia-scope .mascota-icono:disabled, [data-ia-tema^="lusion"] .ia-scope button:disabled { opacity: .5; }
+
+/* Sin transiciones de relleno/forma (Lusion: superficies físicas y planas): solo opacidad y borde, rápidas.
+   Además evita que un botón recién montado «parpadee» desde transparente. */
+[data-ia-tema^="lusion"] .ia-scope, [data-ia-tema^="lusion"] .ia-scope * { transition-property: opacity, border-color !important; transition-duration: .15s !important; }
+
+/* El CSS de las páginas (Clients.css) pone el botón principal en transparente al enfocarlo/pulsarlo (!important):
+   en Lusion el relleno del botón principal NO cambia nunca (hover/foco/activo), por eso se repite con esos estados. */
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn.btn-primary, [data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn.btn-primary:hover,
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn.btn-primary:focus, [data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn.btn-primary:active,
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn[data-principal]:hover, [data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn[data-principal]:focus,
+[data-ia-tema^="lusion"] .ia-scope .clientes-glass-btn[data-principal]:active {
+  background: var(--ia-accion) !important; border-color: var(--ia-accion) !important; box-shadow: none !important;
+}
