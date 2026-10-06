@@ -1,6 +1,6 @@
 # Diseño — apariencias del módulo de IA y la mascota
 
-> Estado: **3.0–3.2 (pendiente de tu OK)**. Fuente de diseño: `refero.md` (rangos indicados). Los colores
+> Estado: **3.0–3.4 (3.4 pendiente de tu OK en ALTO 2)**. Fuente de diseño: `refero.md` (rangos indicados). Los colores
 > `#1a2ffb` y `#c1ff00` de Lusion **no se usan en ningún sitio** (verificación al final).
 
 ## 1. Alcance (qué cambia y qué no)
@@ -143,3 +143,44 @@ y los paquetes de efectos (`border-beam`, `thinking-orbs`, `bot-avatars`): **0 r
 - `src/ia/apariencias.css` — tokens y piel Lusion (solo bajo `.ia-scope`).
 - `src/pages/admin/ConfigApariencia.jsx` — selector + «Video de fondo» (solo en Transparente).
 - `src/components/background/VideoBackground.jsx` — «Video de fondo» y pausa mientras IA está en Lusion (sin borrar frames ni lógica).
+
+## 9. Nombre del negocio y fondo propio (3.3)
+
+- **Nombre:** se usa el campo que ya existía, `configuracion_pos.gym_nombre` (Configuración → Negocio, rotulado ahora «Nombre del negocio»; también en «Punto de Venta y Pagos»). `src/ia/negocio.js` lo expone en caliente y fija `document.title`.
+  Sustituye a «Gimnasio» en: título de la ventana, diálogo de cierre, cabecera del login (y su `alt`), «Sobre el Sistema» (Configuración y Ajustes) y encabezado del cobro del asistente de cliente nuevo.
+- **No se tocaron** (se reportan): factura (`VistaFactura.jsx`, `electron/facturacion/handlers.cjs` PDF/correo/carpeta `Documents\Gimnasio\Facturas`, datos de prueba), recibo (`VistaRecibo.jsx` marca de agua y valor por defecto `GIMNASIO`; el nombre real ya salía de `gym_nombre`), `ConfiguracionFacturacion.jsx` (ejemplos y plantilla de correo), diálogos de guardado de respaldo, título nativo `GIMNASIO` de `electron/main.cjs` (se sobrescribe al cargar la página), `index.html` (título previo a cargar React) y textos descriptivos «del gimnasio» (la app sigue siendo de gimnasio).
+- **Fondo propio:** Configuración → «Apariencia del módulo de IA» → «Fondo propio» (Elegir foto / Restaurar fondo original). IPC `fondo:elegir|obtener|restaurar`: `sharp` reduce a 1920×1080 máx. y guarda `userData/fondo/fondo.webp` (calidad 82). La foto reemplaza al video en todo el sistema (una sola imagen, sin frames); «Restaurar» borra el archivo y vuelve el video. Todo local.
+
+## 10. Estructura del módulo de IA en Lusion (3.4)
+
+Solo con `data-ia-tema="lusion-*"` (en Transparente el DOM envuelve con `display: contents` y no cambia nada visible). El comportamiento no cambia.
+
+| Pieza | Referencia | Implementación |
+|---|---|---|
+| Historial acoplado a la izquierda (≥ 1100 px; con menos ancho vuelve a ser panel) | ChatGPT | `PanelLateral` con `incrustado`; «Archivos adjuntos» y «Actividad de IA» al pie |
+| Columna central de 780 px, IA sin burbuja, línea fina entre turnos, persona en píldora de superficie 2 | ChatGPT | clases `ia-fila-*`, `ia-columna`, `ia-cuerpo` |
+| Compositor «terminal»: un solo campo con borde, `>` en mono, botones dentro, línea de metadatos debajo (Enter / Mayús+Enter / `/` / modelo) | Cursor | `.ia-compositor-fila`, `.ia-prompt`, `.ia-meta-linea` |
+| Metadatos en mono: hora del mensaje, modelo activo (solo lectura), origen de cada dato | Cursor | `.ia-meta*` (JetBrains Mono) |
+| Chip de modo + explicación visible del modo | Perplexity | `.ia-modo`, `data-testid="modo-explicacion"` |
+| Esqueleto de carga (3 barras opacas que respiran, sin degradado) en vez de puntos | Perplexity | `EsqueletoCarga` (`prefers-reduced-motion`: sin animación) |
+| Estado vacío con 4 ejemplos que rellenan el campo (no envían) | Perplexity | `EstadoVacio` |
+
+**Adaptaciones por lo que no existe en esta app:**
+- *Citas web de Perplexity* → **«Origen» de cada dato extraído**: nombre del archivo en cada fila de la tabla y en cada ítem de revisión (más el texto detectado donde el lector lo entrega). Visible en las tres apariencias.
+- *Selector de modelo con chevron* → **etiqueta de solo lectura** del modelo activo; cambiarlo sigue siendo en Configuración → Asistente IA (no se toca la calidad del modelo desde aquí).
+- *Filas fantasma del historial (ChatGPT)*: el historial es local y síncrono; no hay estado de carga que mostrar. No implementado.
+
+**Mejoras de UX en todas las apariencias (en Transparente solo estas):** «Pensando… N s» / «Llevo N s» mientras el asistente trabaja; una línea que explica qué hace el modo activo; voseo → «tú» en toda la UI de IA y en los dos textos fijos del servicio (`scripts/ocr_service.py`); la mascota nace sobre la píldora «Control por voz» de Caja (posición por defecto 20 px más arriba; una posición guardada por la persona no se toca).
+
+## 11. «Transparente idéntico» tras 3.3 y 3.4
+
+Método: A/B contra el commit previo a la Fase 3 (`02fea01`, worktree `C:\Erick\GymBase`), capturas deterministas en la misma sesión y base de datos.
+Diferencias medidas y su causa (control: ocultando la línea del modo y fijando la mascota en su posición antigua, **todo vuelve a ruido ≤ 0,13 %**):
+
+| Captura | Diferencia | Causa |
+|---|---:|---|
+| Clientes / Caja / mascota cerrada | 0,5–1,0 % | mascota 20 px más arriba (intencionado) |
+| Mascota abierta | 6,8 % | el panel crece desde la burbuja, que ahora está más arriba (intencionado) |
+| IA vacía / IA con conversación | 2,0 % / 5,1 % | nueva línea «Preguntar: solo respondo…» desplaza el contenido (intencionado) + placeholder «Escribe o adjunta» |
+| Configuración | 6,6–7,0 % | tarjeta nueva «Apariencia del módulo de IA» (3.2, intencionado) |
+| Con control (línea oculta + mascota en la posición vieja) | IA 0,25 %; resto ≤ 0,13 % | solo el placeholder (voseo → tú) y el contador de notificaciones |

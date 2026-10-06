@@ -46,3 +46,17 @@
 - Solo se miden nodos de texto y marcadores de posición; no imágenes ni iconos sueltos (los iconos heredan el color de texto del tema).
 - Se midieron los estados listados; no todos los modales posibles (p. ej. el visor de imágenes ampliadas).
 - No se midió «Transparente» (diseño existente, sin cambios; su contraste depende de la foto de fondo).
+
+## Actualización 3.4 (estructura nueva: historial acoplado, compositor, tarjetas, paneles, modal, mascota, guía)
+
+Se repitió la medición con la estructura nueva, recorriendo **todos los contenedores `.ia-scope`** (incluye paneles y modales en portal)
+en 9 estados por apariencia: IA vacía, comandos `/`, conversación, importación (tarjeta con «Origen»), modal de confirmación,
+panel de Actividad, panel de Archivos, mascota abierta y recorrido guiado.
+
+| Apariencia | Textos revisados | Fallos |
+|---|---:|---:|
+| Lusion Oscuro | 2657 | 0 |
+| Lusion Claro | 2692 | 0 |
+
+(La cifra es mayor que la anterior porque ahora el historial acoplado, con sus conversaciones, está siempre en pantalla y se cuenta en cada estado.)
+Límites iguales a los de arriba (sin iconos sueltos ni imágenes; «Transparente» no se mide: depende de la foto de fondo).
