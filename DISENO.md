@@ -34,7 +34,7 @@
    el *hairline* de ChatGPT se conserva como borde de 1 px en **Haze** (claro) / **Slate Hollow** (oscuro).
 3. **Paletas cálidas** (Parchment `#f7f7f4`, Aged Paper `#faf8f5`) vs Lavender Mist → Lavender Mist.
 4. **Negro puro:** Cursor lo prohíbe, Lusion lo exige (texto `#000`) → Lusion.
-5. **Peso tipográfico:** ChatGPT 600 en titulares vs Lusion ≤ 500 → 500 como máximo (Inter 400/500).
+5. **Peso tipográfico:** ~~ChatGPT 600 vs Lusion ≤ 500~~ → sustituido por la decisión del Sprint 1: pesos de la app (ver §3).
 6. **Hover:** ChatGPT usa un velo de relleno; Lusion prohíbe cambiar el relleno → opacidad .72 / subrayado.
 7. **Verde como «acento de acción» (Cursor)** vs tu regla de usarlo **solo para estado** → solo estado (ver 5).
 8. **Contradicción interna de Lusion:** el *token* Graphite dice «no promover a CTA», pero el componente *Pill Action Button* lo usa
@@ -42,12 +42,49 @@
 9. **Sin blur (Lusion)** vs el efecto líquido que pedirás en 3.5 → excepción explícita, solo en Lusion, con interruptor (aún no implementada).
 10. **Estado de Cursor «no usar como estado»** (Forest/Crimson lo advierten) vs tu instrucción de usarlos **solo** para estado → manda tu instrucción.
 
-## 3. Fuentes
+## 3. Tipografía — una sola fuente de verdad (Sprint 1, Paso 2) — **sustituye a la sección de fuentes anterior**
 
-- **Inter** (ya empaquetada, `@fontsource/inter`, OFL) sustituye a Aeonik (propietaria; Lusion sugiere Inter). Se usan solo los pesos **400 y 500**.
-- **JetBrains Mono** (OFL, `@fontsource/jetbrains-mono`, pesos 400/500, **empaquetada en la app**) sustituye a berkeleyMono/CursorGothic
-  para metadatos, código y tiempos. CursorGothic y Aeonik son propietarias y **no** se usan.
-- Sin CDN ni Google Fonts. Tracking `-0.02em` en todo el texto Lusion (mono: 0).
+**Decisión de Erick:** en las tres apariencias y en todas las páginas (IA, chat y mascota incluidos) se usa la **misma tipografía actual de la app**
+(familias, pesos, tamaños, interlineado y tracking). Lusion solo manda en **color, forma y sombras**.
+
+- **Fuente de verdad:** `src/index.css` → `--display` (Oxanium, títulos) y `--body` (Inter, texto), más los tamaños, pesos y tracking que ya traen las clases y estilos de cada componente. Los paquetes `@fontsource/*` ya empaquetados no cambian.
+- **Descartado de Lusion:** Inter con tracking −0,02 em, tope de pesos 400/500, JetBrains Mono para metadatos/compositor/ejemplos, y los tokens `--lu-fuente` y `--lu-mono` (eliminados de `apariencias.css`).
+- **Código:** conserva la regla de la app (`.ia-md-codigo`, `ui-monospace`), igual en las tres apariencias.
+- **Regla para el futuro:** `apariencias.css` no debe declarar `font-family`, `font-weight`, `letter-spacing` ni `font-size` sobre elementos que ya existen en Transparente. Los pocos elementos que existen solo en Lusion (hora del mensaje, línea del modelo, origen) usan tamaños pequeños ya presentes en la app (10,5–11 px) y heredan familia, peso y tracking.
+- Sin CDN ni Google Fonts.
+
+### Diagnóstico previo (antes de unificar)
+
+Se volcaron los estilos calculados de **todos** los textos visibles de la página de IA (324) en las tres apariencias y se emparejaron por texto y etiqueta:
+**318 de 323 diferían** en Lusion respecto de Transparente. Causas: tracking −0,02 em en todo (151+151 textos), pesos forzados a 400/500 (títulos, botones, pestañas «Preguntar/Actuar»), título `h1` en Inter 500 18 px en lugar de Oxanium 800 28 px con tracking .12 em, JetBrains Mono en los chips de ejemplo, el compositor y los metadatos, y tamaños 12,5 px en los enlaces del pie.
+
+### Resultado (mismos 324 textos, tras unificar)
+
+**323 de 323 emparejados idénticos** en Lusion Oscuro y en Lusion Claro (1 texto sin par: solo existe en Lusion). Transparente: estilos idénticos antes y después (324 de 324) y 0,043 % de píxeles distintos en la captura de la IA (ruido de animación).
+
+| # | Elemento | Transparente | Lusion Oscuro ANTES | Lusion Oscuro DESPUÉS | Lusion Claro DESPUÉS | Idéntico |
+|---|---|---|---|---|---|---|
+| 1 | IA / IMPORTAR DATOS (<h1>) | Oxanium 800 28px/42px ls 3.36px | Inter 500 18px/27px ls -0.36px | Oxanium 800 28px/42px ls 3.36px | Oxanium 800 28px/42px ls 3.36px | sí |
+| 2 | Preguntar (<p>) | Inter 400 12px/18px ls normal | Inter 400 12px/18px ls -0.24px | Inter 400 12px/18px ls normal | Inter 400 12px/18px ls normal | sí |
+| 3 | Actuar (<button>) | Inter 700 11.5px/17.25px ls normal | Inter 500 11.5px/17.25px ls -0.23px | Inter 700 11.5px/17.25px ls normal | Inter 700 11.5px/17.25px ls normal | sí |
+| 4 | Preguntar: solo respondo (<p>) | Inter 400 12px/18px ls normal | Inter 400 12px/18px ls -0.24px | Inter 400 12px/18px ls normal | Inter 400 12px/18px ls normal | sí |
+| 5 | Historial de conversaciones (<span>) | Inter 700 14px/21px ls normal | Inter 400 14px/21px ls -0.28px | Inter 700 14px/21px ls normal | Inter 700 14px/21px ls normal | sí |
+| 6 | Nueva conversación (<span>) | Inter 600 13px/19.5px ls normal | Inter 400 13px/19.5px ls -0.26px | Inter 600 13px/19.5px ls normal | Inter 600 13px/19.5px ls normal | sí |
+| 7 | Anteriores (<div>) | Inter 700 10px/15px ls 0.8px | Inter 400 10px/15px ls -0.2px | Inter 700 10px/15px ls 0.8px | Inter 700 10px/15px ls 0.8px | sí |
+| 8 | Archivos adjuntos (<button>) | Inter 400 16px/24px ls normal | Inter 500 12.5px/18.75px ls -0.25px | Inter 400 16px/24px ls normal | Inter 400 16px/24px ls normal | sí |
+| 9 | Actividad de IA (<button>) | Inter 400 16px/24px ls normal | Inter 500 12.5px/18.75px ls -0.25px | Inter 400 16px/24px ls normal | Inter 400 16px/24px ls normal | sí |
+| 10 | Asistente de inventario (<div>) | Inter 700 15px/22.5px ls normal | Inter 400 15px/22.5px ls -0.3px | Inter 700 15px/22.5px ls normal | Inter 700 15px/22.5px ls normal | sí |
+| 11 | Voz apagada (<button>) | Inter 600 12px/18px ls normal | Inter 500 12px/18px ls -0.24px | Inter 600 12px/18px ls normal | Inter 600 12px/18px ls normal | sí |
+| 12 | sube esta foto (<div>) | Inter 400 12.5px/18.75px ls normal | Inter 400 12.5px/18.75px ls -0.25px | Inter 400 12.5px/18.75px ls normal | Inter 400 12.5px/18.75px ls normal | sí |
+| 13 | 06-oct, 09:56 (<div>) | Inter 400 10.5px/15.75px ls normal | Inter 400 10.5px/15.75px ls -0.21px | Inter 400 10.5px/15.75px ls normal | Inter 400 10.5px/15.75px ls normal | sí |
+| 14 | Quiero cargar mi inventario (<button>) | Inter 400 16px/24px ls normal | JetBrains Mono 500 12.5px/18.75px ls normal | Inter 400 16px/24px ls normal | Inter 400 16px/24px ls normal | sí |
+
+### Lista de conflictos tipográficos (resueltos)
+
+1. Peso tipográfico (§2, conflicto 5): ya no hay tope de 500; manda el peso de la app.
+2. Mono de Cursor/Lusion para metadatos: descartada; los metadatos usan la familia de la app.
+3. Tracking −0,02 em de Lusion: descartado.
+4. Título de página: vuelve a Oxanium (`titulo-metalico`); en Lusion solo cambia su color (sin degradado).
 
 ## 4. Tokens
 
@@ -160,7 +197,7 @@ Solo con `data-ia-tema="lusion-*"` (en Transparente el DOM envuelve con `display
 | Historial acoplado a la izquierda (≥ 1100 px; con menos ancho vuelve a ser panel) | ChatGPT | `PanelLateral` con `incrustado`; «Archivos adjuntos» y «Actividad de IA» al pie |
 | Columna central de 780 px, IA sin burbuja, línea fina entre turnos, persona en píldora de superficie 2 | ChatGPT | clases `ia-fila-*`, `ia-columna`, `ia-cuerpo` |
 | Compositor «terminal»: un solo campo con borde, `>` en mono, botones dentro, línea de metadatos debajo (Enter / Mayús+Enter / `/` / modelo) | Cursor | `.ia-compositor-fila`, `.ia-prompt`, `.ia-meta-linea` |
-| Metadatos en mono: hora del mensaje, modelo activo (solo lectura), origen de cada dato | Cursor | `.ia-meta*` (JetBrains Mono) |
+| Metadatos: hora del mensaje, modelo activo (solo lectura), origen de cada dato | Cursor | `.ia-meta*` (tipografía de la app) |
 | Chip de modo + explicación visible del modo | Perplexity | `.ia-modo`, `data-testid="modo-explicacion"` |
 | Esqueleto de carga (3 barras opacas que respiran, sin degradado) en vez de puntos | Perplexity | `EsqueletoCarga` (`prefers-reduced-motion`: sin animación) |
 | Estado vacío con 4 ejemplos que rellenan el campo (no envían) | Perplexity | `EstadoVacio` |

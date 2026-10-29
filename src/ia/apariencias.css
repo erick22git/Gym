@@ -20,8 +20,6 @@
   --lu-amber: #c08532;      /* estado: aviso (Cursor Amber) */
   --lu-sombra: 0 6px 10px 0 rgba(0, 0, 0, .04), 0 2px 4px 0 rgba(0, 0, 0, .04);
   --lu-r-detalle: 3px; --lu-r-tarjeta: 15px; --lu-r-campo: 18px; --lu-r-boton: 87.5px; --lu-r-imagen: 100px;
-  --lu-fuente: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --lu-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 /* ── Tokens semánticos por apariencia ── */
@@ -65,17 +63,10 @@
   text-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  font-family: var(--lu-fuente) !important;
-  font-weight: 400 !important;
-  letter-spacing: -0.02em !important;
   background-image: none !important;
   filter: none !important;
 }
-[data-ia-tema^="lusion"] .ia-scope strong, [data-ia-tema^="lusion"] .ia-scope b, [data-ia-tema^="lusion"] .ia-scope h1,
-[data-ia-tema^="lusion"] .ia-scope h2, [data-ia-tema^="lusion"] .ia-scope h3, [data-ia-tema^="lusion"] .ia-scope button,
-[data-ia-tema^="lusion"] .ia-scope .ia-md-h, [data-ia-tema^="lusion"] .ia-scope .ia-guia-cab { font-weight: 500 !important; }
-[data-ia-tema^="lusion"] .ia-scope code, [data-ia-tema^="lusion"] .ia-scope .ia-md-codigo, [data-ia-tema^="lusion"] .ia-scope .ia-metricas,
-[data-ia-tema^="lusion"] .ia-scope pre { font-family: var(--lu-mono) !important; letter-spacing: 0 !important; }
+/* Tipografía: Lusion NO la define. Familia, peso, tamaño, interlineado y tracking vienen de la app (index.css: --display / --body). */
 [data-ia-tema^="lusion"] .ia-scope svg { stroke: currentColor !important; }
 [data-ia-tema^="lusion"] .ia-scope .titulo-metalico { background: none !important; -webkit-text-fill-color: currentColor !important; }
 
@@ -127,7 +118,7 @@
 /* Estado: verde / rojo / ámbar (tomados de Cursor) SOLO como relleno de una chapa pequeña con texto Paper White o Ink.
    Nunca como color de texto ni de icono: sobre Graphite o Lavender varios de esos pares no llegan a AA (ver DISENO.md). */
 [data-ia-tema^="lusion"] .ia-scope span.ia-estado-listo, [data-ia-tema^="lusion"] .ia-scope span.ia-estado-error, [data-ia-tema^="lusion"] .ia-scope span.ia-estado-espera {
-  padding: 1px 8px; border-radius: var(--lu-r-boton) !important; background: var(--lu-forest) !important; color: var(--lu-paper) !important; font-size: 11px;
+  padding: 1px 8px; border-radius: var(--lu-r-boton) !important; background: var(--lu-forest) !important; color: var(--lu-paper) !important;
 }
 [data-ia-tema^="lusion"] .ia-scope span.ia-estado-error { background: var(--lu-crimson) !important; }
 [data-ia-tema^="lusion"] .ia-scope span.ia-estado-espera { background: var(--lu-amber) !important; color: var(--lu-ink) !important; }
@@ -177,19 +168,19 @@
 [data-ia-tema^="lusion"] .ia-lu-lateral .ia-conv { border-radius: var(--lu-r-campo) !important; }
 [data-ia-tema^="lusion"] .ia-lu-lateral .ia-conv-activa { background: var(--ia-superficie-2) !important; border-color: var(--ia-superficie-2) !important; }
 [data-ia-tema^="lusion"] .ia-lu-lateral-pie { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 14px; border-top: 1px solid var(--ia-borde); }
-[data-ia-tema^="lusion"] .ia-lu-enlace { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 12.5px; text-align: left; cursor: pointer;
+[data-ia-tema^="lusion"] .ia-lu-enlace { display: flex; align-items: center; gap: 8px; padding: 8px 10px; text-align: left; cursor: pointer;
   background: var(--ia-superficie) !important; border: 1px solid var(--ia-superficie) !important; border-radius: var(--lu-r-campo) !important; }
 
 /* Cabecera compacta con chips (modo, modelo en mono) */
 [data-ia-tema^="lusion"] .ia-lu .ia-cabecera { margin-bottom: 8px !important; padding-bottom: 12px; border-bottom: 1px solid var(--ia-borde); align-items: center !important; }
-[data-ia-tema^="lusion"] .ia-lu .ia-cabecera h1 { font-size: 18px; margin-bottom: 2px !important; }
+[data-ia-tema^="lusion"] .ia-lu .ia-cabecera h1 { margin-bottom: 2px !important; }
 [data-ia-tema^="lusion"] .ia-lu .ia-cabecera p { margin: 2px 0 0; }
 [data-ia-tema^="lusion"] .ia-lu .ia-cabecera p:not(.ia-modo-explicacion) { display: none; }
 [data-ia-tema^="lusion"] .ia-lu .ia-cabecera .ia-modo-explicacion { max-width: none !important; }
 [data-ia-tema^="lusion"] .ia-lu .ia-cabecera { gap: 8px !important; }
 [data-ia-tema^="lusion"] .ia-lu .ia-modelo-etiqueta { display: inline-flex; align-items: center; padding: 3px 12px; border: 1px solid var(--ia-borde); border-radius: var(--lu-r-boton);
   background: var(--ia-superficie) !important; font-size: 11px; }
-[data-ia-tema^="lusion"] .ia-scope .ia-meta { font-family: var(--lu-mono) !important; letter-spacing: 0 !important; color: var(--ia-texto-suave) !important; }
+[data-ia-tema^="lusion"] .ia-scope .ia-meta { color: var(--ia-texto-suave) !important; }
 
 /* Mensajes: la IA sin burbuja (texto sobre el lienzo, hairline entre turnos); la persona en una píldora de superficie 2 */
 [data-ia-tema^="lusion"] .ia-lu .ia-fila-ia { padding-bottom: 14px; border-bottom: 1px solid var(--ia-borde); }
@@ -197,8 +188,7 @@
 [data-ia-tema^="lusion"] .ia-lu .ia-fila-ia .ia-cuerpo { background: var(--ia-lienzo) !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; padding: 4px 0 !important; }
 [data-ia-tema^="lusion"] .ia-lu .ia-fila-usuario .ia-cuerpo { background: var(--ia-superficie-2) !important; border: 0 !important; box-shadow: none !important; border-radius: var(--lu-r-campo) !important; }
 [data-ia-tema^="lusion"] .ia-lu .ia-etiqueta { gap: 8px !important; }
-[data-ia-tema^="lusion"] .ia-lu .ia-etiqueta > span:first-of-type { font-family: var(--lu-mono) !important; letter-spacing: .04em !important; }
-[data-ia-tema^="lusion"] .ia-lu .ia-meta-hora { display: inline; font-size: 10.5px; }
+[data-ia-tema^="lusion"] .ia-lu[data-ia-tema^="lusion"] .ia-lu .ia-meta-hora { display: inline; font-size: 10.5px; }
 [data-ia-tema^="lusion"] .ia-lu .ia-origen { display: block; font-size: 10.5px; }
 
 /* Esqueleto de carga (Perplexity): barras opacas que respiran, en lugar de los puntos */
@@ -212,13 +202,13 @@
 
 /* Estado vacío con ejemplos */
 [data-ia-tema^="lusion"] .ia-lu .ia-ejemplos { display: flex; }
-[data-ia-tema^="lusion"] .ia-lu .ia-ejemplo { padding: 7px 14px; font-size: 12.5px; cursor: pointer; border: 1px solid var(--ia-borde); border-radius: var(--lu-r-boton) !important; background: var(--ia-superficie) !important; font-family: var(--lu-mono) !important; letter-spacing: 0 !important; }
+[data-ia-tema^="lusion"] .ia-lu .ia-ejemplo { padding: 7px 14px; cursor: pointer; border: 1px solid var(--ia-borde); border-radius: var(--lu-r-boton) !important; background: var(--ia-superficie) !important; }
 
 /* Compositor tipo «terminal» (Cursor): un solo campo con borde, prompt en mono, botones dentro y metadatos debajo */
 [data-ia-tema^="lusion"] .ia-lu .ia-compositor-fila { align-items: center !important; padding: 8px 10px !important; margin-top: 8px; border: 1px solid var(--ia-borde); border-radius: var(--lu-r-campo); background: var(--ia-superficie) !important; }
 [data-ia-tema^="lusion"] .ia-lu .ia-compositor-fila:focus-within { border-color: var(--ia-foco); }
-[data-ia-tema^="lusion"] .ia-lu .ia-prompt { display: inline-flex; order: -1; padding: 0 2px; font-family: var(--lu-mono) !important; letter-spacing: 0 !important; color: var(--ia-texto-suave) !important; }
-[data-ia-tema^="lusion"] .ia-lu .ia-compositor-fila textarea { border: 0 !important; background: var(--ia-superficie) !important; height: 64px !important; font-family: var(--lu-mono) !important; font-size: 13px !important; letter-spacing: 0 !important; padding: 8px 6px !important; outline: none !important; }
+[data-ia-tema^="lusion"] .ia-lu .ia-prompt { display: inline-flex; order: -1; padding: 0 2px; color: var(--ia-texto-suave) !important; }
+[data-ia-tema^="lusion"] .ia-lu .ia-compositor-fila textarea { border: 0 !important; background: var(--ia-superficie) !important; height: 64px !important; padding: 8px 6px !important; outline: none !important; }
 [data-ia-tema^="lusion"] .ia-lu .ia-compositor-fila .clientes-action-icon { border-color: var(--ia-superficie) !important; }
-[data-ia-tema^="lusion"] .ia-lu .ia-meta-linea { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 6px 4px 0; font-family: var(--lu-mono) !important; font-size: 11px; letter-spacing: 0 !important; color: var(--ia-texto-suave) !important; }
-[data-ia-tema^="lusion"] .ia-lu .ia-meta-linea * { font-family: var(--lu-mono) !important; color: var(--ia-texto-suave) !important; }
+[data-ia-tema^="lusion"] .ia-lu .ia-meta-linea { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 6px 4px 0; font-size: 11px; color: var(--ia-texto-suave) !important; }
+[data-ia-tema^="lusion"] .ia-lu .ia-meta-linea * { color: var(--ia-texto-suave) !important; }
