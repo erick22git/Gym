@@ -31,16 +31,20 @@ import './glass-engine/menu.css'
 import './styles/responsive.css'
 import './ia/apariencias-global.css'
 import { iniciarMotorApariencia } from './ia/motor-apariencia'
+import { iniciarA11yModales } from './lib/a11y-modales'
+import { MotionConfig } from 'framer-motion'
 
 cargarNegocio()
 cargarDispositivo()
 cargarApariencia()
 iniciarMotorApariencia()
+iniciarA11yModales()
 // Ganchos para las pruebas automáticas (npm run test:ui): usan las MISMAS instancias de los almacenes que la app. Solo en desarrollo.
 if (import.meta.env.DEV) window.__gym = { setApariencia, normalizarApariencia, IDS_APARIENCIA, fijarAltoContraste, fijarTamano }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <MotionConfig reducedMotion="user">
     <GlassMenuFilters />
     <App />
     <Toaster
@@ -78,5 +82,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         },
       }}
     />
+    </MotionConfig>
   </React.StrictMode>
 )

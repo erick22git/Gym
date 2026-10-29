@@ -609,7 +609,7 @@ function HistorialCaja() {
           <input type="date" className="gym-input" value={filtros.desde} onChange={e => handleFiltros({ ...filtros, desde: e.target.value })} style={{ padding: '0 10px', fontSize: 13, height: 36, width: 130 }} title="Desde" />
           <input type="date" className="gym-input" value={filtros.hasta} onChange={e => handleFiltros({ ...filtros, hasta: e.target.value })} style={{ padding: '0 10px', fontSize: 13, height: 36, width: 130 }} title="Hasta" />
 
-          <button onClick={() => cargar(page, pageSize, busqueda, filtros)} className="clientes-glass-btn btn-secondary" style={{ padding: '8px 10px' }}>
+          <button onClick={() => cargar(page, pageSize, busqueda, filtros)} aria-label="Actualizar la lista" className="clientes-glass-btn btn-secondary" style={{ padding: '8px 10px', minWidth: 36, minHeight: 36 }}>
             <div className="clientes-glass-bg" />
             <span className="clientes-glass-content"><RefreshCw size={14} /></span>
           </button>
@@ -820,8 +820,8 @@ export default function Ventas() {
         {tab === 'ventas' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ fontSize: 12, color: 'var(--dim)', marginRight: 4 }}>Mes KPI:</label>
-            <input type="month" value={mesKPI} onChange={e => { setMesKPI(e.target.value); cargar(page, pageSize, busqueda, filtros, e.target.value) }} className="gym-input" style={{ padding: '6px 10px', fontSize: 13, width: 140 }} />
-            <button onClick={() => cargar(page, pageSize, busqueda, filtros, mesKPI)} className="clientes-glass-btn btn-secondary" style={{ padding: '8px 12px' }}>
+            <input type="month" aria-label="Mes de los indicadores" value={mesKPI} onChange={e => { setMesKPI(e.target.value); cargar(page, pageSize, busqueda, filtros, e.target.value) }} className="gym-input" style={{ padding: '6px 10px', fontSize: 13, width: 140 }} />
+            <button onClick={() => cargar(page, pageSize, busqueda, filtros, mesKPI)} aria-label="Actualizar indicadores" className="clientes-glass-btn btn-secondary" style={{ padding: '8px 12px', minWidth: 36, minHeight: 36 }}>
               <div className="clientes-glass-bg" />
               <span className="clientes-glass-content"><RefreshCw size={15} /></span>
             </button>

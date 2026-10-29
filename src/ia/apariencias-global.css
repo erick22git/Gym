@@ -47,3 +47,8 @@ html[data-alto-contraste="1"]:is([data-apariencia="oscuro"], [data-apariencia="t
 
 /* Alto contraste: bordes marcados en superficies opacas */
 html[data-alto-contraste="1"] :is(button, input, select, textarea, [role="radio"], [role="switch"], [role="tab"], table, th, td, [class*="card"], [class*="glass"]) { border-color: var(--ap-borde) !important; }
+
+/* ── prefers-reduced-motion (todas las apariencias): sin animaciones ni transiciones; los fondos quedan quietos ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

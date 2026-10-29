@@ -618,7 +618,7 @@ function TabProductos({ categorias, proveedores, usuario }) {
             <span className="clientes-glass-content" style={{ color: vistaGrid ? 'oklch(0.76 0.20 25)' : 'var(--dim)' }}><LayoutGrid size={15} /></span>
           </button>
         </div>
-        <button onClick={cargar} className="clientes-glass-btn btn-secondary">
+        <button onClick={cargar} aria-label="Actualizar la lista" className="clientes-glass-btn btn-secondary">
           <div className="clientes-glass-bg" />
           <span className="clientes-glass-content"><RefreshCw size={14} /></span>
         </button>

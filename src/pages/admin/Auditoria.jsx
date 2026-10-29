@@ -235,6 +235,7 @@ function Filtros({ filtros, onChange, onLimpiar, usuarios }) {
 
       <input
         type="date"
+        aria-label="Desde (fecha)"
         value={filtros.desde}
         onChange={e => onChange({ ...filtros, desde: e.target.value })}
         style={{
@@ -247,6 +248,7 @@ function Filtros({ filtros, onChange, onLimpiar, usuarios }) {
 
       <input
         type="date"
+        aria-label="Hasta (fecha)"
         value={filtros.hasta}
         onChange={e => onChange({ ...filtros, hasta: e.target.value })}
         style={{

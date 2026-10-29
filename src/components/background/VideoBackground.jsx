@@ -55,7 +55,10 @@ export default function VideoBackground() {
   const { page } = useApp()
   // Apariencias: «Video de fondo» apagado (solo Transparente) = último frame estático; y mientras la página de IA
   // esté en Lusion (opaca) no se reproducen frames (al salir de ella vuelve el fondo con su flujo normal).
-  const { apariencia, videoFondo } = useApariencia()
+  const { apariencia, videoFondo: videoFondoElegido } = useApariencia()
+  // prefers-reduced-motion: el fondo no se anima (queda el último cuadro), igual que con «Video de fondo» apagado
+  const reducida = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const videoFondo = videoFondoElegido && !reducida
   // Oscuro y Claro son opacos en TODA la app (sin frames); «Alto contraste» también fuerza fondo sólido en Transparente.
   const { altoContraste } = useDispositivo()
   const cubierto = esOpaca(apariencia) || altoContraste

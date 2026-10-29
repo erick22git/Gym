@@ -236,7 +236,7 @@ export default function Casilleros() {
               <span className="clientes-glass-content"><Plus size={14} /> Alta de llaves</span>
             </button>
           )}
-          <button onClick={() => cargar(page, pageSize, busqueda, filtros)} className="clientes-glass-btn btn-secondary" style={{ padding: '8px 12px' }}>
+          <button onClick={() => cargar(page, pageSize, busqueda, filtros)} aria-label="Actualizar la lista" className="clientes-glass-btn btn-secondary" style={{ padding: '8px 12px' }}>
             <div className="clientes-glass-bg" />
             <span className="clientes-glass-content"><RefreshCw size={14} /></span>
           </button>

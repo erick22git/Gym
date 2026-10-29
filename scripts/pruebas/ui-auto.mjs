@@ -20,7 +20,7 @@ const SOLO = process.env.UI_SOLO ? process.env.UI_SOLO.split(',') : null
 const quiere = k => !SOLO || SOLO.includes(k)
 const esp = ms => new Promise(r => setTimeout(r, ms))
 
-const APARIENCIAS = ['transparente', 'oscuro', 'claro']
+const APARIENCIAS = (process.env.UI_APS ? process.env.UI_APS.split(',') : ['transparente', 'oscuro', 'claro'])
 const ZOOMS = RAPIDO ? [100, 200] : [100, 125, 150, 175, 200]
 const PAGINAS = [
   ['control-acceso', 'shield-check'], ['caja', 'wallet'], ['dashboard', 'layout-dashboard'], ['clientes', 'users'], ['membresias', 'credit-card'],
@@ -28,6 +28,7 @@ const PAGINAS = [
   ['auditoria', 'book-open'], ['ia', 'sparkles'], ['configuracion', 'settings-2'],
 ]
 
+const otrosAxe = {}   // violaciones de axe de impacto moderado/leve (se reportan, no fallan)
 let falsosAxe = 0   // violaciones de axe que el color realmente pintado desmiente (conversión oklch)
 const hojas = {}      // apariencia → [{nombre, buf}] (UI_HOJAS=1: una hoja de contactos por apariencia)
 const resultados = []   // { area, detalle, ok, nota }
@@ -112,9 +113,34 @@ const hayLusion = page => page.evaluate(() => {
 })
 
 async function ejecutar(page, clave) {
+  // 0) LOGIN (antes de iniciar sesión): axe completo, «Aa» visible y teclado
+  if (quiere('login')) {
+    const axeLogin = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8')
+    for (const ap of APARIENCIAS) {
+      await poner(page, ap, 100); await page.addScriptTag({ content: axeLogin }).catch(() => {})
+      const r = await page.evaluate(async () => { const o = await axe.run(document.body, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] }, resultTypes: ['violations'] }); return o.violations.filter(v => v.impact === 'serious' || v.impact === 'critical').map(v => v.id + '×' + v.nodes.length + ' ' + v.nodes[0].html.slice(0, 90)) })
+      registrar('login', `axe ${ap}`, r.length === 0, r.join(' | '))
+      const aa = await page.evaluate(() => { const b = document.querySelector('[data-testid=boton-aa]'); const r = b && b.getBoundingClientRect(); return !!r && r.width > 0 && r.height > 0 && r.right <= innerWidth && r.left >= 0 })
+      registrar('login', `botón «Aa» visible ${ap}`, aa)
+      for (const z of [150, 200]) {
+        await fijarDispositivo(page, { tamano: z }); await esp(500)
+        const m = await page.evaluate(() => { const w = document.querySelector('.login-outer').parentElement; const b = [...document.querySelectorAll('button')].find(e => /iniciar sesi/i.test(e.textContent)); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); return { alcanzable: r.top >= 0 && r.bottom <= innerHeight, scrollY: getComputedStyle(w).overflowY } })
+        registrar('login', `a ${z}% el botón Iniciar sesión es alcanzable (${ap})`, m.alcanzable, JSON.stringify(m))
+      }
+      await fijarDispositivo(page, { tamano: 100 }); await esp(300)
+    }
+    // solo teclado: Tab hasta el usuario, escribir, Tab, clave, Enter
+    await page.keyboard.press('Tab'); const foco = await page.evaluate(() => document.activeElement && document.activeElement.tagName)
+    registrar('login', 'Tab mueve el foco dentro de la pantalla', !!foco && foco !== 'BODY', String(foco))
+    await poner(page, 'transparente', 100)
+  }
+
   // login (usuario de prueba de la copia descartable)
-  await page.fill('input[type=text]', 'qa_ui'); await page.fill('input[type=password]', clave)
-  await page.getByRole('button', { name: /iniciar sesi/i }).click()
+  // el inicio de sesión se hace SOLO con teclado (Tab hasta el usuario, escribir, Tab, clave, Enter)
+  let llegoUsuario = false
+  for (let i = 0; i < 12 && !llegoUsuario; i++) { await page.keyboard.press('Tab'); llegoUsuario = await page.evaluate(() => document.activeElement && document.activeElement.type === 'text') }
+  await page.keyboard.type('qa_ui'); await page.keyboard.press('Tab'); await page.keyboard.type(clave); await page.keyboard.press('Enter')
+  registrar('teclado', 'login completo solo con teclado', llegoUsuario)
   await page.waitForSelector('.topnav', { timeout: 30000 })
   await esp(1500)
   await page.setViewportSize({ width: 1366, height: 768 }).catch(() => {})
@@ -185,6 +211,14 @@ async function ejecutar(page, clave) {
           ;(tipos[nombre] ||= {})[ap] = t
         }
         if (process.env.UI_HOJAS && !ac) (hojas[ap] ||= []).push({ nombre, buf: await page.screenshot() })
+        if (!ac && quiere('axe')) {
+          const ax = await page.evaluate(async () => { const o = await axe.run(document.body, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] }, rules: { 'color-contrast': { enabled: false } }, resultTypes: ['violations'] })
+            return o.violations.map(v => ({ id: v.id, impacto: v.impact, n: v.nodes.length, ej: v.nodes[0] ? v.nodes[0].html.slice(0, 110) : '', todos: v.nodes.slice(0, 12).map(n => n.html.slice(0, 190)) })) })
+          const graves = ax.filter(v => v.impacto === 'critical' || v.impacto === 'serious')
+          registrar('axe-grave', `${ap} ${nombre}`, graves.length === 0, graves.map(v => `${v.id}×${v.n} ${v.ej}`).join(' | '))
+          if (process.env.UI_DETALLE) for (const v of graves) if (v.id !== 'button-name') for (const h of v.todos) console.log(`DET ${nombre} ${v.id}: ${h}`)
+          for (const v of ax.filter(v => !graves.includes(v))) (otrosAxe[v.id] ||= { impacto: v.impacto, n: 0, ej: v.ej }).n += v.n
+        }
         const ll = await hayLusion(page); registrar('sin-lusion', `${ap}${ac ? '+AC' : ''} ${nombre}`, ll.length === 0, ll.join(', '))
         // foco visible al tabular
         if (!ac && ap !== 'transparente') {
@@ -204,6 +238,46 @@ async function ejecutar(page, clave) {
       }
     }
     await poner(page, 'transparente', 100, false)
+  }
+
+  // 2b) Modal: rol, foco inicial, trampa de Tab, Escape y retorno del foco
+  if (quiere('modal')) {
+    await irA(page, 'warehouse'); await esp(800)
+    const abrir = page.getByRole('button', { name: /nuevo producto/i }).first()
+    await abrir.focus(); await abrir.press('Enter'); await esp(900)
+    const m = await page.evaluate(() => { const d = document.querySelector('[role=dialog][data-modal-a11y]'); return { hay: !!d, modal: d && d.getAttribute('aria-modal'), nombre: d && d.getAttribute('aria-label'), dentro: !!d && d.contains(document.activeElement) } })
+    registrar('modal', 'rol dialog, aria-modal, nombre y foco inicial dentro', m.hay && m.modal === 'true' && !!m.nombre && m.dentro, JSON.stringify(m))
+    let siempreDentro = true
+    for (let i = 0; i < 40 && siempreDentro; i++) { await page.keyboard.press(i % 7 === 6 ? 'Shift+Tab' : 'Tab'); siempreDentro = await page.evaluate(() => { const d = document.querySelector('[role=dialog][data-modal-a11y]'); return !!d && d.contains(document.activeElement) }) }
+    registrar('modal', 'Tab / Shift+Tab no salen del modal (40 pulsaciones)', siempreDentro)
+    await page.keyboard.press('Escape'); await esp(900)
+    const f = await page.evaluate(() => ({ abierto: !!document.querySelector('[role=dialog][data-modal-a11y]'), foco: document.activeElement && (document.activeElement.textContent || '').trim().slice(0, 20) }))
+    registrar('modal', 'Escape cierra y devuelve el foco a «Nuevo producto»', !f.abierto && /nuevo producto/i.test(f.foco || ''), JSON.stringify(f))
+  }
+
+  // 2c) Barra de scroll del menú (B2): visible, crece al pasar el mouse, contraste ≥ 3:1 pulgar/pista; movimiento reducido
+  if (quiere('barra')) {
+    const sharp = require('sharp')
+    for (const ap of APARIENCIAS) {
+      await poner(page, ap, 200); await esp(500)
+      const caja = await page.locator('.topnav').boundingBox()
+      await page.mouse.move(5, 400); await esp(450)
+      const reposo = await page.evaluate(() => { const b = document.querySelector('[data-testid=topnav-barra]'); return b ? b.getBoundingClientRect().height : 0 })
+      await page.mouse.move(caja.x + caja.width / 2, caja.y + caja.height / 2); await esp(500)
+      const hover = await page.evaluate(() => { const b = document.querySelector('[data-testid=topnav-barra]'); return b ? b.getBoundingClientRect().height : 0 })
+      // contraste entre pulgar y pista leído de los píxeles reales
+      const g = await page.evaluate(() => { const b = document.querySelector('[data-testid=topnav-barra]').getBoundingClientRect(), p = document.querySelector('[data-testid=topnav-pulgar]').getBoundingClientRect(); const d = devicePixelRatio; return { y: (b.top + b.height / 2) * d, xp: (p.left + p.width / 2) * d, xt: (p.right + Math.min(12, (b.right - p.right) / 2)) * d } })
+      const png = await page.screenshot(), im = await sharp(png).raw().toBuffer({ resolveWithObject: true }), w = im.info.width, ch = im.info.channels
+      const pix = (x, y) => { const i = (Math.round(y) * w + Math.round(x)) * ch; return [im.data[i], im.data[i + 1], im.data[i + 2]] }
+      const L = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]) }
+      const a = pix(g.xp, g.y), b = pix(g.xt, g.y), cr = (Math.max(L(a), L(b)) + 0.05) / (Math.min(L(a), L(b)) + 0.05)
+      registrar('barra-menu', `${ap}: reposo ${reposo}px → hover ${hover}px, contraste pulgar/pista ${cr.toFixed(1)}:1`, reposo >= 5 && reposo <= 8 && hover >= 13 && cr >= 3, '')
+    }
+    await poner(page, 'transparente', 100)
+    await page.emulateMedia({ reducedMotion: 'reduce' }); await esp(300)
+    const rm = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.menu-item')).transitionDuration) <= 0.001)
+    registrar('movimiento-reducido', 'prefers-reduced-motion elimina las transiciones', rm)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
   }
 
   // 3) Comandos de apariencia por el chat real (sin LLM) y «lusion» en respuestas
@@ -256,6 +330,7 @@ function informe() {
   console.log('\n=== npm run test:ui — resumen ===')
   console.log('| área | correctas | fallos |\n|---|---|---|')
   for (const [k, v] of Object.entries(por)) console.log(`| ${k} | ${v.ok} | ${v.mal} |`)
+  if (Object.keys(otrosAxe).length) { console.log('\naxe, impacto moderado/leve (no bloquea):'); for (const [id, v] of Object.entries(otrosAxe)) console.log(`  - ${id} [${v.impacto}] ×${v.n} ej: ${v.ej}`) }
   const fallos = resultados.filter(r => !r.ok)
   if (fallos.length) { console.log(`\n--- ${fallos.length} fallo(s) ---`); for (const f of fallos.slice(0, 60)) console.log(`✗ [${f.area}] ${f.detalle} ${f.nota}`.slice(0, 900)); if (fallos.length > 60) console.log(`… y ${fallos.length - 60} más`) }
   else console.log('\nTodo correcto')

@@ -135,6 +135,8 @@ function MenuItem({ item, index, isActive, onClick, onTooltipShow, onTooltipHide
       onClick={bloqueado ? undefined : onClick}
       disabled={bloqueado}
       title={titulo}
+      aria-label={item.label}
+      aria-current={isActive ? 'page' : undefined}
       onMouseEnter={mostrarTooltip}
       onMouseLeave={onTooltipHide}
       onFocus={mostrarTooltip}
@@ -286,7 +288,7 @@ export default function TopNav() {
           </div>
         </div>
         {barra.scrollable && (
-          <div className="topnav-barra" data-testid="topnav-barra" aria-hidden="true" onPointerDown={e => moverA(e.clientX, false)}>
+          <div className="topnav-barra" data-testid="topnav-barra" data-ap-ignorar="" aria-hidden="true" onPointerDown={e => moverA(e.clientX, false)}>
             <div className="topnav-pulgar" data-testid="topnav-pulgar" style={{ width: barra.ancho, transform: `translateX(${barra.pos}px)` }} onPointerDown={iniciarArrastre} />
           </div>
         )}

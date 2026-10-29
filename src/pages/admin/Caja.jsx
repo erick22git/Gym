@@ -348,6 +348,7 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
             onChange={e => { setMontoCierre(e.target.value); setConteoEditado(true) }}
             autoFocus
             aria-invalid={!montoValido}
+            aria-label="Efectivo contado en bolivianos"
             style={{ fontSize: 19, fontFamily: 'var(--display)', marginBottom: 10 }}
           />
           {!montoValido && (
@@ -852,7 +853,7 @@ function CajaCerrada({ onAbierta, usuario, vozAccion }) {
             </label>
             <input
               className="gym-input"
-              type="number" min="0" step="0.01"
+              type="number" min="0" step="0.01" aria-label="Monto inicial en bolivianos"
               value={montoInicial}
               onChange={e => setMontoInicial(e.target.value)}
               style={{ textAlign: 'center', fontSize: 21, fontFamily: 'var(--display)' }}

@@ -94,6 +94,7 @@ export default function Pagination({ page, pageSize, total, onPageChange, onPage
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ fontSize: 11, color: 'var(--dim)', whiteSpace: 'nowrap' }}>Por página:</span>
         <select
+          aria-label="Registros por página"
           value={pageSize}
           onChange={e => { onPageSizeChange(Number(e.target.value)); onPageChange(1) }}
           style={{

@@ -2201,7 +2201,7 @@ export default function ImportarIA() {
       </div>
 
       {/* Área de mensajes — sola scrollea, el resto de la página queda fija */}
-      <div ref={scrollRef} onScroll={alScrollMensajes} className="ia-mensajes" style={{ display: 'flex', flexDirection: 'column' }}>
+      <div ref={scrollRef} onScroll={alScrollMensajes} className="ia-mensajes" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Conversación con el asistente" style={{ display: 'flex', flexDirection: 'column' }}>
         {mensajes.length === 0 ? (
           <EstadoVacio lu={lu} onElegir={t => { setTexto(t); setTimeout(() => document.querySelector('[data-guide-id="ia-compositor"]')?.focus(), 0) }} />
         ) : (

@@ -253,7 +253,7 @@ function FormLogin({ onRegistrar, onRecuperar, onError }) {
             autoComplete="current-password"
             style={{ paddingLeft: 38, paddingRight: 42, width: '100%' }}
           />
-          <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9a9aa2', padding: 4, display: 'flex', alignItems: 'center' }} tabIndex={-1}>
+          <button type="button" aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPass} onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9a9aa2', padding: 4, display: 'flex', alignItems: 'center' }}>
             {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
         </div>
@@ -391,7 +391,7 @@ function FormRegistrar({ onVolver }) {
           <label className="gym-label" style={{ display: 'block', marginBottom: 5, color: '#ffffff' }}>Contraseña *</label>
           <div style={{ position: 'relative' }}>
             <input className="gym-input" type={showPass ? 'text' : 'password'} value={form.password} onChange={e => set('password', e.target.value)} placeholder="mín. 6 caracteres" style={{ width: '100%', paddingRight: 36 }} />
-            <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9a9aa2', padding: 2, display: 'flex' }} tabIndex={-1}>
+            <button type="button" aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPass} onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9a9aa2', padding: 2, display: 'flex' }}>
               {showPass ? <EyeOff size={13} /> : <Eye size={13} />}
             </button>
           </div>
@@ -475,7 +475,7 @@ function FormRecuperar({ onVolver }) {
         <label className="gym-label" style={{ display: 'block', marginBottom: 5, color: '#ffffff' }}>Nueva contraseña *</label>
         <div style={{ position: 'relative' }}>
           <input className="gym-input" type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="mín. 6 caracteres" style={{ width: '100%', paddingRight: 36 }} />
-          <button type="button" onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9a9aa2', padding: 2, display: 'flex' }} tabIndex={-1}>
+          <button type="button" aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPass} onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9a9aa2', padding: 2, display: 'flex' }}>
             {showPass ? <EyeOff size={13} /> : <Eye size={13} />}
           </button>
         </div>
