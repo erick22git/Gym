@@ -70,6 +70,7 @@ function createWindow() {
   }
 
   mainWindow.on('closed', () => { mainWindow = null })
+  atajosTamano(mainWindow)
 
   return mainWindow
 }
@@ -77,7 +78,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   if (!isDev) app.configureHostResolver({ secureDnsMode: 'off', enableBuiltInResolver: false }) // sin DoH hacia DNS públicos (solo producción: en dev rompía localhost)
   // Eliminar menú por defecto de Electron (tiene "View > Toggle Developer Tools")
-  if (!isDev) Menu.setApplicationMenu(null)
+  if (!isDev || process.env.GYM_SIN_MENU === '1') Menu.setApplicationMenu(null)
 
   // CSP headers — only in production (Vite dev server needs unsafe-inline for HMR)
   if (!isDev) {
@@ -326,6 +327,50 @@ ipcMain.handle('descuentos:update', (_, id, data) => require('./database.cjs').d
 ipcMain.handle('descuentos:delete', (_, id) => require('./database.cjs').descuentos.delete(id))
 
 // Configuración POS
+// ─── Ajustes del dispositivo (Sprint 1, Paso 3) ─────────────────────────────────────────────────
+// Tamaño de la interfaz y alto contraste valen ANTES de iniciar sesión y para todas las personas de esta PC:
+// se guardan en userData/dispositivo.json (no sensible, sin datos de usuario).
+const TAMANOS_UI = [100, 125, 150, 175, 200]
+const DISPOSITIVO_ARCHIVO = () => path.join(app.getPath('userData'), 'dispositivo.json')
+const leerDispositivo = () => {
+  let d = {}
+  try { d = JSON.parse(fs.readFileSync(DISPOSITIVO_ARCHIVO(), 'utf8')) || {} } catch (_) { /* primera vez o archivo ilegible: valores por defecto */ }
+  return {
+    tamano: TAMANOS_UI.includes(d.tamano) ? d.tamano : 100,
+    altoContraste: d.altoContraste === true,
+    apariencia: typeof d.apariencia === 'string' && d.apariencia.length <= 40 ? d.apariencia : null,
+  }
+}
+const aplicarZoomUI = () => { try { mainWindow?.webContents.setZoomFactor(leerDispositivo().tamano / 100) } catch (_) {} }
+function guardarDispositivo(parcial) {
+  const d = { ...leerDispositivo() }
+  if (TAMANOS_UI.includes(parcial?.tamano)) d.tamano = parcial.tamano
+  if (typeof parcial?.altoContraste === 'boolean') d.altoContraste = parcial.altoContraste
+  if (typeof parcial?.apariencia === 'string' && parcial.apariencia.length <= 40) d.apariencia = parcial.apariencia
+  try { fs.mkdirSync(path.dirname(DISPOSITIVO_ARCHIVO()), { recursive: true }); fs.writeFileSync(DISPOSITIVO_ARCHIVO(), JSON.stringify(d, null, 2)) } catch (_) {}
+  aplicarZoomUI()
+  try { mainWindow?.webContents.send('dispositivo:cambio', d) } catch (_) {}
+  return d
+}
+ipcMain.handle('dispositivo:obtener', () => leerDispositivo())
+ipcMain.handle('dispositivo:fijar', (_, parcial) => guardarDispositivo(parcial))
+// Atajos de tamaño: Ctrl+= / Ctrl++ (más grande), Ctrl+- (más pequeño), Ctrl+0 (100 %)
+function atajosTamano(win) {
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return
+    const actual = leerDispositivo().tamano
+    const i = TAMANOS_UI.indexOf(actual)
+    let nuevo = null
+    if (input.key === '=' || input.key === '+' || input.code === 'Equal' || input.code === 'NumpadAdd') nuevo = TAMANOS_UI[Math.min(TAMANOS_UI.length - 1, i + 1)]
+    else if (input.key === '-' || input.key === '_' || input.code === 'Minus' || input.code === 'NumpadSubtract') nuevo = TAMANOS_UI[Math.max(0, i - 1)]
+    else if ((input.key === '0' || input.code === 'Digit0' || input.code === 'Numpad0') && !input.shift) nuevo = 100
+    if (nuevo == null) return
+    event.preventDefault()
+    if (nuevo !== actual) guardarDispositivo({ tamano: nuevo })
+  })
+  win.webContents.on('did-finish-load', aplicarZoomUI)
+}
+
 // ─── Fondo propio (foto elegida por la persona) ─────────────────────────────────────────────────
 // Se guarda en userData/fondo/fondo.webp (reducida a 1920×1080 máx. con sharp, calidad 82). Todo local: nada sale de la PC.
 const FONDO_DIR = () => path.join(app.getPath('userData'), 'fondo')

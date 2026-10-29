@@ -80,3 +80,12 @@
   .titlebar-user-text { display: none; }
   .titlebar-user-btn { padding: 3px; gap: 0; }
 }
+
+/* ── Accesibilidad: tamaño de la interfaz ≥ 125 % (Configuración → Accesibilidad / botón «Aa» / Ctrl + =) ──
+   Aditivo: a 100 % nada de esto aplica. Con zoom el ancho útil en px CSS baja (1366 px a 200 % = 683 px):
+   · el menú superior se reemplaza por la hamburguesa + drawer (si no, quedaban módulos fuera de la vista);
+   · el área de página hace SCROLL horizontal en vez de cortar el contenido que no cabe. */
+html:is([data-tamano="125"], [data-tamano="150"], [data-tamano="175"], [data-tamano="200"]) .topnav { display: none; }
+html:is([data-tamano="125"], [data-tamano="150"], [data-tamano="175"], [data-tamano="200"]) .topnav-hamburger { display: flex; margin-right: auto; }
+html:is([data-tamano="125"], [data-tamano="150"], [data-tamano="175"], [data-tamano="200"]) .titlebar-user-text { display: none; }
+html:is([data-tamano="125"], [data-tamano="150"], [data-tamano="175"], [data-tamano="200"]) .page-content { overflow-x: auto; }

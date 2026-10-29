@@ -15,6 +15,7 @@ import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/500.css'
 import App from './App'
 import { cargarNegocio } from './ia/negocio'
+import { cargarDispositivo } from './ia/dispositivo'
 import GlassMenuFilters from './components/GlassMenuFilters'
 import './index.css'
 import './glass-engine/variables.css'
@@ -28,6 +29,7 @@ import './glass-engine/menu.css'
 import './styles/responsive.css'
 
 cargarNegocio()
+cargarDispositivo()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

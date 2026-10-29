@@ -7,6 +7,7 @@ import { useGlassCard } from '../glass-engine/useGlassCard'
 import { useGlassButton } from '../glass-engine/useGlassButton'
 import './Login.css'
 import { useNegocio } from '../ia/negocio'
+import { BotonTamano } from '../components/accesibilidad/SelectorTamano'
 
 // ─── Fondo "vidrio mojado" — dos fotos reales, una sobre otra ───────────────
 // Abajo: login.png (limpia, fondo del div). Encima: sobre_login.png (con
@@ -606,7 +607,8 @@ export default function Login() {
 
   return (
     <LoginVidrio>
-      <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'safe center', justifyContent: 'safe center', zIndex: 10, padding: '16px', pointerEvents: 'none' }}>
+      <BotonTamano />
+      <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'safe center', justifyContent: 'safe center', zIndex: 10, padding: '16px', pointerEvents: 'none', overflowY: 'auto' }}>
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}

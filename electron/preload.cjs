@@ -190,6 +190,17 @@ contextBridge.exposeInMainWorld('api', {
     testPrint: (printerName) => ipcRenderer.invoke('pos:testPrint', printerName),
   },
 
+  // Ajustes del dispositivo (tamaño de la interfaz, alto contraste): valen antes de iniciar sesión
+  dispositivo: {
+    obtener: () => ipcRenderer.invoke('dispositivo:obtener'),
+    fijar: (parcial) => ipcRenderer.invoke('dispositivo:fijar', parcial),
+    onCambio: (cb) => {
+      const fn = (_, d) => cb(d)
+      ipcRenderer.on('dispositivo:cambio', fn)
+      return () => ipcRenderer.removeListener('dispositivo:cambio', fn)
+    },
+  },
+
   // Fondo propio: foto elegida, guardada en userData como webp
   fondo: {
     obtener: () => ipcRenderer.invoke('fondo:obtener'),

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Building2, Puzzle, Users, CreditCard, HardDrive, Receipt,
-  Shield, Info, ChevronRight, ArrowLeft, Lock, Save, FileText, Sparkles, Mic, Palette,
+  Shield, Info, ChevronRight, ArrowLeft, Lock, Save, FileText, Sparkles, Mic, Palette, Accessibility,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import '../Clients.css'
@@ -17,6 +17,7 @@ import ImportarIA from './ImportarIA'
 import ConfigVoz from './ConfigVoz'
 import ConfigModeloIA from './ConfigModeloIA'
 import ConfigApariencia from './ConfigApariencia'
+import ConfigAccesibilidad from './ConfigAccesibilidad'
 import { useNegocio, fijarNombreNegocio } from '../../ia/negocio'
 
 // ─── Secciones disponibles ────────────────────────────────────────────────────
@@ -98,6 +99,13 @@ const SECCIONES = [
     titulo: 'Apariencia del módulo de IA',
     descripcion: 'Transparente, Lusion Oscuro o Lusion Claro (solo IA y mascota) y video de fondo',
     color: 'oklch(0.82 0.1 340)',
+  },
+  {
+    id: 'accesibilidad',
+    icon: Accessibility,
+    titulo: 'Accesibilidad',
+    descripcion: 'Tamaño de la interfaz, alto contraste y ayudas para lector de pantalla',
+    color: 'oklch(0.8 0.12 200)',
   },
   {
     id: 'modelo-ia',
@@ -421,6 +429,7 @@ export default function Configuracion() {
             {seccion === 'voz' && <ConfigVoz />}
             {seccion === 'modelo-ia' && <ConfigModeloIA />}
             {seccion === 'apariencia' && <ConfigApariencia />}
+            {seccion === 'accesibilidad' && <ConfigAccesibilidad />}
           </motion.div>
         )}
       </AnimatePresence>
