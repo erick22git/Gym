@@ -236,12 +236,20 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
   const [notas, setNotas] = useState(prefill?.notas ?? '')
   const [cerrando, setCerrando] = useState(false)
   const [verificados, setVerificados] = useState({})
+  // Opción B de cierre: el monto sugerido solo se acepta si la persona afirma haber contado.
+  // Un monto dictado por voz o editado a mano cuenta como conteo explícito.
+  const [conteoEditado, setConteoEditado] = useState(prefill?.monto_cierre != null)
+  const [conteoConfirmado, setConteoConfirmado] = useState(false)
+  const montoValido = montoCierre.trim() !== '' && Number.isFinite(parseFloat(montoCierre)) && parseFloat(montoCierre) >= 0
+  const faltaConfirmar = !conteoEditado && !conteoConfirmado
+  const puedeCerrar = montoValido && !faltaConfirmar && !cerrando
 
   async function cerrar() {
+    if (!puedeCerrar) return
     setCerrando(true)
     try {
       const r = await window.api.caja.cerrar({
-        monto_cierre: parseFloat(montoCierre) || 0,
+        monto_cierre: parseFloat(montoCierre),
         notas: notas || null,
         usuario_id: usuario?.id,
         usuario_nombre: usuario?.nombre_completo,
@@ -337,10 +345,27 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
             className="gym-input"
             type="number" step="0.01"
             value={montoCierre}
-            onChange={e => setMontoCierre(e.target.value)}
+            onChange={e => { setMontoCierre(e.target.value); setConteoEditado(true) }}
             autoFocus
+            aria-invalid={!montoValido}
             style={{ fontSize: 19, fontFamily: 'var(--display)', marginBottom: 10 }}
           />
+          {!montoValido && (
+            <div data-testid="caja-cierre-vacio" role="alert" style={{ fontSize: 13, color: 'oklch(0.75 0.18 25)', marginBottom: 10 }}>
+              Escribe el efectivo contado para poder cerrar el turno.
+            </div>
+          )}
+          {montoValido && !conteoEditado && (
+            <label data-testid="caja-cierre-confirmar" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', marginBottom: 10, fontSize: 14, color: 'var(--ink)', lineHeight: 1.4 }}>
+              <input
+                type="checkbox"
+                checked={conteoConfirmado}
+                onChange={e => setConteoConfirmado(e.target.checked)}
+                style={{ width: 16, height: 16, marginTop: 2, cursor: 'pointer', accentColor: 'oklch(0.78 0.16 155)' }}
+              />
+              <span>Conté el efectivo y coincide con lo esperado</span>
+            </label>
+          )}
 
           {/* Resultado del arqueo — [NUEVO, Parte 3.4] pequeña confirmación
               visual sutil (fade+scale, sin rebote) cuando CAMBIA la
@@ -449,11 +474,11 @@ function ModalCerrarCaja({ sesion, efectivoEsperado, saldoTotal, porMetodo, resu
             <div className="clientes-glass-bg" />
             <span className="clientes-glass-content">Cancelar</span>
           </CajaBtn>
-          <CajaBtn onClick={cerrar} disabled={cerrando} className="clientes-glass-btn" style={{
+          <CajaBtn onClick={cerrar} disabled={!puedeCerrar} title={faltaConfirmar && montoValido ? 'Marca «Conté el efectivo» para cerrar' : undefined} className="clientes-glass-btn" style={{
             flex: 2, padding: '9px 14px', borderRadius: 9, fontSize: 14, fontWeight: 700,
             border: '1px solid oklch(0.66 0.22 25 / .5)',
-            cursor: cerrando ? 'not-allowed' : 'pointer',
-            opacity: cerrando ? .6 : 1,
+            cursor: puedeCerrar ? 'pointer' : 'not-allowed',
+            opacity: puedeCerrar ? 1 : .6,
           }}>
             <div className="clientes-glass-bg" />
             <span className="clientes-glass-content" style={{ color: 'oklch(0.85 0.12 25)' }}>

@@ -55,3 +55,19 @@ En ambos casos conviene guardar en el registro si el conteo fue **escrito** o **
 - El contenido se desplaza **dentro** de la tarjeta; los botones «Cancelar» y «Cerrar Turno e Imprimir Corte» quedan **fijos abajo, siempre visibles**, separados por una línea y a 24 px del borde (antes iban al final de un contenido largo, pegados al borde de la ventana).
 - Texto del botón principal a 14 px para que quepa en una línea.
 - Medido en la ventana real (1280×800): tarjeta 480×656 en (400, 72); botones a 24 px del borde inferior de la tarjeta.
+
+## 6. Decisión y estado (Sprint 1, Paso 1)
+
+**Decidido por Erick: Opción B.** Implementada solo en el modal (`ModalCerrarCaja`); `database.cjs` no se tocó.
+
+- El campo sigue abriendo con el efectivo esperado, pero «Cerrar Turno e Imprimir Corte» queda desactivado hasta marcar **«Conté el efectivo y coincide con lo esperado»**.
+- Si la persona edita el monto (o viene dictado por voz) no hace falta marcar nada.
+- Campo vacío, no numérico o negativo: mensaje «Escribe el efectivo contado…» y el cierre queda desactivado. Ya no se envía `|| 0`.
+- Probado en la ventana real (1280×800): sugerido sin confirmar no cierra (la sesión sigue abierta); vacío y −5 no cierran; 140 escrito cierra; sugerido + confirmación cierra con diferencia 0.
+
+### Hallazgo pendiente de tu decisión (no se tocó)
+
+`database.cjs` → `caja.cerrar` calcula `monto_calculado = apertura + TODOS los ingresos − egresos` (incluye QR, tarjeta y transferencia), pero el modal compara contra el **efectivo esperado** (solo efectivo).
+Con apertura 100 + efectivo 50 + QR 30 y contado 140, el modal muestra **faltante de 10**, pero se guarda `monto_calculado = 180` y `diferencia = −40` (también el aviso al cerrar, el historial y Reportes usan ese −40).
+Sin pagos electrónicos el resultado es correcto. Además **no se escribe ninguna entrada en Auditoría** al cerrar: esperado, contado y diferencia quedan solo en `caja_sesiones`.
+Este comportamiento es el mismo que en `main` (`e6ae9ae`).
