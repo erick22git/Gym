@@ -7,7 +7,7 @@ const crypto = require('crypto')
 const DB_FILE = 'urbanfitness.db'
 const DB_PATH = app.isPackaged
   ? path.join(app.getPath('userData'), DB_FILE)
-  : path.join(__dirname, '../dev_data', DB_FILE)
+  : path.join(process.env.GYM_DATA_DIR || path.join(__dirname, '../dev_data'), DB_FILE) // GYM_DATA_DIR: copia descartable para pruebas (solo desarrollo)
 
 if (!app.isPackaged) {
   const dir = path.dirname(DB_PATH)
@@ -2735,10 +2735,16 @@ const caja = {
   cerrar(data) {
     const sesion = caja.getSesionActual()
     if (!sesion) return { ok: false, error: 'No hay sesión de caja abierta' }
-    const movs = queryAll("SELECT tipo, SUM(monto) as total FROM caja_movimientos WHERE sesion_id=? GROUP BY tipo", [sesion.id])
-    const totalIngresos = movs.filter(m => ['ingreso', 'apertura'].includes(m.tipo)).reduce((s, m) => s + m.total, 0)
-    const totalEgresos = movs.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.total, 0)
-    const montoCalculado = totalIngresos - totalEgresos
+    // Efectivo esperado = apertura + ingresos en EFECTIVO − egresos en EFECTIVO (mismo cálculo que getResumen).
+    // QR, tarjeta y transferencia no son dinero físico: van en el desglose por método, no en lo esperado.
+    const movs = queryAll("SELECT tipo, metodo_pago, SUM(monto) as total FROM caja_movimientos WHERE sesion_id=? GROUP BY tipo, metodo_pago", [sesion.id])
+    const esEfectivo = m => !m.metodo_pago || m.metodo_pago === 'efectivo'
+    const apertura = movs.filter(m => m.tipo === 'apertura').reduce((s, m) => s + m.total, 0)
+    const ingresosEfectivo = movs.filter(m => m.tipo === 'ingreso' && esEfectivo(m)).reduce((s, m) => s + m.total, 0)
+    const egresosEfectivo = movs.filter(m => m.tipo === 'egreso' && esEfectivo(m)).reduce((s, m) => s + m.total, 0)
+    const porMetodo = {}
+    for (const m of movs.filter(m => m.tipo === 'ingreso')) { const k = m.metodo_pago || 'efectivo'; porMetodo[k] = (porMetodo[k] || 0) + m.total }
+    const montoCalculado = apertura + ingresosEfectivo - egresosEfectivo
     const montoCierre = data.monto_cierre ?? montoCalculado
     const diferencia = montoCierre - montoCalculado
     run(
@@ -2747,6 +2753,13 @@ const caja = {
     )
     run(`INSERT INTO caja_movimientos (sesion_id, tipo, concepto, monto, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?)`,
       [sesion.id, 'cierre', 'Cierre de caja', montoCierre, data.usuario_id, data.usuario_nombre || null])
+    try {
+      auditoria.log({
+        usuario_id: data.usuario_id, usuario_nombre: data.usuario_nombre, accion: 'CIERRE_CAJA', modulo: 'caja',
+        detalle: JSON.stringify({ esperado: montoCalculado, contado: montoCierre, diferencia, apertura, ingresos_efectivo: ingresosEfectivo, egresos_efectivo: egresosEfectivo, por_metodo: porMetodo }),
+        registro_afectado_id: sesion.id, registro_afectado_tipo: 'caja_sesion',
+      })
+    } catch (_) { /* la auditoría nunca debe impedir el cierre */ }
     return { ok: true, monto_calculado: montoCalculado, monto_cierre: montoCierre, diferencia }
   },
   addMovimiento(data) {
@@ -2766,9 +2779,11 @@ const caja = {
     const ingresosAll = movs.filter(m => m.tipo === 'ingreso')
     const totalIngresos = ingresosAll.reduce((s, m) => s + m.monto, 0)
     const totalEgresos = movs.filter(m => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
-    // Solo efectivo cuenta como dinero físico en caja
-    const ingresosEfectivo = ingresosAll.filter(m => !m.metodo_pago || m.metodo_pago === 'efectivo').reduce((s, m) => s + m.monto, 0)
-    const efectivoEsperado = sesion.monto_inicial + ingresosEfectivo - totalEgresos
+    // Solo efectivo cuenta como dinero físico en caja (ingresos y egresos)
+    const esEf = m => !m.metodo_pago || m.metodo_pago === 'efectivo'
+    const ingresosEfectivo = ingresosAll.filter(esEf).reduce((s, m) => s + m.monto, 0)
+    const egresosEfectivo = movs.filter(m => m.tipo === 'egreso' && esEf(m)).reduce((s, m) => s + m.monto, 0)
+    const efectivoEsperado = sesion.monto_inicial + ingresosEfectivo - egresosEfectivo
     // Desglose por método de pago
     const porMetodo = {}
     for (const m of ingresosAll) {
