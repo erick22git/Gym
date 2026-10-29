@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { textoSobre } from '../../lib/colorTexto'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Edit2, Trash2, Check, X, Users, ToggleLeft, ToggleRight, Percent, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -185,7 +186,7 @@ function ModalPlan({ plan, onSave, onClose }) {
                     ))}
                     {tagCustomText.trim() && (
                       <span style={{
-                        marginLeft: 4, background: tagCustomColor, color: '#000',
+                        marginLeft: 4, background: tagCustomColor, color: textoSobre(tagCustomColor),
                         fontSize: 9, fontWeight: 800, letterSpacing: '.08em',
                         padding: '2px 8px', borderRadius: 999,
                       }}>{tagCustomText.trim().toUpperCase()}</span>
@@ -289,7 +290,7 @@ function PlanCard({ plan, onEdit, onToggle, onDelete }) {
       {tagParsed && (
         <div style={{
           position: 'absolute', top: -10, right: 12, zIndex: 1,
-          background: tagParsed.color, color: '#000',
+          background: tagParsed.color, color: textoSobre(tagParsed.color),
           fontSize: 9, fontWeight: 800, letterSpacing: '.08em',
           padding: '3px 8px', borderRadius: 999,
         }}>{tagParsed.text}</div>

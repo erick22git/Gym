@@ -45,7 +45,11 @@ const PIDE_GUIA = /\b(guia|guiame|guiarme|ensename|ensenarme|muestrame como|most
 const VERBO_IR = /^(ir a|ve a|vamos a|llevame a|llevarme a|abre|abrir|abreme|muestrame|mostrar|quiero ver|quiero ir a|necesito ver|dame)\s+(la |el |las |los )?(pantalla de |seccion de |modulo de |pagina de |ventana de )?(.+)$/
 const PIDE_IMPORTAR = /\b(quiero|necesito|voy a|puedo|deseo)\b.*\b(importar|subir|cargar|adjuntar)\b.*\b(foto|imagen|archivo|lista|excel|pdf|word|inventario|productos)\b/
 const PIDE_LIMPIAR = /^(limpia|limpiar|borra|borrar|reinicia|reiniciar)( el| la)? (chat|conversacion)$|^(nueva|otra) conversacion$/
-const TEMA_NL = /\b(modo|tema|apariencia)\s+(lusion\s+)?(oscuro|claro|clasico|transparente)\b|\b(ponlo|ponla|ponme|cambia(?:lo|r)?|activa(?:r)?)\b.*\b(oscuro|claro|clasico|transparente)\b/
+// Apariencia por frase: palabras sueltas o con verbo («modo claro», «cambia a oscuro», «blanco», «luz», «dark», «vidrio»…). Directo, sin LLM.
+const PALABRAS_TEMA = { transparente: 'transparente', glass: 'transparente', cristal: 'transparente', vidrio: 'transparente', clasico: 'transparente',
+  oscuro: 'oscuro', negro: 'oscuro', dark: 'oscuro', noche: 'oscuro', claro: 'claro', blanco: 'claro', luz: 'claro', light: 'claro' }
+const TEMA_NL = new RegExp(String.raw`^(?:(?:cambia(?:lo|r)?|pon(?:lo|la|me)?|activa(?:r)?|usa(?:r)?|quiero|dame|mejor)\s+)?(?:(?:a|en|el|la|al|con|modo|tema|apariencia|lusion)\s+)*(` + Object.keys(PALABRAS_TEMA).join('|') + String.raw`)(?:\s+por favor)?$`)
+function detectarTema(t) { const m = t.match(TEMA_NL); return m ? PALABRAS_TEMA[m[1]] : null }
 
 export function resolverPorCodigo(textoOriginal) {
   const crudo = String(textoOriginal || '').trim()
@@ -60,7 +64,7 @@ export function resolverPorCodigo(textoOriginal) {
       case '/limpiar': return { tipo: 'comando', accion: { accion: 'limpiar_chat' } }
       case '/tema':
         if (arg && esAparienciaConocida(arg)) return { tipo: 'comando', accion: { accion: 'cambiar_tema', tema: normalizarApariencia(arg) } }
-        return { tipo: 'respuesta', texto: 'Apariencias: **Transparente**, **Lusion Oscuro** y **Lusion Claro**.\nUso: `/tema transparente`, `/tema oscuro` o `/tema claro`.' }
+        return { tipo: 'respuesta', texto: 'Apariencias: **Transparente**, **Oscuro** y **Claro**.\nUso: `/tema transparente`, `/tema oscuro` o `/tema claro`.' }
       case '/modelo': return { tipo: 'comando', accion: { accion: 'modelo', nombre: resto.join(' ').trim() } }
       case '/modo':
         if (MODOS[arg]) return { tipo: 'comando', accion: { accion: 'modo', modo: arg } }
@@ -83,11 +87,8 @@ export function resolverPorCodigo(textoOriginal) {
 
   // 3) Limpiar, tema, importar
   if (PIDE_LIMPIAR.test(t)) return { tipo: 'acciones', acciones: [{ accion: 'limpiar_chat' }] }
-  const mt = t.match(TEMA_NL)
-  if (mt) {
-    const palabra = ['transparente', 'clasico', 'oscuro', 'claro'].find(x => t.includes(x))
-    if (palabra) return { tipo: 'acciones', acciones: [{ accion: 'cambiar_tema', tema: normalizarApariencia(palabra) }] }
-  }
+  const tema = detectarTema(t)
+  if (tema) return { tipo: 'comando', accion: { accion: 'cambiar_tema', tema } } // directo: cambiar cómo se ve no necesita aprobación
   if (PIDE_IMPORTAR.test(t)) return { tipo: 'acciones', acciones: [{ accion: 'importar_archivo' }] }
 
   // 4) Recorrido guiado: si PIDE un recorrido, se dispara; si solo pregunta «¿cómo…?», se responde y se ofrece

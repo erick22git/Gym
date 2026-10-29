@@ -97,7 +97,7 @@ const SECCIONES = [
     id: 'apariencia',
     icon: Palette,
     titulo: 'Apariencia del módulo de IA',
-    descripcion: 'Transparente, Lusion Oscuro o Lusion Claro (solo IA y mascota) y video de fondo',
+    descripcion: 'Transparente, Oscuro o Claro para toda la app, video de fondo y fondo propio',
     color: 'oklch(0.82 0.1 340)',
   },
   {

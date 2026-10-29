@@ -24,7 +24,7 @@ function createWindow() {
     height: 700,
     minWidth: 360,
     minHeight: 580,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: leerDispositivo().apariencia === 'claro' ? '#f4f5fa' : '#0a0a0a',
     frame: false,
     titleBarStyle: 'hidden',
     webPreferences: {
@@ -78,7 +78,8 @@ function createWindow() {
 app.whenReady().then(async () => {
   if (!isDev) app.configureHostResolver({ secureDnsMode: 'off', enableBuiltInResolver: false }) // sin DoH hacia DNS públicos (solo producción: en dev rompía localhost)
   // Eliminar menú por defecto de Electron (tiene "View > Toggle Developer Tools")
-  if (!isDev || process.env.GYM_SIN_MENU === '1') Menu.setApplicationMenu(null)
+  // Sin menú de Electron (también en desarrollo): su acelerador de zoom competía con los atajos de tamaño. F12 y Ctrl+Shift+I siguen en dev (ver atajosTamano).
+  Menu.setApplicationMenu(null)
 
   // CSP headers — only in production (Vite dev server needs unsafe-inline for HMR)
   if (!isDev) {
@@ -331,6 +332,7 @@ ipcMain.handle('descuentos:delete', (_, id) => require('./database.cjs').descuen
 // Tamaño de la interfaz y alto contraste valen ANTES de iniciar sesión y para todas las personas de esta PC:
 // se guardan en userData/dispositivo.json (no sensible, sin datos de usuario).
 const TAMANOS_UI = [100, 125, 150, 175, 200]
+const APARIENCIAS_UI = ['transparente', 'oscuro', 'claro']
 const DISPOSITIVO_ARCHIVO = () => path.join(app.getPath('userData'), 'dispositivo.json')
 const leerDispositivo = () => {
   let d = {}
@@ -338,7 +340,7 @@ const leerDispositivo = () => {
   return {
     tamano: TAMANOS_UI.includes(d.tamano) ? d.tamano : 100,
     altoContraste: d.altoContraste === true,
-    apariencia: typeof d.apariencia === 'string' && d.apariencia.length <= 40 ? d.apariencia : null,
+    apariencia: APARIENCIAS_UI.includes(d.apariencia) ? d.apariencia : null,
   }
 }
 const aplicarZoomUI = () => { try { mainWindow?.webContents.setZoomFactor(leerDispositivo().tamano / 100) } catch (_) {} }
@@ -346,17 +348,20 @@ function guardarDispositivo(parcial) {
   const d = { ...leerDispositivo() }
   if (TAMANOS_UI.includes(parcial?.tamano)) d.tamano = parcial.tamano
   if (typeof parcial?.altoContraste === 'boolean') d.altoContraste = parcial.altoContraste
-  if (typeof parcial?.apariencia === 'string' && parcial.apariencia.length <= 40) d.apariencia = parcial.apariencia
+  if (APARIENCIAS_UI.includes(parcial?.apariencia)) d.apariencia = parcial.apariencia
   try { fs.mkdirSync(path.dirname(DISPOSITIVO_ARCHIVO()), { recursive: true }); fs.writeFileSync(DISPOSITIVO_ARCHIVO(), JSON.stringify(d, null, 2)) } catch (_) {}
   aplicarZoomUI()
   try { mainWindow?.webContents.send('dispositivo:cambio', d) } catch (_) {}
   return d
 }
 ipcMain.handle('dispositivo:obtener', () => leerDispositivo())
+ipcMain.on('dispositivo:sync', e => { e.returnValue = leerDispositivo() }) // lo lee preload antes de pintar (sin parpadeo)
 ipcMain.handle('dispositivo:fijar', (_, parcial) => guardarDispositivo(parcial))
 // Atajos de tamaño: Ctrl+= / Ctrl++ (más grande), Ctrl+- (más pequeño), Ctrl+0 (100 %)
 function atajosTamano(win) {
   win.webContents.on('before-input-event', (event, input) => {
+    if (isDev && input.type === 'keyDown' && (input.key === 'F12' || (input.control && input.shift && String(input.key).toLowerCase() === 'i'))) { win.webContents.toggleDevTools(); event.preventDefault(); return }
+    if (isDev && input.type === 'keyDown' && input.control && !input.shift && String(input.key).toLowerCase() === 'r') { win.webContents.reload(); event.preventDefault(); return }
     if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return
     const actual = leerDispositivo().tamano
     const i = TAMANOS_UI.indexOf(actual)

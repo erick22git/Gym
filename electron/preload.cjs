@@ -190,7 +190,8 @@ contextBridge.exposeInMainWorld('api', {
     testPrint: (printerName) => ipcRenderer.invoke('pos:testPrint', printerName),
   },
 
-  // Ajustes del dispositivo (tamaño de la interfaz, alto contraste): valen antes de iniciar sesión
+  // Ajustes del dispositivo (apariencia, tamaño de la interfaz, alto contraste): valen antes de iniciar sesión
+  dispositivoInicial: (() => { try { return ipcRenderer.sendSync('dispositivo:sync') } catch (_) { return {} } })(),
   dispositivo: {
     obtener: () => ipcRenderer.invoke('dispositivo:obtener'),
     fijar: (parcial) => ipcRenderer.invoke('dispositivo:fijar', parcial),

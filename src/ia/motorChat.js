@@ -192,7 +192,7 @@ async function ejecutarUna(a) {
   switch (a.accion) {
     case 'navegar': ejecutores.navegar?.(DESTINOS[a.destino].page); return `Listo, te llevé a «${DESTINOS[a.destino].etiqueta}».`
     case 'iniciar_guia': ejecutores.iniciarGuia?.(a.guia); return `Empecemos: ${GUIAS[a.guia].titulo}. Sigue el resaltado (Esc para salir).`
-    case 'cambiar_tema': await ejecutores.aplicarTema?.(a.tema); return `Apariencia «${APARIENCIAS[a.tema].etiqueta}» aplicada.${a.tema !== 'transparente' ? ' Solo cambia la IA y la mascota; el resto del sistema mantiene el diseño Transparente.' : ''}`
+    case 'cambiar_tema': await ejecutores.aplicarTema?.(a.tema); return `Listo, apariencia ${APARIENCIAS[a.tema].etiqueta}.`
     case 'importar_archivo': ejecutores.importarArchivo?.(); return 'Abrí el selector de archivos en la pantalla de IA. Revisarás todo antes de agregar nada.'
     case 'limpiar_chat': limpiarChat(); return null
     case 'modo': chatStore.setModo(a.modo); return `Modo «${MODOS[a.modo].etiqueta}»: ${MODOS[a.modo].detalle}`

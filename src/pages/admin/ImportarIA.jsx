@@ -13,7 +13,7 @@
 import { esNombreDeProducto } from '../../utils/nombreProducto'
 import { useChat, chatStore, nuevoId } from '../../ia/chatStore'
 import { responderA, detener as detenerChat, regenerar, aprobarAcciones, rechazarAcciones, manejarOpcion, cargarPrefs } from '../../ia/motorChat'
-import { useApariencia, esLusion } from '../../ia/apariencia'
+import { useApariencia, esOpaca } from '../../ia/apariencia'
 import { resolverPorCodigo, sugerirComandos } from '../../ia/resolver'
 import { MODOS } from '../../ia/registroAcciones'
 import { TextoIA, TarjetaAcciones, TarjetaPasos } from '../../components/ia/MensajeIA'
@@ -1392,7 +1392,7 @@ export default function ImportarIA() {
   // La conversación vive en un almacén compartido con la mascota flotante (src/ia/chatStore.js).
   const { mensajes, generando, modo } = useChat()
   const { apariencia } = useApariencia()
-  const lu = esLusion(apariencia)                  // apariencias Lusion: estructura nueva (historial acoplado, columna central, compositor tipo terminal)
+  const lu = esOpaca(apariencia)                  // apariencias Lusion: estructura nueva (historial acoplado, columna central, compositor tipo terminal)
   const anchoSuficiente = useAnchoMinimo(1100)
   const acoplado = lu && anchoSuficiente           // con poco ancho el historial vuelve a ser un panel que se abre
   const modeloActivo = useModeloActivo()

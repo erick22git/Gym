@@ -1,0 +1,49 @@
+/* Apariencia de TODA la app (Sprint 1, D). «Transparente» (diseño actual) NO tiene nada aquí: este archivo solo actúa con
+   data-apariencia="oscuro" o "claro" en <html>, o con «Alto contraste» activo (que fuerza superficies opacas, también en Transparente).
+   Los estilos en línea de las páginas los adapta src/ia/motor-apariencia.js (superficies opacas + contraste garantizado). */
+
+/* ── Tokens ── */
+:is(html[data-apariencia="oscuro"], html[data-alto-contraste="1"][data-apariencia="transparente"]) {
+  color-scheme: dark;
+  --ap-fondo: #000000; --ap-sup: #14161c; --ap-sup2: #2b2e3a; --ap-borde: #4d5361;
+  --ap-texto: #ffffff; --ap-texto-inv: #000000; --ap-suave: #d5d8e2;
+  --ap-accion: #ffffff; --ap-accion-texto: #000000; --ap-foco: #ffffff;
+  --ink: #ffffff; --muted: #d5d8e2; --dim: #b4b8c6; --line: #3c414d; --line-s: #4d5361;
+  --glass: #14161c; --glass-2: #1c1f27;
+  --nav-pista: #2b2e3a; --nav-pulgar: #b4b8c6; --nav-pulgar-hover: #ffffff; --nav-fade: #000000;
+}
+html[data-apariencia="claro"] {
+  color-scheme: light;
+  --ap-fondo: #f0f1fa; --ap-sup: #ffffff; --ap-sup2: #e4e6ef; --ap-borde: #8d93a6;
+  --ap-texto: #000000; --ap-texto-inv: #ffffff; --ap-suave: #2b2e3a;
+  --ap-accion: #2b2e3a; --ap-accion-texto: #ffffff; --ap-foco: #000000;
+  --ink: #000000; --muted: #2b2e3a; --dim: #4a505a; --line: #c4c8d8; --line-s: #8d93a6;
+  --glass: #ffffff; --glass-2: #e4e6ef;
+  --nav-pista: #d4d7e6; --nav-pulgar: #4a505a; --nav-pulgar-hover: #000000; --nav-fade: #f0f1fa;
+}
+/* Alto contraste (AAA): tokens aún más marcados */
+html[data-alto-contraste="1"][data-apariencia="claro"] { --ap-suave: #000000; --muted: #000000; --dim: #1f232b; --ap-borde: #000000; --line: #5d6378; --line-s: #000000; }
+html[data-alto-contraste="1"]:is([data-apariencia="oscuro"], [data-apariencia="transparente"]) { --ap-suave: #ffffff; --muted: #ffffff; --dim: #e4e6ef; --ap-borde: #ffffff; --line: #9aa0b4; --line-s: #ffffff; }
+
+/* ── Base opaca ── */
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) :is(body, #root) { background: var(--ap-fondo) !important; color: var(--ap-texto); }
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) { background: var(--ap-fondo); }
+/* sin frames, sin atmósfera, sin vidrio ni sombras de texto */
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) .bg-atmospheric { display: none !important; }
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) *,
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) *::before,
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) *::after {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important; text-shadow: none !important;
+}
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) [data-glass]::before,
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) [data-glass]::after { display: none !important; }
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) ::placeholder { color: var(--ap-suave) !important; opacity: .85; }
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) .titulo-metalico { background: none !important; -webkit-text-fill-color: currentColor !important; }
+
+/* Foco siempre visible (anillo de 2 px + separación) */
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) :is(a, button, input, select, textarea, [tabindex], [role="button"], [role="radio"], [role="switch"], [role="tab"]):focus-visible {
+  outline: 2px solid var(--ap-foco) !important; outline-offset: 2px !important;
+}
+
+/* Alto contraste: bordes marcados en superficies opacas */
+html[data-alto-contraste="1"] :is(button, input, select, textarea, [role="radio"], [role="switch"], [role="tab"], table, th, td, [class*="card"], [class*="glass"]) { border-color: var(--ap-borde) !important; }

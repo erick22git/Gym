@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { VIDEO_TRANSITIONS, PAGE_TO_TRANSITION } from '../../config/videoTransitions'
 import { PAGES } from '../../constants'
-import { useApariencia, esLusion } from '../../ia/apariencia'
+import { useApariencia, esOpaca } from '../../ia/apariencia'
+import { useDispositivo } from '../../ia/dispositivo'
 import { useNegocio } from '../../ia/negocio'
 
 // ─── Fondo de video en frames, sincronizado con la navegación ──────────────
@@ -55,7 +56,9 @@ export default function VideoBackground() {
   // Apariencias: «Video de fondo» apagado (solo Transparente) = último frame estático; y mientras la página de IA
   // esté en Lusion (opaca) no se reproducen frames (al salir de ella vuelve el fondo con su flujo normal).
   const { apariencia, videoFondo } = useApariencia()
-  const cubierto = page === PAGES.IA_IMPORTAR && esLusion(apariencia)
+  // Oscuro y Claro son opacos en TODA la app (sin frames); «Alto contraste» también fuerza fondo sólido en Transparente.
+  const { altoContraste } = useDispositivo()
+  const cubierto = esOpaca(apariencia) || altoContraste
   const { fondo } = useNegocio() // foto propia (userData): reemplaza al video en todo el sistema
   const fondoImgRef = useRef(null)
   const canvasRef = useRef(null)
@@ -167,7 +170,7 @@ export default function VideoBackground() {
     const transitionKey = PAGE_TO_TRANSITION[page]
 
     if (!transitionKey) return // página sin fondo de video: no tocar nada
-    if (cubierto) return // página de IA en Lusion: nada que reproducir (token ya invalidado arriba)
+    if (cubierto) return // página de IA en apariencia opaca: nada que reproducir (token ya invalidado arriba)
 
     const entry = VIDEO_TRANSITIONS[transitionKey]
 

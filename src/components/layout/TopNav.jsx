@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -6,7 +6,7 @@ import {
   Receipt,
   Lock, Warehouse, BarChart2, Archive, BookOpen,
   Wallet, ShieldCheck, ShoppingBag, Settings2,
-  Menu, X, KeyRound, Sparkles,
+  KeyRound, Sparkles,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../context/AuthContext'
@@ -158,95 +158,44 @@ function MenuItem({ item, index, isActive, onClick, onTooltipShow, onTooltipHide
   )
 }
 
-// ─── Item del drawer mobile (ícono + texto, ver .drawer-item en index.css) ───
+// ─── Barra de iconos SIEMPRE visible (B1) ──────────────────────────────────────
+// Ningún zoom ni ancho oculta módulos: si no caben, el menú hace scroll horizontal con una barra propia
+// (delgada pero visible; crece al pasar el mouse), rueda del mouse como scroll horizontal y degradados en los bordes.
 
-function DrawerItem({ item, isActive, onClick }) {
-  const { esModuloActivo } = useAuth()
-
-  const moduloDesactivado = item.modulo && !esModuloActivo(item.modulo)
-  const moduloDepDesactivado = item.moduloDep && !esModuloActivo(item.moduloDep)
-  const bloqueado = moduloDesactivado || moduloDepDesactivado
-  const Icon = item.icon
-
-  return (
-    <button
-      className={`drawer-item${isActive ? ' active' : ''}`}
-      onClick={bloqueado ? undefined : onClick}
-      style={{
-        opacity: bloqueado ? 0.38 : 1,
-        cursor: bloqueado ? 'not-allowed' : 'pointer',
-      }}
-    >
-      <Icon size={17} className="nav-ico" />
-      <span>{item.label}</span>
-      {bloqueado && item.esModulo && (
-        <Lock size={11} style={{ marginLeft: 'auto', color: 'oklch(0.78 0.02 250 / .5)', flexShrink: 0 }} />
-      )}
-    </button>
-  )
+function useBarraMenu(navRef, deps) {
+  const [est, setEst] = useState({ scrollable: false, izq: false, der: false, ancho: 0, pos: 0 })
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const medir = () => {
+      const max = nav.scrollWidth - nav.clientWidth
+      const scrollable = max > 1
+      const pista = Math.max(0, nav.clientWidth - 16)
+      const ancho = scrollable ? Math.max(36, pista * nav.clientWidth / nav.scrollWidth) : 0
+      const pos = scrollable ? (pista - ancho) * (nav.scrollLeft / max) : 0
+      setEst(e => (e.scrollable === scrollable && e.izq === (nav.scrollLeft > 1) && e.der === (nav.scrollLeft < max - 1) && Math.abs(e.ancho - ancho) < 0.5 && Math.abs(e.pos - pos) < 0.5)
+        ? e : { scrollable, izq: nav.scrollLeft > 1, der: nav.scrollLeft < max - 1, ancho, pos })
+    }
+    const onWheel = e => {
+      if (nav.scrollWidth <= nav.clientWidth) return
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { nav.scrollLeft += e.deltaY; e.preventDefault() }
+    }
+    medir()
+    const ro = new ResizeObserver(medir); ro.observe(nav); if (nav.firstElementChild) ro.observe(nav.firstElementChild)
+    nav.addEventListener('scroll', medir, { passive: true })
+    nav.addEventListener('wheel', onWheel, { passive: false })
+    return () => { ro.disconnect(); nav.removeEventListener('scroll', medir); nav.removeEventListener('wheel', onWheel) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+  return est
 }
-
-// ─── Drawer lateral (mobile <600px, via portal — ver .drawer-* en index.css) ─
-
-function NavDrawer({ open, items, page, onNavigate, onClose }) {
-  return createPortal(
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            className="drawer-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={onClose}
-          />
-          <motion.div
-            className="drawer-panel"
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-          >
-            <div className="drawer-header">
-              <span className="drawer-title">Menú</span>
-              <button className="drawer-close" onClick={onClose} title="Cerrar">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="drawer-nav">
-              {items.map((item, i) => {
-                if (item.section) {
-                  return i === 0 ? null : <div key={`div-${i}`} className="drawer-divider" />
-                }
-                return (
-                  <DrawerItem
-                    key={item.key}
-                    item={item}
-                    isActive={page === item.key}
-                    onClick={() => onNavigate(item.key)}
-                  />
-                )
-              })}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body
-  )
-}
-
-// ─── Menú principal (vidrio líquido en desktop/tablet, hamburguesa +
-// drawer sólido en mobile — el toggle entre ambos es puro CSS, ver
-// src/styles/responsive.css) ───────────────────────────────────────────────
 
 export default function TopNav() {
   const { page, navigate } = useApp()
   const { usuario, tienePermiso } = useAuth()
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [tooltip, setTooltip] = useState(null) // { label, rect } | null
   const menuRef = useRef(null)
+  const navRef = useRef(null)
 
   function mostrarTooltip(label, rect) {
     setTooltip({ label, rect })
@@ -280,57 +229,68 @@ export default function TopNav() {
   const activeIndex = botones.findIndex(item => item.key === page)
 
   const { hoverAt, hoverRelease } = useGlassMenu(menuRef, activeIndex, { proximity: 260 })
+  const barra = useBarraMenu(navRef, [itemsFiltrados.length])
 
-  function handleNavigate(key) {
-    navigate(key)
-    setDrawerOpen(false)
+  // El módulo activo siempre queda a la vista dentro del menú
+  useEffect(() => {
+    const nav = navRef.current
+    const btn = nav && nav.querySelectorAll('.menu-item')[activeIndex]
+    if (!btn) return
+    const n = nav.getBoundingClientRect(), b = btn.getBoundingClientRect()
+    if (b.left < n.left + 8) nav.scrollLeft -= (n.left + 8 - b.left)
+    else if (b.right > n.right - 8) nav.scrollLeft += (b.right - n.right + 8)
+  }, [activeIndex, barra.scrollable])
+
+  // Arrastrar el pulgar / clic en la pista
+  function moverA(clientX, desdePulgar) {
+    const nav = navRef.current; if (!nav) return
+    const pista = nav.clientWidth - 16, max = nav.scrollWidth - nav.clientWidth
+    const rect = nav.getBoundingClientRect()
+    const x = clientX - rect.left - 8 - (desdePulgar ? barra.ancho / 2 : barra.ancho / 2)
+    nav.scrollLeft = Math.max(0, Math.min(max, (x / Math.max(1, pista - barra.ancho)) * max))
+  }
+  function iniciarArrastre(e) {
+    e.preventDefault(); e.stopPropagation()
+    const move = ev => moverA(ev.clientX, true)
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
   }
 
   return (
     <>
-      <div className="topnav">
-        {/* onMouseLeave acá (todo el menú), no por ítem — así la
-            burbuja no "rebota" al activo por una fracción de segundo
-            al cruzar el gap entre dos íconos vecinos; solo vuelve
-            cuando el mouse deja el menú completo. */}
-        <div className="glass-menu" data-glass="menu" ref={menuRef} onMouseLeave={hoverRelease}>
-          {itemsFiltrados.map((item, i) => {
-            if (item.section) {
-              return i === 0 ? null : <div key={`div-${i}`} className="menu-divider" />
-            }
-            const botonIndex = botones.findIndex(b => b.key === item.key)
-            return (
-              <MenuItem
-                key={item.key}
-                item={item}
-                index={botonIndex}
-                isActive={page === item.key}
-                onClick={() => { navigate(item.key); ocultarTooltip() }}
-                onTooltipShow={mostrarTooltip}
-                onTooltipHide={ocultarTooltip}
-                onHoverIn={hoverAt}
-              />
-            )
-          })}
+      <div className={`topnav-caja${barra.izq ? ' mas-izq' : ''}${barra.der ? ' mas-der' : ''}`}>
+        <div className="topnav" ref={navRef} role="navigation" aria-label="Módulos">
+          {/* onMouseLeave acá (todo el menú), no por ítem — así la
+              burbuja no "rebota" al activo por una fracción de segundo
+              al cruzar el gap entre dos íconos vecinos; solo vuelve
+              cuando el mouse deja el menú completo. */}
+          <div className="glass-menu" data-glass="menu" ref={menuRef} onMouseLeave={hoverRelease}>
+            {itemsFiltrados.map((item, i) => {
+              if (item.section) {
+                return i === 0 ? null : <div key={`div-${i}`} className="menu-divider" />
+              }
+              const botonIndex = botones.findIndex(b => b.key === item.key)
+              return (
+                <MenuItem
+                  key={item.key}
+                  item={item}
+                  index={botonIndex}
+                  isActive={page === item.key}
+                  onClick={() => { navigate(item.key); ocultarTooltip() }}
+                  onTooltipShow={mostrarTooltip}
+                  onTooltipHide={ocultarTooltip}
+                  onHoverIn={hoverAt}
+                />
+              )
+            })}
+          </div>
         </div>
+        {barra.scrollable && (
+          <div className="topnav-barra" data-testid="topnav-barra" aria-hidden="true" onPointerDown={e => moverA(e.clientX, false)}>
+            <div className="topnav-pulgar" data-testid="topnav-pulgar" style={{ width: barra.ancho, transform: `translateX(${barra.pos}px)` }} onPointerDown={iniciarArrastre} />
+          </div>
+        )}
       </div>
-
-      <button
-        className="topnav-hamburger"
-        onClick={() => setDrawerOpen(true)}
-        title="Abrir menú"
-        style={{ WebkitAppRegion: 'no-drag' }}
-      >
-        <Menu size={18} />
-      </button>
-
-      <NavDrawer
-        open={drawerOpen}
-        items={itemsFiltrados}
-        page={page}
-        onNavigate={handleNavigate}
-        onClose={() => setDrawerOpen(false)}
-      />
 
       <MenuTooltip tooltip={tooltip} />
     </>

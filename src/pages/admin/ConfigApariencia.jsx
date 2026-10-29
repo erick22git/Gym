@@ -11,8 +11,8 @@ import '../../ia/ia.css'
 // Miniaturas con los colores reales de cada apariencia (Transparente: aproximación del vidrio sobre foto oscura)
 const MINI = {
   'transparente': { fondo: 'oklch(0.2 0.02 250)', panel: 'oklch(0.3 0.02 250 / .6)', texto: 'oklch(0.97 0.01 250)', borde: 'oklch(1 0 0 / .25)' },
-  'lusion-oscuro': { fondo: '#000000', panel: '#2b2e3a', texto: '#ffffff', borde: '#34393f' },
-  'lusion-claro': { fondo: '#f0f1fa', panel: '#ffffff', texto: '#000000', borde: '#e4e6ef' },
+  'oscuro': { fondo: '#000000', panel: '#2b2e3a', texto: '#ffffff', borde: '#34393f' },
+  'claro': { fondo: '#f0f1fa', panel: '#ffffff', texto: '#000000', borde: '#e4e6ef' },
 }
 
 function Miniatura({ id }) {
@@ -51,10 +51,10 @@ export default function ConfigApariencia() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 760 }} data-testid="config-apariencia">
       <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.6, margin: 0, padding: '12px 14px', borderRadius: 12, background: 'oklch(0.13 0.02 250 / .34)', border: '1px solid var(--line)' }}>
         <Palette size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-        Elige cómo se ve el <b>módulo de IA</b> y la <b>mascota</b>. El resto del sistema mantiene el diseño Transparente.
+        Elige cómo se ve <b>toda la aplicación</b>: el inicio de sesión, los menús, las páginas, la IA y la mascota. Vale para esta PC.
       </p>
 
-      <div role="radiogroup" aria-label="Apariencia del módulo de IA" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+      <div role="radiogroup" aria-label="Apariencia" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
         {Object.entries(APARIENCIAS).map(([id, a]) => {
           const activa = apariencia === id
           return (

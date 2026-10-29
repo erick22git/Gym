@@ -1,3 +1,4 @@
+import './ia/aplicar-inicial'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Toaster } from 'react-hot-toast'
@@ -15,7 +16,8 @@ import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/500.css'
 import App from './App'
 import { cargarNegocio } from './ia/negocio'
-import { cargarDispositivo } from './ia/dispositivo'
+import { cargarDispositivo, fijarAltoContraste, fijarTamano } from './ia/dispositivo'
+import { cargarApariencia, setApariencia, normalizarApariencia, IDS_APARIENCIA } from './ia/apariencia'
 import GlassMenuFilters from './components/GlassMenuFilters'
 import './index.css'
 import './glass-engine/variables.css'
@@ -27,9 +29,15 @@ import './glass-engine/menu.css'
 // cargara antes, esas bases (sin @media, siempre activas) ganarían
 // por orden de aparición pese a que el breakpoint sí matchea.
 import './styles/responsive.css'
+import './ia/apariencias-global.css'
+import { iniciarMotorApariencia } from './ia/motor-apariencia'
 
 cargarNegocio()
 cargarDispositivo()
+cargarApariencia()
+iniciarMotorApariencia()
+// Ganchos para las pruebas automáticas (npm run test:ui): usan las MISMAS instancias de los almacenes que la app. Solo en desarrollo.
+if (import.meta.env.DEV) window.__gym = { setApariencia, normalizarApariencia, IDS_APARIENCIA, fijarAltoContraste, fijarTamano }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

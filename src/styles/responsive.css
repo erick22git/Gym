@@ -63,14 +63,7 @@
   .menu-item span:last-child { font-size: 11px; }
 }
 
-@media (max-width: 599px) {
-  .topnav { display: none; }
-  /* margin-right:auto reemplaza al flex:1 de .topnav (oculto) — sin
-     esto, el resto de .titlebar (campana/avatar/controles de ventana)
-     pierde su único elemento flex:1 y colapsa hacia la izquierda en
-     vez de quedarse fija a la derecha. */
-  .topnav-hamburger { display: flex; margin-right: auto; }
-}
+/* (B1) Ya no hay hamburguesa: la barra de iconos .topnav-caja se ve en todos los anchos y zooms. */
 
 /* ── Tarjeta de usuario (ver TitleBar.jsx) ──
    Tablet/desktop: sin cambios, texto completo.
@@ -82,10 +75,7 @@
 }
 
 /* ── Accesibilidad: tamaño de la interfaz ≥ 125 % (Configuración → Accesibilidad / botón «Aa» / Ctrl + =) ──
-   Aditivo: a 100 % nada de esto aplica. Con zoom el ancho útil en px CSS baja (1366 px a 200 % = 683 px):
-   · el menú superior se reemplaza por la hamburguesa + drawer (si no, quedaban módulos fuera de la vista);
-   · el área de página hace SCROLL horizontal en vez de cortar el contenido que no cabe. */
-html:is([data-tamano="125"], [data-tamano="150"], [data-tamano="175"], [data-tamano="200"]) .topnav { display: none; }
-html:is([data-tamano="125"], [data-tamano="150"], [data-tamano="175"], [data-tamano="200"]) .topnav-hamburger { display: flex; margin-right: auto; }
+   Aditivo: a 100 % nada de esto aplica. El menú de iconos NUNCA se oculta (B1); lo que no cabe hace scroll
+   horizontal en vez de cortarse. */
 html:is([data-tamano="125"], [data-tamano="150"], [data-tamano="175"], [data-tamano="200"]) .titlebar-user-text { display: none; }
 html:is([data-tamano="125"], [data-tamano="150"], [data-tamano="175"], [data-tamano="200"]) .page-content { overflow-x: auto; }

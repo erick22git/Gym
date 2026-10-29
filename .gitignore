@@ -36,3 +36,5 @@ ocr-service.spec
 
 # Capturas de verificacion de la Fase 3 (pesadas, solo locales)
 docs/capturas-fase3/
+docs/resultados-test-ui.json
+docs/capturas-sprint1/

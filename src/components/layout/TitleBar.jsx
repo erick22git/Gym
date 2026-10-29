@@ -297,8 +297,8 @@ export default function TitleBar() {
 
   // Color determinista por nombre (igual que UserAvatar en GestionUsuarios)
   const AVATAR_COLORS = [
-    'oklch(0.60 0.18 25)', 'oklch(0.55 0.20 250)', 'oklch(0.58 0.17 155)',
-    'oklch(0.62 0.15 75)', 'oklch(0.57 0.19 300)', 'oklch(0.60 0.16 200)',
+    'oklch(0.44 0.15 25)', 'oklch(0.44 0.17 250)', 'oklch(0.44 0.12 155)',
+    'oklch(0.44 0.11 75)', 'oklch(0.44 0.16 300)', 'oklch(0.44 0.11 200)', // L=.44: texto blanco ≥ 7:1 (AAA)
   ]
   function avatarColor(nombre = '') {
     let h = 0

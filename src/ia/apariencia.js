@@ -1,21 +1,21 @@
-// Apariencia del módulo de IA (página de IA + mascota). Tres valores, en español:
-//   · transparente  → el diseño glass ACTUAL, intacto (valor por defecto).
-//   · lusion-oscuro → opaco, derivado de los tokens de Lusion (ver DISENO.md).
-//   · lusion-claro  → opaco, Lusion tal cual (Lavender Mist).
-// El resto del sistema (login, navegación, Ventas, Caja, Inventario, Clientes…) NO cambia con ninguna selección:
-// las apariencias Lusion solo se aplican dentro de los contenedores con la clase `.ia-scope`.
-// Se guarda en la BD local (ia_tema) y cambia en caliente (sin recargar).
+// Apariencia de TODA la app (login, navegación, páginas, IA y mascota). Tres valores, en español:
+//   · transparente → el diseño actual, con vidrio y video de fondo (valor por defecto, intacto).
+//   · oscuro       → fondos sólidos oscuros, sin frames ni transparencias.
+//   · claro        → fondos sólidos claros, sin frames ni transparencias.
+// Se guarda A NIVEL DE DISPOSITIVO (userData/dispositivo.json, igual que el tamaño) para que valga en el login y no parpadee al
+// iniciar: preload la entrega de forma síncrona y ./aplicar-inicial.js la pone en <html data-apariencia> antes de pintar.
+// El interruptor «Video de fondo» y «Efecto líquido» siguen en la configuración de IA (BD), son por usuario.
 import { useSyncExternalStore } from 'react'
 
 export const APARIENCIAS = {
   'transparente': { etiqueta: 'Transparente', detalle: 'El diseño actual, con vidrio y video de fondo.', alias: ['transparente', 'clasico', 'glass', 'cristal', 'vidrio', 'actual'] },
-  'lusion-oscuro': { etiqueta: 'Lusion Oscuro', detalle: 'Opaco, fondo negro y texto blanco.', alias: ['lusion oscuro', 'oscuro', 'negro', 'dark', 'lusion-oscuro'] },
-  'lusion-claro': { etiqueta: 'Lusion Claro', detalle: 'Opaco, lienzo lavanda y texto negro.', alias: ['lusion claro', 'claro', 'blanco', 'light', 'lusion-claro'] },
+  'oscuro': { etiqueta: 'Oscuro', detalle: 'Fondo negro sólido y texto blanco, sin transparencias.', alias: ['oscuro', 'negro', 'dark', 'noche', 'modo oscuro', 'lusion oscuro', 'lusion-oscuro'] },
+  'claro': { etiqueta: 'Claro', detalle: 'Fondo claro sólido y texto negro, sin transparencias.', alias: ['claro', 'blanco', 'luz', 'light', 'modo claro', 'lusion claro', 'lusion-claro'] },
 }
 export const IDS_APARIENCIA = Object.keys(APARIENCIAS)
-export const esLusion = a => a === 'lusion-oscuro' || a === 'lusion-claro'
+export const esOpaca = a => a === 'oscuro' || a === 'claro'
 
-// Acepta valores viejos ('clasico', 'oscuro', 'claro') y alias escritos por la persona.
+// Acepta valores guardados antes («lusion-oscuro», «lusion-claro»), alias y frases escritas por la persona.
 export function normalizarApariencia(v) {
   const t = String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
   if (!t) return 'transparente'
@@ -27,7 +27,7 @@ let estado = { apariencia: 'transparente', videoFondo: true, efectoLiquido: true
 const oyentes = new Set()
 function emitir() {
   const r = document.documentElement
-  r.setAttribute('data-ia-tema', estado.apariencia)
+  r.setAttribute('data-apariencia', estado.apariencia)
   r.setAttribute('data-ia-video', estado.videoFondo ? '1' : '0')
   r.setAttribute('data-ia-liquido', estado.efectoLiquido ? '1' : '0')
   oyentes.forEach(f => f())
@@ -40,25 +40,32 @@ export const aparienciaStore = {
 export const useApariencia = () => useSyncExternalStore(aparienciaStore.suscribir, aparienciaStore.get)
 
 export async function cargarApariencia() {
-  let c = {}
+  let c = {}, d = {}
   try { c = (await window.api?.ia?.getConfig?.()) || {} } catch { /* sin IPC: valores por defecto */ }
+  try { d = (await window.api?.dispositivo?.obtener?.()) || {} } catch { /* sin IPC */ }
+  let apariencia = d.apariencia ? normalizarApariencia(d.apariencia) : null
+  if (!apariencia) {
+    // Migración: antes la apariencia vivía en la BD (ia_tema: 'lusion-oscuro' …). Se pasa al dispositivo una sola vez.
+    apariencia = normalizarApariencia(c.ia_tema)
+    try { await window.api?.dispositivo?.fijar?.({ apariencia }) } catch { /* sin IPC */ }
+  }
   estado = {
-    apariencia: normalizarApariencia(c.ia_tema),
+    apariencia,
     videoFondo: c.ia_video_fondo !== '0',          // por defecto activado
-    efectoLiquido: c.ia_efecto_liquido !== '0',    // por defecto activado (solo se ve en Lusion)
+    efectoLiquido: c.ia_efecto_liquido !== '0',    // por defecto activado (solo se ve en Oscuro y Claro)
     cargado: true,
   }
   emitir()
 }
 
-async function guardar(clave, valor) { try { await window.api?.ia?.setConfig?.(clave, valor) } catch { /* sin IPC */ } }
+async function guardarIA(clave, valor) { try { await window.api?.ia?.setConfig?.(clave, valor) } catch { /* sin IPC */ } }
 
 export async function setApariencia(v) {
   const apariencia = normalizarApariencia(v)
   estado = { ...estado, apariencia }
   emitir()
-  await guardar('ia_tema', apariencia)
+  try { await window.api?.dispositivo?.fijar?.({ apariencia }) } catch { /* sin IPC */ }
   return apariencia
 }
-export async function setVideoFondo(activo) { estado = { ...estado, videoFondo: !!activo }; emitir(); await guardar('ia_video_fondo', activo ? '1' : '0') }
-export async function setEfectoLiquido(activo) { estado = { ...estado, efectoLiquido: !!activo }; emitir(); await guardar('ia_efecto_liquido', activo ? '1' : '0') }
+export async function setVideoFondo(activo) { estado = { ...estado, videoFondo: !!activo }; emitir(); await guardarIA('ia_video_fondo', activo ? '1' : '0') }
+export async function setEfectoLiquido(activo) { estado = { ...estado, efectoLiquido: !!activo }; emitir(); await guardarIA('ia_efecto_liquido', activo ? '1' : '0') }

@@ -578,10 +578,36 @@ body {
   flex: 1; min-width: 0;
   height: 100%;
   overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; /* la barra visible es .topnav-barra (abajo): crece al pasar el mouse */
   -webkit-app-region: no-drag;
 }
-.topnav::-webkit-scrollbar { height: 4px; }
-.topnav::-webkit-scrollbar-thumb { background: oklch(1 0 0 / .1); border-radius: 8px; }
+.topnav::-webkit-scrollbar { display: none; }
+
+/* ── Barra de iconos siempre visible: scroll horizontal con barra propia, degradados y rueda (ver TopNav.jsx) ── */
+:root {
+  --nav-pista: oklch(1 0 0 / .14);
+  --nav-pulgar: oklch(1 0 0 / .62);
+  --nav-pulgar-hover: oklch(1 0 0 / .88);
+  --nav-fade: oklch(0 0 0 / .55);
+}
+.topnav-caja { position: relative; flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; }
+.topnav-caja > .topnav { flex: 1 1 auto; width: 100%; }
+.topnav-caja::before, .topnav-caja::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 30px; z-index: 2; pointer-events: none; opacity: 0; transition: opacity .2s ease;
+}
+.topnav-caja::before { left: 0; background: linear-gradient(to right, var(--nav-fade), transparent); }
+.topnav-caja::after { right: 0; background: linear-gradient(to left, var(--nav-fade), transparent); }
+.topnav-caja.mas-izq::before, .topnav-caja.mas-der::after { opacity: 1; }
+.topnav-barra {
+  position: absolute; left: 8px; right: 8px; bottom: 3px; height: 6px; z-index: 3; border-radius: 999px; cursor: pointer;
+  background: var(--nav-pista); transition: height .18s ease, background-color .18s ease; -webkit-app-region: no-drag;
+}
+.topnav-caja:hover .topnav-barra, .topnav-barra:hover { height: 14px; }
+.topnav-pulgar { height: 100%; border-radius: 999px; background: var(--nav-pulgar); transition: background-color .18s ease; cursor: grab; }
+.topnav-caja:hover .topnav-pulgar { background: var(--nav-pulgar-hover); }
+@media (prefers-reduced-motion: reduce) {
+  .topnav-barra, .topnav-pulgar, .topnav-caja::before, .topnav-caja::after { transition: none; }
+}
 /* ── Glass Menu — CONSUMIDOR (adaptado a TopNav.jsx) ──
    Mecánica (.glass-menu/.glass-selector) en src/glass-engine/menu.css,
    sin tocar. Esto es solo el contenido: tamaño de ícono/texto, colores.

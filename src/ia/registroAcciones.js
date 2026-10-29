@@ -22,7 +22,7 @@ export const DESTINOS = {
   configuracion: { page: PAGES.CONFIGURACION, etiqueta: 'Configuración', alias: ['configuracion', 'ajustes'] },
 }
 
-export const TEMAS = IDS_APARIENCIA // ['transparente', 'lusion-oscuro', 'lusion-claro']
+export const TEMAS = IDS_APARIENCIA // ['transparente', 'oscuro', 'claro']
 
 export const MODOS = {
   preguntar: { etiqueta: 'Preguntar', detalle: 'Solo explica y responde. No hace nada en el sistema.' },
@@ -40,7 +40,7 @@ export const CATALOGO = {
     params: { guia: { tipo: 'enum', valores: Object.keys(GUIAS) } },
   },
   cambiar_tema: {
-    descripcion: 'Cambiar la apariencia del módulo de IA y la mascota (transparente, lusion-oscuro, lusion-claro).',
+    descripcion: 'Cambiar la apariencia de toda la app (transparente, oscuro, claro).',
     params: { tema: { tipo: 'enum', valores: TEMAS } },
   },
   importar_archivo: {
@@ -53,7 +53,7 @@ export const CATALOGO = {
 export const EJEMPLOS_LLM = [
   { frase: 'quiero ir a ver mis clientes', acciones: [{ accion: 'navegar', destino: 'clientes' }] },
   { frase: 'enséñame a cerrar la caja', acciones: [{ accion: 'iniciar_guia', guia: 'cerrar_caja' }] },
-  { frase: 'ponlo en modo oscuro', acciones: [{ accion: 'cambiar_tema', tema: 'lusion-oscuro' }] },
+  { frase: 'ponlo en modo oscuro', acciones: [{ accion: 'cambiar_tema', tema: 'oscuro' }] },
   { frase: 'quiero subir una foto de mi lista de productos', acciones: [{ accion: 'importar_archivo' }] },
 ]
 
