@@ -74,7 +74,10 @@ async function main() {
     let page = null
     for (let i = 0; i < 30 && !page; i++) { page = ctx.pages().find(p => p.url().startsWith('http://localhost:5173')); if (!page) await esp(1000) }
     await page.setViewportSize({ width: 1366, height: 768 }).catch(() => {})
-    await page.waitForSelector('input[type=password]', { timeout: 30000 })
+    await page.waitForSelector('input[type=password]', { timeout: 20000 }).catch(async () => {
+      await page.reload().catch(() => {})   // Vite recarga una vez al optimizar dependencias en frío
+      await page.waitForSelector('input[type=password]', { timeout: 30000 })
+    })
     await ejecutar(page, clave)
   } finally {
     try { await browser?.close() } catch {}
@@ -300,6 +303,48 @@ async function ejecutar(page, clave) {
     }
     const r2 = await page.locator('textarea').last().fill('/tema').then(() => page.locator('textarea').last().press('Enter')).then(() => esp(800)).then(() => page.evaluate(() => document.body.innerText))
     registrar('comandos', '/tema sin argumento muestra 3 opciones sin «lusion»', /Transparente/.test(r2) && /Oscuro/.test(r2) && /Claro/.test(r2) && !/lusion/i.test(r2.split('Apariencias:')[1] || ''))
+    await poner(page, 'transparente', 100)
+  }
+
+  // 3b) Dinero (Ventas/Caja son solo visuales): el mismo turno (abrir 100, efectivo 50, QR 30, cerrar contando 140) deja EL MISMO estado
+  //     en la BD en las tres apariencias, y visitar Caja/Ventas no cambia datos. Usa los mismos canales IPC que la interfaz.
+  if (quiere('dinero')) {
+    const estado = () => page.evaluate(async () => {
+      const h = await window.api.caja.getHistorial(500), k = await window.api.ventas.getKPIs({})
+      return { sesiones: h.length, kpis: JSON.stringify(k) }
+    })
+    const turno = () => page.evaluate(async () => {
+      const u = { usuario_id: 1, usuario_nombre: 'Prueba dinero' }, c = window.api.caja
+      if (await c.getSesionActual()) return { omitido: 'hay una caja abierta en la copia' }
+      await c.abrir({ monto_inicial: 100, ...u })
+      await c.addMovimiento({ tipo: 'ingreso', concepto: 'TEST efectivo', monto: 50, metodo_pago: 'efectivo', ...u })
+      await c.addMovimiento({ tipo: 'ingreso', concepto: 'TEST qr', monto: 30, metodo_pago: 'qr', ...u })
+      const id = (await c.getSesionActual()).id, res = await c.getResumen(id)
+      await c.cerrar({ monto_cierre: 140, ...u })
+      const s = await c.getSesionById(id), m = await c.getMovimientos(id)
+      return { esperado: res.efectivo_esperado, calc: s.monto_calculado, cierre: s.monto_cierre, dif: s.diferencia, movs: m.length, suma: m.reduce((a, x) => a + x.monto, 0) }
+    })
+    let ref = null
+    for (const ap of ['transparente', 'oscuro', 'claro']) {
+      await poner(page, ap, 100)
+      const antes = await estado()
+      for (const [ico, nombre] of [['wallet', 'Caja'], ['shopping-bag', 'Ventas']]) {
+        await irA(page, ico); await esp(900)
+        const bt = await page.evaluate(() => {
+          const lista = [...document.querySelectorAll('button')].filter(b => { const r = b.getBoundingClientRect(); return r.width > 4 && r.height > 4 && r.top >= 0 && r.bottom <= innerHeight - 60 && !b.closest('.topnav') && !b.disabled })   // la última fila queda bajo la paginación fija (igual en Transparente y en la base)
+          const tapados = lista.filter(b => { const r = b.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !(e && (e === b || b.contains(e))) })
+          return { n: lista.length, tapados: tapados.map(b => { const r = b.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return ((b.getAttribute('aria-label') || b.title || b.textContent || '').trim().slice(0, 20) || b.className.toString().slice(0, 20)) + '@' + Math.round(r.left) + ',' + Math.round(r.top) + ' tapado por ' + (e ? e.tagName + '.' + e.className.toString().slice(0, 20) : 'nada') }) }
+        })
+        registrar('dinero', `${nombre} en ${ap}: ${bt.n} botones visibles, todos alcanzables al clic`, bt.n > 0 && bt.tapados.length === 0, bt.tapados.join(' | '))
+      }
+      const despues = await estado()
+      registrar('dinero', `visitar Caja y Ventas en ${ap} no cambia la BD`, antes.sesiones === despues.sesiones && antes.kpis === despues.kpis)
+      const t = await turno()
+      if (t.omitido) { registrar('dinero', `turno de prueba en ${ap}`, false, t.omitido); continue }
+      const firma = JSON.stringify(t)
+      registrar('dinero', `turno en ${ap}: esperado 150, contado 140, diferencia −10, 4 movimientos (apertura, efectivo, QR, cierre)`, t.esperado === 150 && t.calc === 150 && t.cierre === 140 && t.dif === -10 && t.movs === 4 && t.suma === 320, firma)
+      if (!ref) ref = firma; else registrar('dinero', `estado de BD en ${ap} idéntico al de Transparente`, firma === ref, firma)
+    }
     await poner(page, 'transparente', 100)
   }
 
