@@ -7,6 +7,13 @@
     <!-- Las fuentes (Oxanium, Inter) viajan dentro de la app vía @fontsource (ver src/main.jsx): sin pedirlas a internet. -->
   </head>
   <body>
+    <!-- Filtro «goo» (gotas que se funden) del efecto de botones en Oscuro/Claro; sin recursos externos -->
+    <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute"><defs>
+      <filter id="ap-goo" x="-20%" y="-60%" width="140%" height="220%" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b" />
+        <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" />
+      </filter>
+    </defs></svg>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

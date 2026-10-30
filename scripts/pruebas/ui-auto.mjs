@@ -348,6 +348,54 @@ async function ejecutar(page, clave) {
     await poner(page, 'transparente', 100)
   }
 
+  // 3c) Efecto «goo»: solo en Oscuro/Claro y solo en mascota, Enviar, Aprobar y el selector de apariencia (nunca en otros botones ni en Transparente)
+  if (quiere('efectos')) {
+    for (const ap of ['transparente', 'oscuro', 'claro']) {
+      await poner(page, ap, 100)
+      const r = await page.evaluate(() => {
+        const mk = (attrs, cls) => { const b = document.createElement('button'); for (const [k, v] of Object.entries(attrs)) b.setAttribute(k, v); if (cls) b.className = cls; b.textContent = 'x'; document.body.appendChild(b); return b }
+        const f = b => getComputedStyle(b, '::before').filter
+        const permitidos = [mk({ 'data-testid': 'aprobar-accion' }), mk({ 'data-testid': 'apariencia-oscuro' }), mk({}, 'mascota-enviar')]
+        const ajenos = [mk({}, 'clientes-glass-btn'), mk({ 'data-testid': 'otro' }), mk({}, 'btn-primary')]
+        const masc = document.querySelector('.mascota[data-abierta="false"]')
+        const out = { permitidos: permitidos.map(f), ajenos: ajenos.map(f), mascota: masc ? f(masc) : 'sin-mascota' }
+        permitidos.concat(ajenos).forEach(b => b.remove())
+        return out
+      })
+      const con = x => String(x).includes('ap-goo')
+      if (ap === 'transparente') registrar('efectos', 'Transparente: ningún botón recibe el efecto goo', ![...r.permitidos, ...r.ajenos, r.mascota].some(con), JSON.stringify(r))
+      else {
+        registrar('efectos', `${ap}: goo en Enviar, Aprobar y selector de apariencia`, r.permitidos.every(con), JSON.stringify(r.permitidos))
+        registrar('efectos', `${ap}: goo en la mascota (si está cerrada)`, r.mascota === 'sin-mascota' || con(r.mascota), String(r.mascota))
+        registrar('efectos', `${ap}: botones ajenos sin goo`, !r.ajenos.some(con), JSON.stringify(r.ajenos))
+      }
+    }
+    await poner(page, 'transparente', 100)
+  }
+
+  // 3d) Rendimiento: cuadros por segundo al desplazar Caja e Inventario con efectos APAGADOS (Transparente) y ENCENDIDOS (Oscuro/Claro)
+  if (quiere('fps')) {
+    const medir = () => page.evaluate(() => new Promise(res => {
+      const sc = [...document.querySelectorAll('*')].filter(e => e.scrollHeight > e.clientHeight + 40 && /auto|scroll/.test(getComputedStyle(e).overflowY)).sort((a, b) => b.clientHeight - a.clientHeight)[0] || document.scrollingElement
+      let n = 0, t0 = performance.now(), dir = 1
+      const paso = t => { n++; sc.scrollTop += 14 * dir; if (sc.scrollTop <= 0 || sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2) dir = -dir; if (t - t0 < 2500) requestAnimationFrame(paso); else res(Math.round(n * 1000 / (t - t0))) }
+      requestAnimationFrame(paso)
+    }))
+    const tabla = []
+    for (const zoom of [100, 150]) for (const [ico, nombre] of [['wallet', 'Caja'], ['warehouse', 'Inventario']]) {
+      const fila = { zoom, nombre }
+      for (const ap of ['transparente', 'oscuro', 'claro']) { await poner(page, ap, zoom); await irA(page, ico); await esp(900)
+        if (process.env.UI_DEBUG && ap === 'oscuro') await page.evaluate(() => { window.__mut = {}; new MutationObserver(ms => { for (const m of ms) { const t = m.target, k = m.type + ':' + (m.attributeName || '') + ' ' + t.tagName + '.' + String(t.className && t.className.baseVal !== undefined ? t.className.baseVal : t.className).slice(0, 40); window.__mut[k] = (window.__mut[k] || 0) + 1 } }).observe(document.body, { subtree: true, attributes: true, childList: true, attributeFilter: ['style', 'class'] }) })
+        fila[ap] = await medir()
+        if (process.env.UI_DEBUG && ap === 'oscuro') console.log(JSON.stringify(Object.entries(await page.evaluate(() => window.__mut)).sort((a, b) => b[1] - a[1]).slice(0, 6)))
+        if (process.env.UI_DEBUG) console.log(zoom, nombre, ap, JSON.stringify(await page.evaluate(() => window.__motorApariencia || null)), await page.evaluate(() => document.querySelectorAll('*').length)) }
+      tabla.push(fila)
+      registrar('fps', `${nombre} a ${zoom} %: Oscuro y Claro a no más de 30 % por debajo de Transparente (Transparente ${fila.transparente}, Oscuro ${fila.oscuro}, Claro ${fila.claro})`, fila.oscuro >= fila.transparente * 0.7 && fila.claro >= fila.transparente * 0.7, JSON.stringify(fila))
+    }
+    console.log('\nFPS (cuadros/s al desplazar):\n| página | zoom | Transparente | Oscuro | Claro |\n|---|---|---|---|---|\n' + tabla.map(f => `| ${f.nombre} | ${f.zoom} % | ${f.transparente} | ${f.oscuro} | ${f.claro} |`).join('\n'))
+    await poner(page, 'transparente', 100)
+  }
+
   // 4) Persistencia a nivel de dispositivo (migración y archivo)
   if (quiere('dispositivo')) {
     await poner(page, 'oscuro', 125)

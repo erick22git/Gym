@@ -165,7 +165,7 @@ function iniciarObservador() {
   observador = new MutationObserver(ms => {
     for (const m of ms) {
       if (m.type === 'childList') m.addedNodes.forEach(n => { if (n.nodeType === 1) pendientes.add(n) })
-      else if (m.target.nodeType === 1 && !(m.type === 'attributes' && m.target.getAttribute(TOCADO) && m.attributeName === 'style' && false)) pendientes.add(m.target)
+      else if (m.target.nodeType === 1 && !m.target.closest('.glass-root, [data-ap-ignorar]')) pendientes.add(m.target)   // el selector de vidrio del menú reescribe su style en cada cuadro
     }
     if (pendientes.size) programar()
   })

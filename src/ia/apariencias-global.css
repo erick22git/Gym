@@ -52,3 +52,24 @@ html[data-alto-contraste="1"] :is(button, input, select, textarea, [role="radio"
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* ── Efecto «goo» (solo Oscuro y Claro; Transparente no lo recibe) ──
+   Únicamente en: la mascota, los botones principales del asistente (Enviar, Aprobar) y el selector de apariencia.
+   Son dos gotas detrás del botón que se funden al pasar el mouse o enfocar con teclado. El filtro actúa SOLO sobre la capa de gotas
+   (::before), nunca sobre el texto. Con «reducir movimiento» las gotas aparecen ya fundidas, sin animar. */
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"]) :is(.mascota-enviar, [data-testid="aprobar-accion"], [data-testid^="apariencia-"], .mascota[data-abierta="false"]) {
+  position: relative; isolation: isolate;
+}
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"]) :is(.mascota-enviar, [data-testid="aprobar-accion"], [data-testid^="apariencia-"], .mascota[data-abierta="false"])::before {
+  content: ''; position: absolute; inset: -4px; z-index: -1; pointer-events: none; border-radius: inherit; filter: url(#ap-goo);
+  background:
+    radial-gradient(circle at 50% 50%, var(--ap-accion) 0 26%, transparent 27%) 18% 50% / 100% 100% no-repeat,
+    radial-gradient(circle at 50% 50%, var(--ap-accion) 0 26%, transparent 27%) 82% 50% / 100% 100% no-repeat;
+  opacity: 0; transition: opacity .18s ease, background-position .32s cubic-bezier(.3, 1.4, .5, 1);
+}
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"]) :is(.mascota-enviar, [data-testid="aprobar-accion"], [data-testid^="apariencia-"], .mascota[data-abierta="false"]):is(:hover, :focus-visible):not(:disabled)::before {
+  opacity: .28; background-position: 40% 50%, 60% 50%;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(html[data-apariencia="oscuro"], html[data-apariencia="claro"]) :is(.mascota-enviar, [data-testid="aprobar-accion"], [data-testid^="apariencia-"], .mascota[data-abierta="false"])::before { transition: none; }
+}
