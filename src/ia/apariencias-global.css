@@ -73,3 +73,10 @@ html[data-alto-contraste="1"] :is(button, input, select, textarea, [role="radio"
 @media (prefers-reduced-motion: reduce) {
   :is(html[data-apariencia="oscuro"], html[data-apariencia="claro"]) :is(.mascota-enviar, [data-testid="aprobar-accion"], [data-testid^="apariencia-"], .mascota[data-abierta="false"])::before { transition: none; }
 }
+
+/* ── Rendimiento y limpieza en superficies opacas ──
+   Los resplandores (box-shadow) de filas, etiquetas y tarjetas eran para dar profundidad sobre video; con superficies opacas lo hacen la
+   pista de color y el borde. Quitarlos lleva Inventario de ~20 a ~60 fps al desplazar. Se conservan en lo que flota (diálogos, menús, mascota, avisos). */
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"]) :not(:is([role="dialog"], [role="menu"], [role="listbox"], [role="tooltip"], [role="alert"], .mascota, .ia-comandos, [class*="modal"], [class*="toast"], [class*="dropdown"], [class*="popover"]), :is([role="dialog"], [role="menu"], [role="listbox"], .mascota, [class*="modal"], [class*="dropdown"]) *) {
+  box-shadow: none !important;
+}
