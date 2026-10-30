@@ -27,6 +27,10 @@ html[data-alto-contraste="1"]:is([data-apariencia="oscuro"], [data-apariencia="t
 
 /* ── Base opaca ── */
 :is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) :is(body, #root) { background: var(--ap-fondo) !important; color: var(--ap-texto); }
+/* Fondo de las apariencias opacas: foto de public/fondos (escritorio). Oscuro → «fondo negro», Claro → «fondo blanco». #root queda transparente para dejarla ver. */
+html[data-apariencia="oscuro"] :is(body, #nada) { background: var(--ap-fondo) url('/fondos/fondo negro.png') center / cover no-repeat fixed !important; }
+html[data-apariencia="claro"] :is(body, #nada) { background: var(--ap-fondo) url('/fondos/fondo blanco.png') center / cover no-repeat fixed !important; }
+:is(html[data-apariencia="oscuro"], html[data-apariencia="claro"]) #root { background: transparent !important; }
 :is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) { background: var(--ap-fondo); }
 /* sin frames, sin atmósfera, sin vidrio ni sombras de texto */
 :is(html[data-apariencia="oscuro"], html[data-apariencia="claro"], html[data-alto-contraste="1"]) .bg-atmospheric { display: none !important; }

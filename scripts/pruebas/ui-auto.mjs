@@ -373,6 +373,25 @@ async function ejecutar(page, clave) {
     await poner(page, 'transparente', 100)
   }
 
+  // 3c2) Fondo de las apariencias opacas (escritorio, una página): Oscuro = «fondo negro», Claro = «fondo blanco»; Transparente sin foto
+  if (quiere('fondo')) {
+    const sharp = require('sharp')
+    await irA(page, 'shield-check')
+    for (const [ap, lo, hi] of [['oscuro', 0, 60], ['claro', 195, 255], ['transparente', -1, -1]]) {
+      await poner(page, ap, 100); await esp(900)
+      const r = await page.evaluate(async () => {
+        const bg = getComputedStyle(document.body).backgroundImage, m = /url\("?([^")]+)"?\)/.exec(bg)
+        const cargada = m ? await new Promise(res => { const i = new Image(); i.onload = () => res(i.naturalWidth); i.onerror = () => res(0); i.src = m[1] }) : null
+        return { bg: bg.slice(0, 80), cargada, root: getComputedStyle(document.getElementById('root')).backgroundColor }
+      })
+      if (ap === 'transparente') { registrar('fondo', 'Transparente no usa las fotos de fondo', !/fondos\//.test(r.bg), r.bg); continue }
+      const png = await sharp(await page.screenshot({ clip: { x: 1180, y: 600, width: 160, height: 120 } })).stats()
+      const media = Math.round(png.channels.slice(0, 3).reduce((a, c) => a + c.mean, 0) / 3)
+      registrar('fondo', `${ap}: la foto carga y se ve (media de un punto libre ${media}, esperado ${lo}–${hi})`, /fondos\//.test(r.bg) && r.cargada > 0 && r.root === 'rgba(0, 0, 0, 0)' && media >= lo && media <= hi, JSON.stringify(r))
+    }
+    await poner(page, 'transparente', 100)
+  }
+
   // 3d) Rendimiento: cuadros por segundo al desplazar Caja e Inventario con efectos APAGADOS (Transparente) y ENCENDIDOS (Oscuro/Claro)
   if (quiere('fps')) {
     const medir = () => page.evaluate(() => new Promise(res => {
