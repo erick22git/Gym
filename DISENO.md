@@ -221,3 +221,9 @@ Diferencias medidas y su causa (control: ocultando la línea del modo y fijando 
 | IA vacía / IA con conversación | 2,0 % / 5,1 % | nueva línea «Preguntar: solo respondo…» desplaza el contenido (intencionado) + placeholder «Escribe o adjunta» |
 | Configuración | 6,6–7,0 % | tarjeta nueva «Apariencia del módulo de IA» (3.2, intencionado) |
 | Con control (línea oculta + mascota en la posición vieja) | IA 0,25 %; resto ≤ 0,13 % | solo el placeholder (voseo → tú) y el contador de notificaciones |
+
+## 12. Sprint 1 — apariencias, accesibilidad y efectos (resumen de verificación)
+- **Nombres visibles:** «Transparente», «Oscuro», «Claro». Atributo raíz `data-apariencia`; se guarda en `dispositivo.json`; los valores antiguos (`lusion-*`, `clasico`) se migran.
+- **Transparente intacto:** `scripts/pruebas/transparente-identico.mjs` compara píxel a píxel (sin el video de fondo, que cambia de fase) la app actual contra el commit 02fea01: 1,8–7,2 % de píxeles distintos por página; ~11 % de la franja del menú (menú de iconos siempre visible, barra de desplazamiento y nombres accesibles) y 1,4–7,3 % del contenido (tipografía unificada aprobada). Cada diferencia viene de una corrección de UX aprobada en este sprint.
+- **Efecto «goo»:** filtro `#ap-goo` (en `index.html`) aplicado solo a una capa de gotas (`::before`) de mascota, Enviar, Aprobar y selector de apariencia, solo en Oscuro/Claro; con «reducir movimiento» no anima.
+- **Rendimiento:** el motor de apariencia ya no reprocesa el selector de vidrio del menú en cada cuadro (de ~700 pasadas por prueba a 1). Inventario al desplazar: Transparente 34–43 fps, Oscuro/Claro 26–38 fps.
