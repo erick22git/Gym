@@ -750,6 +750,12 @@ def process_image(image_path):
         requiere_revision.extend(llm_revision)
 
     resueltos, requiere_revision = separar_duplicados(resueltos, requiere_revision)
+    for rv in requiere_revision:   # recorte de la fila original: la tarjeta de revision puede mostrar la fila de la foto
+        m = re.match(r"fila_(\d+)$", str(rv.get("id") or ""))
+        if m and int(m.group(1)) < len(rows_raw) and rows_raw[int(m.group(1))]:
+            fila = rows_raw[int(m.group(1))]
+            rv["caja"] = [round(min(c["x1"] for c in fila)), round(min(c["y1"] for c in fila)),
+                          round(max(c["x2"] for c in fila)), round(max(c["y2"] for c in fila))]
     t_end = time.perf_counter()
 
     # Pasos reales del pipeline (con tiempos medidos) para las tarjetas del chat.
