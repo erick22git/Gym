@@ -25,3 +25,7 @@ Reanudar pruebas de UI: `UI_SOLO=vidrio-intacto node scripts/pruebas/ui-auto.mjs
   Fallos: en fotos degradadas no detecta tabla (salida vacía) y con filas de categoría desfasa las columnas.
 - Siguiente: (d) Granite-Docling, (c) PaddleOCR-VL, (e) DeepSeek-OCR (tope 10 GB; ya usados 1,4 GB); luego Paso 3 y 4.
 - Reanudar: `python scripts/evaluacion/comparar.py ppstructure fix2_total` compara lectores.
+- Paso 2(d) Granite-Docling-258M (CPU, torch en venv-eval-hf): MUESTRA PARCIAL de 3/12 (degradada_01..03; se cortó por lentitud: 800-1070 s/doc).
+  Resultado en esas 3: 13/21 correctos (igual que el pipeline actual, 13/21) pero omisión 4 e inventados 7 (actual: 0 y 1). No se adopta.
+  Etapas: `lectores/granite_extraer.py` (venv-eval-hf) -> `lectores/granite.py` (analizador de producción). Español/tildes/ñ: sin problemas visibles en las 3 lecturas.
+- Ollama CPU para medir tiempos: `OLLAMA_HOST=127.0.0.1:11500 CUDA_VISIBLE_DEVICES=-1 ollama serve` y `GYM_OLLAMA_URL=http://127.0.0.1:11500`.
