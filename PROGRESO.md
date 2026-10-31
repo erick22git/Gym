@@ -15,3 +15,13 @@ Rama `feat/sprint2-lectura` (desde 5614306 sobre feat/fase3-diseno; el motor de 
 
 Reanudar evaluación: `npm run eval:lectura -- --lector actual` (usa caché; `--rehacer` para ignorarla). Ollama CPU: `GYM_OLLAMA_URL=http://127.0.0.1:11500`.
 Reanudar pruebas de UI: `UI_SOLO=vidrio-intacto node scripts/pruebas/ui-auto.mjs`.
+
+
+## Actualización (Paso 2)
+- Paso 0a/0b: hecho. `vidrio-intacto` en `test:ui`: 7/7.
+- Lectura con el pipeline actual + 3 arreglos: precisión 87 % -> 97 %, omisión silenciosa 21 -> 0 (set sintético completo).
+- Paso 2(b) PP-StructureV3, muestra de 12 (tablas limpias 4, compleja 4, degradada 4): precisión 73 %, recall 55 %, omisión 34, inventados 17, p50 205 s.
+  Pipeline actual en los mismos 12: precisión 92 %, recall 88 %, omisión 0, inventados 1, p50 76 s. PP-StructureV3 pierde y NO se adopta.
+  Fallos: en fotos degradadas no detecta tabla (salida vacía) y con filas de categoría desfasa las columnas.
+- Siguiente: (d) Granite-Docling, (c) PaddleOCR-VL, (e) DeepSeek-OCR (tope 10 GB; ya usados 1,4 GB); luego Paso 3 y 4.
+- Reanudar: `python scripts/evaluacion/comparar.py ppstructure fix2_total` compara lectores.
