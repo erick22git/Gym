@@ -33,3 +33,6 @@ Reanudar pruebas de UI: `UI_SOLO=vidrio-intacto node scripts/pruebas/ui-auto.mjs
 - Paso 2(e) DeepSeek-OCR: NO evaluado (excede el tope de 10 GB; ver DECISIONES_PENDIENTES.md #4).
 - Paso 2 CONCLUSIÓN: el lector principal sigue siendo el actual (PaddleOCR PP-OCR + analizador determinista con los 3 arreglos). Ninguna alternativa lo supera en precisión ni en tiempo.
 - Siguiente: Paso 3 (3.1 a 3.5) con ablación, luego Paso 4 e INFORME_PRECISION.md.
+- Paso 3.1 (ablación) enderezar inclinación de la foto antes de agrupar filas (`estimar_pendiente`, interruptor GYM_DESKEW=0 para apagar):
+  degradada 83 % -> 100 % precisión, recall 81 % -> 98 %. Set completo (39 docs): precisión 100 % (261/261), recall 94 %, omisión 0, inventados 0, errores de cantidad 0. Sin regresión en ningún tipo.
+- Pendiente del Paso 3: 3.2 (unidades/decimales: ya van a revisión con motivo; opciones en DECISIONES_PENDIENTES.md), 3.3 duplicados en revisión, 3.4 palabras pegadas, 3.5 precarga de tarjeta de revisión.

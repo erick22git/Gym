@@ -162,16 +162,38 @@ def limpiar_espaciado_ocr(texto):
     return re.sub(r"\b([A-Za-zÁÉÍÓÚÜáéíóúüÑñ]+)(\d+)\b", _separar, texto)
 
 
+DESKEW = os.environ.get("GYM_DESKEW", "1") != "0"
+
+
+def estimar_pendiente(polys):
+    """Pendiente (dy/dx) de la inclinacion de la foto: mediana del borde superior de las cajas anchas. 0 si es pequena o dudosa.
+    Solo corrige el agrupado en filas (yc); las cajas originales no se tocan."""
+    try:
+        pend = []
+        for pl in polys:
+            (xa, ya), (xb, yb) = pl[0], pl[1]
+            if xb - xa > 2.5 * abs(pl[3][1] - ya):
+                pend.append((yb - ya) / (xb - xa))
+        if len(pend) < 5:
+            return 0.0
+        m = statistics.median(pend)
+        return m if 0.004 <= abs(m) <= 0.27 else 0.0   # ~0.25 a 15 grados
+    except Exception:
+        return 0.0
+
+
 def run_ocr_and_reconstruct(image_path):
     result = _ocr.predict(str(image_path))
     res = result[0]
     texts, scores, boxes = res["rec_texts"], res["rec_scores"], res["rec_boxes"]
 
+    pendiente = estimar_pendiente(res.get("rec_polys")) if DESKEW else 0.0
+
     items = []
     for text, score, box in zip(texts, scores, boxes):
         x1, y1, x2, y2 = [float(v) for v in box]
         items.append({"text": limpiar_espaciado_ocr(text), "score": float(score), "x1": x1, "y1": y1,
-                      "x2": x2, "y2": y2, "yc": (y1 + y2) / 2, "h": y2 - y1})
+                      "x2": x2, "y2": y2, "yc": (y1 + y2) / 2 - pendiente * ((x1 + x2) / 2), "h": y2 - y1})
 
     if not items:
         return {"n_lines": 0, "n_rows": 0, "table": [], "rows_raw": []}
