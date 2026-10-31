@@ -73,11 +73,21 @@ async function main() {
     const ctx = browser.contexts()[0]
     let page = null
     for (let i = 0; i < 30 && !page; i++) { page = ctx.pages().find(p => p.url().startsWith('http://localhost:5173')); if (!page) await esp(1000) }
+    const erroresPagina = []
+    page.on('console', (m) => { if (m.type() === 'error') erroresPagina.push(m.text().slice(0, 160)) })
+    page.on('pageerror', (e) => erroresPagina.push(String(e).slice(0, 160)))
     await page.setViewportSize({ width: 1366, height: 768 }).catch(() => {})
-    await page.waitForSelector('input[type=password]', { timeout: 20000 }).catch(async () => {
-      await page.reload().catch(() => {})   // Vite recarga una vez al optimizar dependencias en frío
-      await page.waitForSelector('input[type=password]', { timeout: 30000 })
-    })
+    let listo = false
+    for (let intento = 0; intento < 4 && !listo; intento++) {   // Vite en frío puede dejar la página en blanco: se recarga y se reintenta
+      listo = await page.waitForSelector('input[type=password]', { timeout: intento === 0 ? 60000 : 40000 }).then(() => true).catch(async () => {
+        await page.reload().catch(() => {})
+        return false
+      })
+    }
+    if (!listo) {
+      const txt = await page.evaluate(() => document.body.innerText.slice(0, 300)).catch(() => '?')
+      throw new Error('no apareció el login | url=' + page.url() + ' | errores=' + erroresPagina.slice(0, 3).join(' ;; ') + ' | texto=' + String(txt).replace(/\s+/g, ' '))
+    }
     await ejecutar(page, clave)
   } finally {
     try { await browser?.close() } catch {}
@@ -180,6 +190,7 @@ async function ejecutar(page, clave) {
     try { difiere = execFileSync('git', ['diff', '--name-only', REF, '--', ...ARCHIVOS], { cwd: RAIZ, encoding: 'utf8' }).trim() } catch (e) { difiere = 'git falló: ' + e.message.slice(0, 80) }
     registrar('vidrio-intacto', `archivos del motor idénticos a ${REF}`, difiere === '', difiere.split(String.fromCharCode(10)).join(', '))
     await poner(page, 'transparente', 100)
+    await page.waitForFunction(() => ['glass-refraction-menu', 'glass-specular-menu', 'glassLensDistortion'].every(id => document.getElementById(id) || document.body.querySelector('svg #' + id)), null, { timeout: 8000 }).catch(() => {})
     const t = await page.evaluate(() => {
       const fill = document.querySelector('.glass-layer--fill'), cs = fill && getComputedStyle(fill)
       const bf = cs ? (cs.backdropFilter || cs.webkitBackdropFilter || 'none') : null

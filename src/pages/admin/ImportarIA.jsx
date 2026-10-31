@@ -295,6 +295,7 @@ const MOTIVOS_HUMANOS = {
   origen_sospechoso: 'La cantidad detectada podría ser incorrecta (parece tomada del nombre del producto, no de un número real).',
   nombre_invalido: 'No pudimos identificar un nombre de producto válido en esta línea.',
   sin_cantidad: 'No pudimos leer la cantidad de este producto.',
+  duplicado_en_archivo: 'Este producto aparece más de una vez en el archivo: elige si sumar las cantidades o dejar solo una.',
 }
 
 function motivoHumano(motivo) {

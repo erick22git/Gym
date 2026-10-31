@@ -629,6 +629,37 @@ def unir_filas_continuacion(table, rows_raw):
     return t2, r2
 
 
+def _clave_nombre(n):
+    return re.sub(r"\s+", " ", _sin_tildes(str(n or "")).lower()).strip(" .,:;-_")
+
+
+def separar_duplicados(resueltos, requiere_revision):
+    """Un mismo producto dos o mas veces en el archivo NO se fusiona ni se deja pasar en silencio: todas sus filas pasan a revision
+    con motivo `duplicado_en_archivo` y las opciones (sumar / dejar uno) para que decida la persona."""
+    grupos = {}
+    for r in resueltos:
+        k = _clave_nombre(r.get("nombre"))
+        if k:
+            grupos.setdefault(k, []).append(r)
+    dup = {k for k, g in grupos.items() if len(g) > 1}
+    if not dup:
+        return resueltos, requiere_revision
+    for k in sorted(dup):
+        g = grupos[k]
+        cants = [r.get("cantidad") for r in g]
+        try:
+            suma = sum(float(c) for c in cants)
+            suma = int(suma) if suma == int(suma) else suma
+        except (TypeError, ValueError):
+            suma = None
+        requiere_revision = requiere_revision + [{
+            "id": f"dup_{k}", "texto_ocr_crudo": [f"{r.get('nombre')} {r.get('cantidad')}" for r in g],
+            "nombre_sugerido": g[0].get("nombre"), "cantidad_sugerida": cants[0], "motivo": "duplicado_en_archivo",
+            "cantidades_en_archivo": cants, "opciones": {"sumar": suma, "dejar_uno": cants[0]},
+        }]
+    return [r for r in resueltos if _clave_nombre(r.get("nombre")) not in dup], requiere_revision
+
+
 def process_image(image_path):
     t_start = time.perf_counter()
 
@@ -718,6 +749,7 @@ def process_image(image_path):
         resueltos.extend(llm_resueltos)
         requiere_revision.extend(llm_revision)
 
+    resueltos, requiere_revision = separar_duplicados(resueltos, requiere_revision)
     t_end = time.perf_counter()
 
     # Pasos reales del pipeline (con tiempos medidos) para las tarjetas del chat.
@@ -816,6 +848,7 @@ def procesar_excel_archivo(path):
     ws = wb.active
     filas = [[cell for cell in row] for row in ws.iter_rows(values_only=True)]
     resueltos, requiere_revision = filas_a_resueltos_directos(filas, "fila")
+    resueltos, requiere_revision = separar_duplicados(resueltos, requiere_revision)
     t_end = time.perf_counter()
     return {
         "resueltos": resueltos,
@@ -851,6 +884,7 @@ def procesar_word_archivo(path):
         if lineas:
             resueltos, requiere_revision = structure_free_text_with_llm(lineas, "parrafo")
 
+    resueltos, requiere_revision = separar_duplicados(resueltos, requiere_revision)
     t_end = time.perf_counter()
     return {
         "resueltos": resueltos,
@@ -911,6 +945,7 @@ def procesar_pdf_archivo(path):
                     tmp_img.unlink()
         pdf_doc.close()
 
+    resueltos, requiere_revision = separar_duplicados(resueltos, requiere_revision)
     t_end = time.perf_counter()
     return {
         "resueltos": resueltos,
