@@ -641,7 +641,7 @@ function HistorialCaja() {
                 (.page-content:has(.ventas-page) en Ventas.css desactiva
                 el scroll de toda la página) — acá SOLO la tabla scrollea,
                 <Pagination> queda fuera de este div, siempre visible. */}
-            <div style={{ maxHeight: 'calc(100vh - 460px)', overflowY: 'auto', overflowX: 'auto' }}>
+            <div style={{ maxHeight: 'max(180px, calc(100vh - 460px))', overflowY: 'auto', overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--line)' }}>
@@ -931,7 +931,7 @@ export default function Ventas() {
               <div>
                 {/* Solo la tabla scrollea — ver mismo comentario en el
                     tab Historial de Caja más arriba. */}
-                <div style={{ maxHeight: 'calc(100vh - 560px)', overflowY: 'auto', overflowX: 'auto' }}>
+                <div style={{ maxHeight: 'max(180px, calc(100vh - 560px))', overflowY: 'auto', overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--line)' }}>

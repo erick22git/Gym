@@ -436,10 +436,11 @@ async function ejecutar(page, clave) {
         ult.scrollIntoView({ block: 'nearest' })
         const r = ult.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2
         const el = document.elementFromPoint(x, y)
-        return { filas: bs.length, y: Math.round(y), alto: innerHeight, tapado: !(el && (el === ult || ult.contains(el))), tapa: el ? (el.tagName + '.' + String(el.className).slice(0, 40)) : null }
+        const cadena = []; for (let a = ult.parentElement, k = 0; a && k < 9; a = a.parentElement, k++) { const q = a.getBoundingClientRect(), c = getComputedStyle(a); cadena.push(a.tagName + ':' + Math.round(q.y) + '+' + Math.round(q.height) + ' ov=' + c.overflowY + ' mh=' + c.maxHeight) }
+        return { cadena, filas: bs.length, y: Math.round(y), alto: innerHeight, tapado: !(el && (el === ult || ult.contains(el))), tapa: el ? (el.tagName + '.' + String(el.className).slice(0, 40) + ' pos=' + getComputedStyle(el).position + ' ' + JSON.stringify(el.getBoundingClientRect().toJSON ? (({x,y,width,height})=>({x:Math.round(x),y:Math.round(y),w:Math.round(width),h:Math.round(height)}))(el.getBoundingClientRect()) : 0) + ' ' + (el.textContent || '').slice(0, 30)) : null }
       })
       if (!r.filas) { registrar('ventas-detalle', `${ap} ${zoom} %: sin filas de ventas en la copia de prueba (no se pudo medir)`, false); continue }
-      registrar('ventas-detalle', `${ap} ${zoom} %: «Ver detalle» de la última de ${r.filas} filas se puede pulsar`, !r.tapado, r.tapado ? `lo tapa ${r.tapa} (y=${r.y} de ${r.alto})` : '')
+      registrar('ventas-detalle', `${ap} ${zoom} %: «Ver detalle» de la última de ${r.filas} filas se puede pulsar`, !r.tapado, r.tapado ? `lo tapa ${r.tapa} (y=${r.y} de ${r.alto}) ${(r.cadena || []).join(' < ')}` : '')
     }
     await poner(page, 'transparente', 100)
   }
