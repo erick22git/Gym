@@ -29,3 +29,7 @@ Reanudar pruebas de UI: `UI_SOLO=vidrio-intacto node scripts/pruebas/ui-auto.mjs
   Resultado en esas 3: 13/21 correctos (igual que el pipeline actual, 13/21) pero omisión 4 e inventados 7 (actual: 0 y 1). No se adopta.
   Etapas: `lectores/granite_extraer.py` (venv-eval-hf) -> `lectores/granite.py` (analizador de producción). Español/tildes/ñ: sin problemas visibles en las 3 lecturas.
 - Ollama CPU para medir tiempos: `OLLAMA_HOST=127.0.0.1:11500 CUDA_VISIBLE_DEVICES=-1 ollama serve` y `GYM_OLLAMA_URL=http://127.0.0.1:11500`.
+- Paso 2(c) PaddleOCR-VL-1.6 (CPU): SONDA de 1 documento (tabla_compleja_01). Cargó el modelo pero no terminó la predicción en 25 min (tiempo límite). No viable en CPU. No se pudo medir calidad.
+- Paso 2(e) DeepSeek-OCR: NO evaluado (excede el tope de 10 GB; ver DECISIONES_PENDIENTES.md #4).
+- Paso 2 CONCLUSIÓN: el lector principal sigue siendo el actual (PaddleOCR PP-OCR + analizador determinista con los 3 arreglos). Ninguna alternativa lo supera en precisión ni en tiempo.
+- Siguiente: Paso 3 (3.1 a 3.5) con ablación, luego Paso 4 e INFORME_PRECISION.md.
