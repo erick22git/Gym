@@ -172,6 +172,37 @@ async function ejecutar(page, clave) {
     await poner(page, 'transparente', 100)
   }
 
+  // 1b) VIDRIO INTACTO (regla de oro): el motor de vidrio no cambió respecto al estado de referencia y sigue funcionando en la ventana real
+  if (quiere('vidrio-intacto')) {
+    const REF = '7498b6a'
+    const ARCHIVOS = ['src/glass-engine', 'public/svg/filters.svg', 'public/filters-menu-glass.svg', 'src/components/GlassMenuFilters.jsx']
+    let difiere = ''
+    try { difiere = execFileSync('git', ['diff', '--name-only', REF, '--', ...ARCHIVOS], { cwd: RAIZ, encoding: 'utf8' }).trim() } catch (e) { difiere = 'git falló: ' + e.message.slice(0, 80) }
+    registrar('vidrio-intacto', `archivos del motor idénticos a ${REF}`, difiere === '', difiere.split(String.fromCharCode(10)).join(', '))
+    await poner(page, 'transparente', 100)
+    const t = await page.evaluate(() => {
+      const fill = document.querySelector('.glass-layer--fill'), cs = fill && getComputedStyle(fill)
+      const bf = cs ? (cs.backdropFilter || cs.webkitBackdropFilter || 'none') : null
+      return {
+        selector: !!document.querySelector('.glass-selector'),
+        svg: ['glass-refraction-menu', 'glass-specular-menu', 'glassLensDistortion'].filter(id => !document.body.querySelector('svg #' + id) && !document.getElementById(id)),
+        fill: !!fill, backdrop: bf,
+      }
+    })
+    registrar('vidrio-intacto', 'Transparente: existe .glass-selector', t.selector)
+    registrar('vidrio-intacto', 'Transparente: SVG de filtros en <body> con los 3 ids', t.svg.length === 0, 'faltan ' + t.svg.join(','))
+    registrar('vidrio-intacto', 'Transparente: .glass-layer--fill con backdrop-filter', t.fill && t.backdrop && t.backdrop !== 'none', String(t.backdrop))
+    for (const ap of APARIENCIAS) {
+      await poner(page, ap, 100)
+      const pos = () => page.evaluate(() => { const s = document.querySelector('.glass-selector'); const r = s && s.getBoundingClientRect(); return r ? Math.round(r.x + r.width / 2) : null })
+      const clic = i => page.evaluate(i => { const it = [...document.querySelectorAll('.topnav .menu-item')].filter(e => e.getBoundingClientRect().width > 0)[i]; if (!it) return false; it.dispatchEvent(new MouseEvent('click', { bubbles: true })); return true }, i)
+      await clic(0); await esp(1200); const a = await pos()
+      await clic(3); await esp(1200); const b = await pos()
+      registrar('vidrio-intacto', `${ap}: la burbuja se desplaza al cambiar de módulo`, a !== null && b !== null && Math.abs(a - b) > 20, `${a} → ${b}`)
+    }
+    await poner(page, 'transparente', 100)
+  }
+
   // 2) PÁGINAS: contraste (axe), tipografía, foco, «lusion», desborde
   const tipos = {}
   if (quiere('contraste') || quiere('axe') || quiere('tipografia') || quiere('foco') || quiere('lusion')) {
@@ -388,6 +419,27 @@ async function ejecutar(page, clave) {
       const png = await sharp(await page.screenshot({ clip: { x: 1180, y: 600, width: 160, height: 120 } })).stats()
       const media = Math.round(png.channels.slice(0, 3).reduce((a, c) => a + c.mean, 0) / 3)
       registrar('fondo', `${ap}: la foto carga y se ve (media de un punto libre ${media}, esperado ${lo}–${hi})`, /fondos\//.test(r.bg) && r.cargada > 0 && r.root === 'rgba(0, 0, 0, 0)' && media >= lo && media <= hi, JSON.stringify(r))
+    }
+    await poner(page, 'transparente', 100)
+  }
+
+  // 3c) Ventas: el botón «Ver detalle» de la ÚLTIMA fila no debe quedar tapado por la paginación (solo UX: se mide con elementFromPoint)
+  if (quiere('ventas-detalle')) {
+    for (const ap of APARIENCIAS) for (const zoom of [100, 150]) {
+      await poner(page, ap, zoom); await irA(page, 'shopping-bag'); await esp(1200)
+      const r = await page.evaluate(() => {
+        const bs = [...document.querySelectorAll('button[title="Ver detalle"]')].filter(b => b.getBoundingClientRect().width > 0)
+        if (!bs.length) return { filas: 0 }
+        const ult = bs[bs.length - 1]
+        let sc = ult.parentElement; while (sc && !(sc.scrollHeight > sc.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement
+        if (sc) sc.scrollTop = sc.scrollHeight
+        ult.scrollIntoView({ block: 'nearest' })
+        const r = ult.getBoundingClientRect(), x = r.x + r.width / 2, y = r.y + r.height / 2
+        const el = document.elementFromPoint(x, y)
+        return { filas: bs.length, y: Math.round(y), alto: innerHeight, tapado: !(el && (el === ult || ult.contains(el))), tapa: el ? (el.tagName + '.' + String(el.className).slice(0, 40)) : null }
+      })
+      if (!r.filas) { registrar('ventas-detalle', `${ap} ${zoom} %: sin filas de ventas en la copia de prueba (no se pudo medir)`, false); continue }
+      registrar('ventas-detalle', `${ap} ${zoom} %: «Ver detalle» de la última de ${r.filas} filas se puede pulsar`, !r.tapado, r.tapado ? `lo tapa ${r.tapa} (y=${r.y} de ${r.alto})` : '')
     }
     await poner(page, 'transparente', 100)
   }

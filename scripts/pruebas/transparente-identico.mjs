@@ -1,5 +1,6 @@
 // «Transparente idéntico»: compara numéricamente (% de píxeles distintos) la apariencia Transparente de la app actual contra la
 // base anterior al sprint (worktree en BASE_DIR, p. ej. C:\Erick\GymBase). Mismas páginas, mismos datos (copia descartable), 1366x768.
+// RUIDO=1 compara la base contra SÍ MISMA (dos corridas): mide el ruido de captura (animaciones, brillos) para no atribuirlo a cambios.
 // Uso: BASE_DIR=C:\Erick\GymBase node scripts/pruebas/transparente-identico.mjs   (GUARDAR=1 guarda las capturas A/B)
 import { chromium } from 'playwright-core'
 import { spawn, execFileSync } from 'node:child_process'
@@ -48,7 +49,7 @@ async function capturar(raiz, puerto, cdp, datos, clave) {
   const ud = fs.mkdtempSync(path.join(os.tmpdir(), 'gym-ud-'))
   const app = spawn(require(path.join(raiz, 'node_modules/electron')), ['.', `--remote-debugging-port=${cdp}`, `--user-data-dir=${ud}`],
     { cwd: raiz, env: { ...process.env, GYM_DATA_DIR: datos, GYM_PORT: String(puerto) }, stdio: 'ignore' })
-  const fotos = {}
+  const fotos = {}, doms = {}
   let browser
   try {
     for (let i = 0; i < 60 && !browser; i++) { try { browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdp}`) } catch { await esp(1000) } }
@@ -76,6 +77,13 @@ async function capturar(raiz, puerto, cdp, datos, clave) {
       await esp(3200)   // el fondo (frames) termina de animarse y queda en el último cuadro
       await page.mouse.move(5, 5)
       fotos[nombre] = await page.screenshot()
+      // mapa del DOM visible (para atribuir cada región distinta al elemento que la contiene)
+      doms[nombre] = await page.evaluate(() => [...document.querySelectorAll('body *')].map(e => {
+        const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return null
+        const c = typeof e.className === 'string' ? e.className.trim().split(/\s+/).slice(0, 2).join('.') : ''
+        return [e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (c ? '.' + c : '') + (e.getAttribute('data-testid') ? '[' + e.getAttribute('data-testid') + ']' : ''),
+          Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height), (e.children.length ? '' : (e.textContent || '').trim().slice(0, 24))]
+      }).filter(Boolean))
     }
   } finally {
     try { await browser?.close() } catch {}
@@ -83,7 +91,7 @@ async function capturar(raiz, puerto, cdp, datos, clave) {
     if (vite) { try { execFileSync('taskkill', ['/F', '/T', '/PID', String(vite.pid)], { stdio: 'ignore' }) } catch {} }
     await esp(1500)
   }
-  return fotos
+  return { fotos, doms }
 }
 
 const { dir, datos, clave } = preparar()
@@ -91,13 +99,13 @@ const baseDB = path.join(BASE, 'dev_data'); fs.mkdirSync(baseDB, { recursive: tr
 const respaldoBase = path.join(dir, 'base-db-orig'); fs.mkdirSync(respaldoBase)
 for (const f of fs.readdirSync(baseDB)) fs.copyFileSync(path.join(baseDB, f), path.join(respaldoBase, f))
 for (const f of fs.readdirSync(datos)) fs.copyFileSync(path.join(datos, f), path.join(baseDB, f))   // la base usa los MISMOS datos
-let A, B
+let A, B, DOMA
 try {
   // la base (02fea01) no conoce GYM_PORT: se prepara su worktree (solo local; se borra al terminar la Fase 3)
   const mainBase = path.join(BASE, 'electron/main.cjs'); let m = fs.readFileSync(mainBase, 'utf8')
   if (!m.includes('GYM_PORT')) { m = m.replace("mainWindow.loadURL('http://localhost:5173')", "mainWindow.loadURL('http://localhost:' + (process.env.GYM_PORT || 5173))"); fs.writeFileSync(mainBase, m) }
-  B = await capturar(BASE, 5174, 9334, datos, clave)
-  A = await capturar(ACTUAL, 5173, 9335, datos, clave)
+  const cb = await capturar(BASE, 5174, 9334, datos, clave); B = cb.fotos
+  const ca = process.env.RUIDO === '1' ? await capturar(BASE, 5174, 9336, datos, clave) : await capturar(ACTUAL, 5173, 9335, datos, clave); A = ca.fotos; DOMA = ca.doms
 } finally {
   for (const f of fs.readdirSync(baseDB)) fs.rmSync(path.join(baseDB, f), { force: true })
   for (const f of fs.readdirSync(respaldoBase)) fs.copyFileSync(path.join(respaldoBase, f), path.join(baseDB, f))
@@ -108,15 +116,38 @@ for (const [n] of PAGINAS) {
   const b = await sharp(B[n]).raw().ensureAlpha().toBuffer({ resolveWithObject: true })
   if (a.info.width !== b.info.width || a.info.height !== b.info.height) { filas.push([n, 'tamaño distinto', '']); continue }
   let d = 0
-  for (let i = 0; i < a.data.length; i += 4) if (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]) > 24) d++
-  filas.push([n, (100 * d / (a.info.width * a.info.height)).toFixed(2) + ' %', d])
+  const W = a.info.width, H = a.info.height, C = 24, gw = Math.ceil(W / C), gh = Math.ceil(H / C), celdas = new Uint8Array(gw * gh)
+  for (let i = 0; i < a.data.length; i += 4) if (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]) > 24) { d++; const p = i / 4; celdas[Math.floor(p / W / C) * gw + Math.floor((p % W) / C)] = 1 }
+  // regiones = componentes conexos de celdas (8 vecinos) → caja delimitadora + elemento más pequeño del DOM que la contiene
+  const vis = new Uint8Array(gw * gh), regiones = []
+  for (let s0 = 0; s0 < celdas.length; s0++) {
+    if (!celdas[s0] || vis[s0]) continue
+    const pila = [s0]; vis[s0] = 1; let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1, nc = 0
+    while (pila.length) {
+      const c = pila.pop(), cx = c % gw, cy = Math.floor(c / gw); nc++
+      x0 = Math.min(x0, cx); x1 = Math.max(x1, cx); y0 = Math.min(y0, cy); y1 = Math.max(y1, cy)
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = cx + dx, ny = cy + dy; if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue
+        const k = ny * gw + nx; if (celdas[k] && !vis[k]) { vis[k] = 1; pila.push(k) }
+      }
+    }
+    const bx = x0 * C, by = y0 * C, bw = Math.min(W, (x1 + 1) * C) - bx, bh = Math.min(H, (y1 + 1) * C) - by
+    let mejor = null
+    for (const e of DOMA[n]) { if (e[1] <= bx + 2 && e[2] <= by + 2 && e[1] + e[3] >= bx + bw - 2 && e[2] + e[4] >= by + bh - 2 && (!mejor || e[3] * e[4] < mejor[3] * mejor[4])) mejor = e }
+    regiones.push({ caja: [bx, by, bw, bh], celdas: nc, contenedor: mejor ? mejor[0] + (mejor[5] ? ' «' + mejor[5] + '»' : '') : '(fondo/ninguno)' })
+  }
+  regiones.sort((p, q) => q.celdas - p.celdas)
+  filas.push([n, (100 * d / (W * H)).toFixed(2) + ' %', d, regiones])
   if (process.env.GUARDAR) {
-    fs.mkdirSync(path.join(ACTUAL, 'docs/capturas-sprint1/ab'), { recursive: true })
-    fs.writeFileSync(path.join(ACTUAL, `docs/capturas-sprint1/ab/${n}-base.png`), B[n]); fs.writeFileSync(path.join(ACTUAL, `docs/capturas-sprint1/ab/${n}-actual.png`), A[n])
+    const dirAB = path.join(ACTUAL, process.env.RUIDO === '1' ? 'docs/capturas-sprint1/ruido' : 'docs/capturas-sprint1/ab'); fs.mkdirSync(dirAB, { recursive: true })
+    fs.writeFileSync(path.join(dirAB, `dom-${n}.json`), JSON.stringify(DOMA[n])); fs.writeFileSync(path.join(dirAB, `${n}-base.png`), B[n]); fs.writeFileSync(path.join(dirAB, `${n}-actual.png`), A[n])
   }
 }
 console.log('| página | píxeles distintos (Transparente actual vs base 02fea01) |\n|---|---|')
-for (const f of filas) console.log(`| ${f[0]} | ${f[1]} |`)
-fs.writeFileSync(path.join(ACTUAL, 'docs', 'resultados-transparente-identico.json'), JSON.stringify({ fecha: new Date().toISOString(), filas }, null, 1))
+for (const f of filas) {
+  console.log(`| ${f[0]} | ${f[1]} |`)
+  for (const r of (f[3] || []).slice(0, 6)) console.log(`|   ↳ caja ${r.caja.join(',')} (${r.celdas} celdas) | ${r.contenedor} |`)
+}
+fs.writeFileSync(path.join(ACTUAL, 'docs', process.env.RUIDO === '1' ? 'resultados-transparente-ruido.json' : 'resultados-transparente-identico.json'), JSON.stringify({ fecha: new Date().toISOString(), filas }, null, 1))
 try { fs.rmSync(dir, { recursive: true, force: true }) } catch {}
 process.exit(0)

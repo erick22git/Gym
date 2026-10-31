@@ -222,6 +222,10 @@ def run_ocr_and_reconstruct(image_path):
             "table": table, "rows_raw": rows_raw}
 
 
+_NOMBRE_KW = {"nombre", "producto", "descripcion", "articulo", "item", "medicamento"}
+_CANTIDAD_KW = {"cantidad", "cant", "stock", "unidades", "qty", "existencias"}
+
+
 def pick_name_and_qty_columns(table):
     """Heuristica: la columna 'nombre' es la que mas texto alfabetico acumula;
     la columna 'precio' es la que mas '$' tiene; 'cantidad' es la mejor
@@ -240,10 +244,26 @@ def pick_name_and_qty_columns(table):
                 numeric_count[c] += 1
 
     name_col = max(range(n_cols), key=lambda c: alpha_score[c])
+    # Encabezado visible (Descripción/Producto… y Cantidad/Stock…): manda sobre la heurística, que en tablas con una columna de
+    # observaciones larga elegía esa como «nombre». La columna de cantidad del encabezado solo se usa si de verdad trae números.
+    h_name = h_qty = None
+    for row in table[:6]:
+        for c, cell in enumerate(row):
+            v = _sin_tildes(cell).strip().lower()
+            if v in _NOMBRE_KW and h_name is None:
+                h_name = c
+            elif v in _CANTIDAD_KW and h_qty is None:
+                h_qty = c
+        if h_name is not None:
+            break
+    if h_name is not None:
+        name_col = h_name
     price_col = max(range(n_cols), key=lambda c: dollar_count[c]) if any(dollar_count) else None
 
     candidates = [c for c in range(n_cols) if c != name_col and c != price_col]
     qty_col = max(candidates, key=lambda c: numeric_count[c]) if candidates else None
+    if h_qty is not None and h_qty != name_col and numeric_count[h_qty] > 0:
+        qty_col = h_qty
     return name_col, qty_col
 
 
@@ -480,6 +500,8 @@ def filtro1_nombre_valido(nombre):
         return False, "nombre_invalido"
     if n.upper() in ("SIN_IDENTIFICAR", "N/A", "DESCONOCIDO", "SIN IDENTIFICAR"):
         return False, "nombre_invalido"
+    if _sin_tildes(n).strip(" .:").upper() in ("TOTAL", "SUBTOTAL", "TOTAL GENERAL", "SUMA", "TOTALES"):
+        return False, "fila_de_total"   # una fila de totales no es un producto: va a revisión, nunca a listos
     return True, None
 
 
@@ -561,10 +583,36 @@ def structure_free_text_with_llm(lineas, id_prefix, chunk_size=10):
 # Pipeline completo
 # ---------------------------------------------------------------------------
 
+def unir_filas_continuacion(table, rows_raw):
+    """Celdas que ocupan 2 líneas (nombre largo, observación): la 2.ª línea llega como una fila aparte con texto solo en columnas de
+    texto. Se une a la fila anterior si (a) la anterior es una fila de datos (>= 3 celdas con texto), (b) la nueva no trae precio ni
+    cantidad numérica y (c) está pegada verticalmente (hueco < 0,5 de la altura de línea). Una fila que no cumple todo queda aparte."""
+    if len(table) < 2:
+        return table, rows_raw
+    alturas = [it["y2"] - it["y1"] for r in rows_raw for it in r]
+    h = statistics.median(alturas) if alturas else 20
+    t2, r2 = [list(table[0])], [list(rows_raw[0])]
+    for i in range(1, len(table)):
+        fila, previa = table[i], t2[-1]
+        con_texto = [c for c in fila if c.strip()]
+        datos_previa = sum(1 for c in previa if c.strip()) >= 3
+        sin_numeros = con_texto and not any("$" in c or re.fullmatch(r"\s*\d+(\.\d+)?\s*", c) for c in con_texto)
+        y_ini = min(it["y1"] for it in rows_raw[i])
+        y_fin_prev = max(it["y2"] for it in r2[-1])
+        if datos_previa and sin_numeros and (y_ini - y_fin_prev) < 0.5 * h:
+            t2[-1] = [(a + " " + b).strip() for a, b in zip(previa, fila)]
+            r2[-1] = sorted(r2[-1] + list(rows_raw[i]), key=lambda it: it["x1"])
+        else:
+            t2.append(list(fila)); r2.append(list(rows_raw[i]))
+    return t2, r2
+
+
 def process_image(image_path):
     t_start = time.perf_counter()
 
     recon = run_ocr_and_reconstruct(image_path)
+    recon["table"], recon["rows_raw"] = unir_filas_continuacion(recon["table"], recon["rows_raw"])
+    recon["n_rows"] = len(recon["table"])
     t_lector = time.perf_counter()
     table = recon["table"]
     rows_raw = recon["rows_raw"]
