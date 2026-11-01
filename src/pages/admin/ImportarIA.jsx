@@ -808,6 +808,25 @@ function SeccionRevision({ revision, resuelto, onCambiar }) {
               <div style={{ fontSize: 11, color: 'oklch(0.82 0.14 75)', marginBottom: 8, textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}>
                 {motivoHumano(item.motivo)}
               </div>
+              {item.motivo === 'duplicado_en_archivo' && item.opciones ? (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }} data-testid="opciones-duplicado">
+                  {[['sumar', `Sumar las cantidades (${item.opciones.sumar ?? '?'})`], ['dejar_uno', `Dejar solo una (${item.opciones.dejar_uno ?? '?'})`]].map(([clave, etiqueta]) => (
+                    <button
+                      key={clave}
+                      type="button"
+                      onClick={() => onCambiar(item.id, 'cantidad', String(item.opciones[clave] ?? ''))}
+                      disabled={item.opciones[clave] == null}
+                      style={{
+                        fontSize: 11.5, padding: '5px 10px', borderRadius: 8, cursor: 'pointer', color: 'oklch(0.97 0.01 250)',
+                        background: String(item.cantidad) === String(item.opciones[clave]) ? 'oklch(0.55 0.12 160 / .55)' : 'oklch(0.2 0.02 250 / .5)',
+                        border: '1px solid oklch(1 0 0 / .22)',
+                      }}
+                    >
+                      {etiqueta}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
 
               {resuelto ? (
                 <div style={{ fontSize: 12, color: 'var(--ink)' }}>
@@ -1764,11 +1783,12 @@ export default function ImportarIA() {
       texto_ocr_crudo: r.texto_ocr_crudo || [],
       // Un encabezado/total/fecha que el OCR confundió con producto ("Todo", "Total"…) NO se precarga.
       nombre: esNombreDeProducto(r.nombre_sugerido) ? r.nombre_sugerido : '',
-      cantidad: r.cantidad_sugerida ?? '',
+      cantidad: r.motivo === 'duplicado_en_archivo' ? '' : (r.cantidad_sugerida ?? ''),   // duplicado: elige la persona (sumar o dejar uno), nunca se asume
       nombre_original: esNombreDeProducto(r.nombre_sugerido) ? r.nombre_sugerido : '',
       cantidad_original: r.cantidad_sugerida ?? null,
       motivo: r.motivo,
       caja: r.caja || null,
+      opciones: r.opciones || null,
     }
   }
 

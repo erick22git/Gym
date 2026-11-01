@@ -86,6 +86,17 @@ async function principal() {
       if (hallado) {
         const info = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid=recorte-fila]')).map(c => ({ w: c.width, h: c.height, pintado: (() => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] < 700) n++; return n })() })))
         console.log('recortes: ' + JSON.stringify(info))
+        const op = await page.$('[data-testid=opciones-duplicado]')
+        console.log('opciones de duplicado presentes: ' + !!op)
+        if (op) {
+          await op.scrollIntoViewIfNeeded()
+          const antes = await page.evaluate(() => { const b = document.querySelector('[data-testid=opciones-duplicado]'); return b.closest('div[style]').parentElement.querySelector('input[type=number]')?.value })
+          await (await op.$('button')).click()
+          await esp(400)
+          const despues = await page.evaluate(() => { const b = document.querySelector('[data-testid=opciones-duplicado]'); return b.parentElement.querySelector('input[type=number]')?.value })
+          console.log('cantidad antes de elegir: [' + antes + '] · tras «Sumar»: [' + despues + ']')
+          await page.screenshot({ path: (process.env.SALIDA || 'recorte-fila.png').replace('.png', '-duplicado.png') })
+        }
         const el = await page.$('[data-testid=recorte-fila]')
         await el.scrollIntoViewIfNeeded()
         await page.screenshot({ path: process.env.SALIDA || 'recorte-fila.png' })
