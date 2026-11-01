@@ -48,3 +48,4 @@ Reanudar pruebas de UI: `UI_SOLO=vidrio-intacto node scripts/pruebas/ui-auto.mjs
 - Reanudar: `git checkout feat/sprint3-modelo` y seguir este archivo.
 - Paso 1.1 HECHO: `scripts/evaluacion/particion.py` (semilla 20261031, estratificado por tipo; 26 ajuste / 13 validación, guardado en datos-evaluacion/particion.json). final: ajuste 100 % precisión (171/171), recall 93 %, omisión 0; validación 100 % (84/84), recall 90 %, omisión 0. Sin señal de sobreajuste. Aviso: los arreglos de Sprint 2 se hicieron viendo los 39, así que la protección vale hacia adelante.
 - Paso 1.2: `datos-evaluacion/reales/` vacío; el arnés los mide aparte (origen=real) y nunca entran a ajuste.
+- Paso 0.3 HECHO: vidrio-intacto espera de forma explícita a que `#glass-menu-filters-container` tenga los <filter> (fetch de /filters-menu-glass.svg) en vez de una pausa ciega; la condición evaluada no cambió. 7/7.

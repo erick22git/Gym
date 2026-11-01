@@ -74,7 +74,7 @@ async function main() {
     let page = null
     for (let i = 0; i < 30 && !page; i++) { page = ctx.pages().find(p => p.url().startsWith('http://localhost:5173')); if (!page) await esp(1000) }
     const erroresPagina = []
-    page.on('console', (m) => { if (m.type() === 'error') erroresPagina.push(m.text().slice(0, 160)) })
+    page.on('console', (m) => { if (m.type() === 'error' || /GlassMenuFilters/.test(m.text())) erroresPagina.push(m.text().slice(0, 160)) })
     page.on('pageerror', (e) => erroresPagina.push(String(e).slice(0, 160)))
     await page.setViewportSize({ width: 1366, height: 768 }).catch(() => {})
     let listo = false
@@ -190,7 +190,9 @@ async function ejecutar(page, clave) {
     try { difiere = execFileSync('git', ['diff', '--name-only', REF, '--', ...ARCHIVOS], { cwd: RAIZ, encoding: 'utf8' }).trim() } catch (e) { difiere = 'git falló: ' + e.message.slice(0, 80) }
     registrar('vidrio-intacto', `archivos del motor idénticos a ${REF}`, difiere === '', difiere.split(String.fromCharCode(10)).join(', '))
     await poner(page, 'transparente', 100)
-    await page.waitForFunction(() => ['glass-refraction-menu', 'glass-specular-menu', 'glassLensDistortion'].every(id => document.getElementById(id) || document.body.querySelector('svg #' + id)), null, { timeout: 8000 }).catch(() => {})
+    // Espera EXPLÍCITA a que /filters-menu-glass.svg se haya pedido e inyectado (GlassMenuFilters lo hace con un fetch al montar):
+    // el contenedor aparece con los <filter> dentro. La condición evaluada abajo no cambia.
+    await page.waitForFunction(() => !!document.getElementById('glass-menu-filters-container')?.querySelector('filter'), null, { timeout: 20000 }).catch(() => {})
     const t = await page.evaluate(() => {
       const fill = document.querySelector('.glass-layer--fill'), cs = fill && getComputedStyle(fill)
       const bf = cs ? (cs.backdropFilter || cs.webkitBackdropFilter || 'none') : null
