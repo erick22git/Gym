@@ -8,6 +8,23 @@ import '../../ia/ia.css'
 
 const BASE = 'http://localhost:8420'
 
+const TIPOS_AVISO = [['tabla_limpia', 'una tabla limpia'], ['tabla_compleja', 'una tabla compleja'], ['manuscrito', 'una lista a mano'], ['pdf', 'un PDF escaneado']]
+
+// Aviso cuando el micro-benchmark clasifica el equipo como lento. Solo cita tiempos MEDIDOS en el equipo de referencia; no inventa los de este.
+function AvisoEquipoLento({ tiempos }) {
+  const filas = TIPOS_AVISO.map(([k, nombre]) => [nombre, tiempos?.por_tipo?.[k]?.segundos?.[0]]).filter(([, s]) => typeof s === 'number')
+  const cpu = tiempos?.equipo?.cpu
+  return (
+    <div data-testid="aviso-equipo-lento" style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, fontSize: 12.5, lineHeight: 1.55, color: 'var(--ia-aviso)', border: '1px solid currentColor' }}>
+      <b>Este equipo es lento para el asistente.</b> Todo funciona, pero leer una foto o un PDF tardará: no cierres la pantalla mientras analiza.
+      {filas.length > 0
+        ? <> Como referencia, en un equipo de {cpu?.nucleos || 4} núcleos y {tiempos.equipo.ram_total_gb} GB de RAM se midió: {filas.map(([n, s]) => `${n}, ${s < 90 ? Math.round(s) + ' s' : (s / 60).toFixed(1).replace('.', ',') + ' min'}`).join('; ')}. En este equipo no se ha medido: puede tardar más.</>
+        : <> No hay tiempos de referencia medidos, así que no se puede estimar cuánto tardará.</>}
+      {' '}Excel y Word se leen casi al instante. Activa el modo rendimiento para aligerar la pantalla.
+    </div>
+  )
+}
+
 export default function ConfigModeloIA() {
   const [info, setInfo] = useState(null)
   const [prefs, setPrefs] = useState(null)
@@ -77,6 +94,7 @@ export default function ConfigModeloIA() {
             <RefreshCw size={11} className={midiendo ? 'ia-giro' : ''} /> {midiendo ? 'Midiendo (~5 s)…' : 'Medir de nuevo'}
           </button>
         </div>
+        {bench?.equipo_lento && <AvisoEquipoLento tiempos={bench.tiempos_referencia} />}
       </div>
 
       <div style={{ ...caja, display: 'flex', alignItems: 'center', gap: 14 }}>

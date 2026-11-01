@@ -1411,6 +1411,15 @@ def _ram_gb():
         return None, None
 
 
+def _tiempos_referencia():
+    """Tiempos MEDIDOS en el equipo de referencia (scripts/tiempos_referencia.json); None si no existe. No se extrapolan a otros equipos."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "tiempos_referencia.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 @app.route("/benchmark", methods=["POST"])
 def benchmark():
     """Micro-benchmark (~5 s): tokens/s del modelo en ESTE equipo -> perfil recomendado."""
@@ -1443,7 +1452,8 @@ def benchmark():
     return jsonify({"modelo": modelo, "tokens_por_segundo": tps, "ms_primer_token": round(((primero or t0) - t0) * 1000),
                     "perfil_recomendado": recomendado, "perfil_por_velocidad": por_velocidad, "perfil_por_ram": por_ram,
                     "ram_total_gb": ram_total, "ram_libre_gb": ram_libre,
-                    "equipo_lento": por_velocidad == "basico" or recomendado == "basico"})
+                    "equipo_lento": por_velocidad == "basico" or recomendado == "basico",
+                    "tiempos_referencia": _tiempos_referencia()})
 
 
 @app.route("/chat", methods=["OPTIONS"])
