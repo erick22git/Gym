@@ -41,3 +41,8 @@ Reanudar pruebas de UI: `UI_SOLO=vidrio-intacto node scripts/pruebas/ui-auto.mjs
 - Paso 3.5: `caja` de la fila en los items de revisión de imagen (backend). UI del recorte: pendiente. Paso 3.4 no adoptado (sin casos, riesgo de cortes falsos).
 - Paso 4: evaluación final 100 % precisión (255/255), recall 92 %, omisión 0. `test:ui` completo sin fallos; vidrio-intacto 7/7 (1 corrida intermitente en filtros SVG, ver informe §10).
 - ESTADO: Sprint 2 completo salvo lo listado en INFORME_PRECISION.md §5 (fotos reales, E2E importar/deshacer, recorte en UI). Informe final: INFORME_PRECISION.md.
+
+# SPRINT 3 (rama feat/sprint3-modelo, desde feat/sprint2-lectura)
+- Paso 0.1/0.2 HECHO: `npm run test:e2e-ia` (scripts/pruebas/e2e-ia.mjs), 20/20: importar sumar/reemplazar, antes/después, todo-o-nada, auditoría, deshacer (rechazado si el stock cambió), restaurar de papelera, no deshacer dos veces, duplicados del archivo (sumar / dejar uno). Corre por IPC real sobre copia de la BD; NO maneja el asistente visual de Importar.
+- Pendiente de Paso 0: 0.3 espera explícita del SVG, 0.4 recorte `caja` en la tarjeta de revisión (y UI para elegir sumar/dejar uno, que hoy solo tiene frase).
+- Reanudar: `git checkout feat/sprint3-modelo` y seguir este archivo.

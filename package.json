@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "test:ui": "node scripts/pruebas/ui-auto.mjs",
+    "test:e2e-ia": "node scripts/pruebas/e2e-ia.mjs",
     "eval:lectura": "venv-ocr\\Scripts\\python.exe scripts\\evaluacion\\eval_lectura.py",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File dev.ps1",
     "prebuild": "node scripts/run-bytecode-compile.cjs",
