@@ -1384,6 +1384,33 @@ def modelos():
                     "perfiles": PERFILES.get("perfiles", {}), "perfil_por_defecto": PERFILES.get("perfil_por_defecto")})
 
 
+def _perfil_por_umbral(valor, umbrales):
+    """Perfil más alto cuyo umbral alcanza `valor` (umbrales: {perfil: mínimo})."""
+    elegido = "basico"
+    for nombre in ("basico", "medio", "alto"):
+        if valor is not None and valor >= umbrales.get(nombre, 0):
+            elegido = nombre
+    return elegido
+
+
+def _ram_gb():
+    """(total, libre) en GB del equipo, sin depender de psutil. (None, None) si no se puede leer."""
+    try:
+        import ctypes
+
+        class _Mem(ctypes.Structure):
+            _fields_ = [("largo", ctypes.c_ulong), ("carga", ctypes.c_ulong), ("total", ctypes.c_ulonglong), ("libre", ctypes.c_ulonglong),
+                        ("pag_total", ctypes.c_ulonglong), ("pag_libre", ctypes.c_ulonglong), ("virt_total", ctypes.c_ulonglong),
+                        ("virt_libre", ctypes.c_ulonglong), ("ext", ctypes.c_ulonglong)]
+        m = _Mem()
+        m.largo = ctypes.sizeof(_Mem)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):
+            return None, None
+        return round(m.total / 1e9, 1), round(m.libre / 1e9, 1)
+    except Exception:  # noqa: BLE001
+        return None, None
+
+
 @app.route("/benchmark", methods=["POST"])
 def benchmark():
     """Micro-benchmark (~5 s): tokens/s del modelo en ESTE equipo -> perfil recomendado."""
@@ -1408,13 +1435,15 @@ def benchmark():
         tps = round(n / dur, 1)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    umbrales = PERFILES.get("umbrales_tokens_por_segundo", {})
-    recomendado = "basico"
-    for nombre in ("basico", "medio", "alto"):
-        if tps >= umbrales.get(nombre, 0):
-            recomendado = nombre
+    por_velocidad = _perfil_por_umbral(tps, PERFILES.get("umbrales_tokens_por_segundo", {}))
+    ram_total, ram_libre = _ram_gb()
+    por_ram = _perfil_por_umbral(ram_total, PERFILES.get("umbrales_ram_gb", {})) if ram_total else "alto"   # sin dato de RAM no se limita por RAM
+    orden = ("basico", "medio", "alto")
+    recomendado = orden[min(orden.index(por_velocidad), orden.index(por_ram))]   # manda el factor más limitante
     return jsonify({"modelo": modelo, "tokens_por_segundo": tps, "ms_primer_token": round(((primero or t0) - t0) * 1000),
-                    "perfil_recomendado": recomendado})
+                    "perfil_recomendado": recomendado, "perfil_por_velocidad": por_velocidad, "perfil_por_ram": por_ram,
+                    "ram_total_gb": ram_total, "ram_libre_gb": ram_libre,
+                    "equipo_lento": por_velocidad == "basico" or recomendado == "basico"})
 
 
 @app.route("/chat", methods=["OPTIONS"])
