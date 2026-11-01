@@ -80,11 +80,17 @@ def cosechar():
 
 
 def _ram_ollama_mb():
+    """Memoria que Ollama reporta para el modelo cargado (/api/ps, campo size). El RSS del proceso NO sirve: los pesos van mapeados a disco y subestima."""
     try:
-        import psutil
-        return sum(p.info["memory_info"].rss for p in psutil.process_iter(["name", "memory_info"]) if "ollama" in (p.info["name"] or "").lower() and p.info["memory_info"]) / 1e6
+        url = svc_url().replace("/api/generate", "/api/ps")
+        with urllib.request.urlopen(url, timeout=10) as r:
+            return sum(m.get("size", 0) for m in json.load(r).get("models", [])) / 1e6
     except Exception:  # noqa: BLE001
         return None
+
+
+def svc_url():
+    return _svc().OLLAMA_URL
 
 
 def evaluar(modelo, limite=None):

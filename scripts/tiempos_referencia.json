@@ -1,0 +1,77 @@
+{
+ "equipo": {
+  "cpu": {
+   "nombre": "Intel64 Family 6 Model 42 Stepping 7, GenuineIntel",
+   "nucleos": 4,
+   "hilos": 4
+  },
+  "ram_total_gb": 17.2,
+  "so": "Windows-10-10.0.26100-SP0"
+ },
+ "medido_el": "2026-11-01",
+ "arranque_servicio_seg": 9.2,
+ "ram_mb": {
+  "servicio_tras_cargar": 479,
+  "servicio_pico": 609,
+  "ollama_pico": 2210
+ },
+ "por_tipo": {
+  "tabla_limpia": {
+   "documento": "tabla_limpia_01",
+   "segundos": [
+    71.6
+   ],
+   "items": 8
+  },
+  "tabla_compleja": {
+   "documento": "tabla_compleja_01",
+   "segundos": [
+    117.2
+   ],
+   "items": 8
+  },
+  "lista_simple": {
+   "documento": "lista_simple_01",
+   "segundos": [
+    51.1
+   ],
+   "items": 8
+  },
+  "manuscrito": {
+   "documento": "manuscrito_01",
+   "segundos": [
+    41.7
+   ],
+   "items": 6
+  },
+  "degradada": {
+   "documento": "degradada_01",
+   "segundos": [
+    48.3
+   ],
+   "items": 7
+  },
+  "excel": {
+   "documento": "excel_01",
+   "segundos": [
+    0.0
+   ],
+   "items": 8
+  },
+  "word": {
+   "documento": "word_01",
+   "segundos": [
+    0.2
+   ],
+   "items": 7
+  },
+  "pdf": {
+   "documento": "pdf_01",
+   "segundos": [
+    84.0
+   ],
+   "items": 8
+  }
+ },
+ "nota": "Medido en el equipo de referencia (un documento por tipo). null = no medido. Los demás equipos no se extrapolan: se mide su velocidad con el micro-benchmark."
+}

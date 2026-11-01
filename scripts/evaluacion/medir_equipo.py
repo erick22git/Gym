@@ -26,9 +26,10 @@ def _cpu():
     try:
         out = subprocess.run(["wmic", "cpu", "get", "name,numberofcores,numberoflogicalprocessors", "/format:list"], capture_output=True, text=True, timeout=20).stdout
         d = dict(l.strip().split("=", 1) for l in out.splitlines() if "=" in l)
-        return {"nombre": d.get("Name", "").strip(), "nucleos": int(d.get("NumberOfCores", 0) or 0), "hilos": int(d.get("NumberOfLogicalProcessors", 0) or 0)}
+        return {"nombre": d.get("Name", "").strip(), "nucleos": int(d.get("NumberOfCores", 0) or 0) or None, "hilos": int(d.get("NumberOfLogicalProcessors", 0) or 0)}
     except Exception:  # noqa: BLE001
-        return {"nombre": platform.processor(), "nucleos": None, "hilos": None}
+        import psutil
+        return {"nombre": platform.processor(), "nucleos": psutil.cpu_count(logical=False), "hilos": psutil.cpu_count(logical=True)}
 
 
 class Muestreo(threading.Thread):
@@ -44,9 +45,13 @@ class Muestreo(threading.Thread):
         while not self.parar.is_set():
             self.pico_servicio = max(self.pico_servicio, self.yo.memory_info().rss / 1e6)
             suma = 0.0
-            for p in self.ps.process_iter(["name", "memory_info"]):
-                if "ollama" in (p.info["name"] or "").lower() and p.info["memory_info"]:
-                    suma += p.info["memory_info"].rss / 1e6
+            try:   # memoria del modelo cargado según Ollama (el RSS subestima: pesos mapeados)
+                import urllib.request, json as _j, os
+                url = os.environ.get("GYM_OLLAMA_URL", "http://127.0.0.1:11434").split("/api/")[0].rstrip("/") + "/api/ps"
+                with urllib.request.urlopen(url, timeout=3) as r:
+                    suma = sum(m.get("size", 0) for m in _j.load(r).get("models", [])) / 1e6
+            except Exception:  # noqa: BLE001
+                pass
             self.pico_ollama = max(self.pico_ollama, suma)
             time.sleep(0.5)
 
