@@ -198,10 +198,11 @@ async function ejecutar(page, clave) {
         selector: !!document.querySelector('.glass-selector'),
         svg: ['glass-refraction-menu', 'glass-specular-menu', 'glassLensDistortion'].filter(id => !document.body.querySelector('svg #' + id) && !document.getElementById(id)),
         fill: !!fill, backdrop: bf,
+        ids: Array.from(document.querySelectorAll('svg filter')).map(f => f.id).slice(0, 8).join('|'), contenedor: !!document.getElementById('glass-menu-filters-container'),
       }
     })
     registrar('vidrio-intacto', 'Transparente: existe .glass-selector', t.selector)
-    registrar('vidrio-intacto', 'Transparente: SVG de filtros en <body> con los 3 ids', t.svg.length === 0, 'faltan ' + t.svg.join(','))
+    registrar('vidrio-intacto', 'Transparente: SVG de filtros en <body> con los 3 ids', t.svg.length === 0, 'faltan ' + t.svg.join(',') + ' · filtros en el DOM: ' + t.ids + ' · contenedor=' + t.contenedor)
     registrar('vidrio-intacto', 'Transparente: .glass-layer--fill con backdrop-filter', t.fill && t.backdrop && t.backdrop !== 'none', String(t.backdrop))
     for (const ap of APARIENCIAS) {
       await poner(page, ap, 100)

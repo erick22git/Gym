@@ -65,7 +65,7 @@ Todos con el MISMO analizador determinista de producción; solo cambia quién le
 
 ## 6. vidrio-intacto (regla de oro del vidrio)
 
-`test:ui` sección `vidrio-intacto`: **7/7**. Archivos del motor idénticos a `7498b6a`; en Transparente existen `.glass-selector`, los 3 filtros SVG (`glass-refraction-menu`, `glass-specular-menu`, `glassLensDistortion`) y `.glass-layer--fill` con backdrop-filter; la burbuja se mueve en las 3 apariencias. No se modificó ningún archivo del efecto vidrio. Para estabilizar la prueba (arranque de Vite en frío) se agregó reintento con recargas y 8 s de espera a la inyección de los filtros; la condición evaluada no cambió.
+`test:ui` sección `vidrio-intacto`: **7/7**. Archivos del motor idénticos a `7498b6a`; en Transparente existen `.glass-selector`, los 3 filtros SVG (`glass-refraction-menu`, `glass-specular-menu`, `glassLensDistortion`) y `.glass-layer--fill` con backdrop-filter; la burbuja se mueve en las 3 apariencias. No se modificó ningún archivo del efecto vidrio (lo único que cambió en `src` desde 7498b6a es `ImportarIA.jsx`, `Ventas.jsx` y un bloque CSS acotado a Oscuro/Claro). Para estabilizar la prueba (arranque de Vite en frío) se agregó reintento con recargas y 8 s de espera a la inyección de los filtros; la condición evaluada no cambió.
 
 ## 7. Datos y modelos fuera del repo
 
@@ -78,3 +78,9 @@ Confirmado: ningún dato de `datos-evaluacion/`, modelo, `venv-*`, `.db` ni `.en
 ## 9. Decisiones pendientes para Erick
 
 Ver `DECISIONES_PENDIENTES.md`: (1) unidades y decimales en la BD (A/B/C; hoy rige A, la más segura), (2) merge a main, (3) modelo por defecto qwen2.5:3b sin cambios (Sprint 3), (4) DeepSeek-OCR fuera del tope de 10 GB.
+
+## 10. Cierre del Paso 4 (pruebas)
+
+- `npm run test:ui` completo: **todas las áreas en 0 fallos** (login, menú, vidrio-intacto 7/7, contraste AA/AAA, axe, tipografía, modales, comandos, dinero, efectos, fondo, ventas-detalle, fps, dispositivo).
+- **Intermitencia vista y no resuelta de raíz**: en 1 de 4 corridas con el arreglo, `vidrio-intacto` falló en «filtros SVG en <body>» (los 3 ids ausentes). Las corridas siguientes pasaron 7/7, también con las mismas secciones previas. Los filtros se piden por `fetch` al montar la app (`GlassMenuFilters.jsx`) y con Vite en frío ese pedido puede no completarse; en el app empaquetada no hay Vite. No hay cambio en el motor ni en sus archivos que lo explique (la comprobación de archivos idénticos a 7498b6a pasa). Si se repite, la causa a mirar es el `fetch` de `/filters-menu-glass.svg` en dev, no el vidrio.
+- E2E de importar / deshacer / restaurar: **no existe prueba automática en el repo** (ver sección 5). Sigue sin verificarse.

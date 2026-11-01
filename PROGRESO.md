@@ -38,3 +38,6 @@ Reanudar pruebas de UI: `UI_SOLO=vidrio-intacto node scripts/pruebas/ui-auto.mjs
 - Pendiente del Paso 3: 3.2 (unidades/decimales: ya van a revisión con motivo; opciones en DECISIONES_PENDIENTES.md), 3.3 duplicados en revisión, 3.4 palabras pegadas, 3.5 precarga de tarjeta de revisión.
 - Paso 3.3 duplicados dentro del archivo: ya no se fusionan ni pasan en silencio; todas sus filas van a revisión con motivo `duplicado_en_archivo` y `opciones` {sumar, dejar_uno} (`separar_duplicados` en ocr_service.py; frase en MOTIVOS_HUMANOS de ImportarIA.jsx). Medido: excel/pdf/word sin omisión; los duplicados pasan de «listos» a revisión.
 - `vidrio-intacto` tras 3.1 y 3.3: 7/7. La prueba tuvo arranque irregular de Vite (página en blanco): ahora reintenta con recargas y espera hasta 8 s la inyección de los filtros SVG (la condición no cambió).
+- Paso 3.5: `caja` de la fila en los items de revisión de imagen (backend). UI del recorte: pendiente. Paso 3.4 no adoptado (sin casos, riesgo de cortes falsos).
+- Paso 4: evaluación final 100 % precisión (255/255), recall 92 %, omisión 0. `test:ui` completo sin fallos; vidrio-intacto 7/7 (1 corrida intermitente en filtros SVG, ver informe §10).
+- ESTADO: Sprint 2 completo salvo lo listado en INFORME_PRECISION.md §5 (fotos reales, E2E importar/deshacer, recorte en UI). Informe final: INFORME_PRECISION.md.
