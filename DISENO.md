@@ -211,7 +211,7 @@ Solo con `data-ia-tema="lusion-*"` (en Transparente el DOM envuelve con `display
 
 ## 11. «Transparente idéntico» tras 3.3 y 3.4
 
-Método: A/B contra el commit previo a la Fase 3 (`02fea01`, worktree `C:\Erick\GymBase`), capturas deterministas en la misma sesión y base de datos.
+Método: A/B contra el commit previo a la Fase 3 (`02fea01`, worktree `D:\Erick\GymBase`), capturas deterministas en la misma sesión y base de datos.
 Diferencias medidas y su causa (control: ocultando la línea del modo y fijando la mascota en su posición antigua, **todo vuelve a ruido ≤ 0,13 %**):
 
 | Captura | Diferencia | Causa |

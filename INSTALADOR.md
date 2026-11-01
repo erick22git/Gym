@@ -46,7 +46,7 @@ El dictado (`electron/voz.cjs`) manda el WAV al servicio local (`POST 127.0.0.1:
 - El servicio OCR ahora también expone `/chat` (SSE), `/modelos` y `/benchmark` (ver `scripts/README.md`); lleva
   `modelos_perfiles.json` dentro del `.exe`. La mascota flotante usa `bot-avatars`, `thinking-orbs` y `border-beam`
   (libraries.dev, MIT, sin dependencias de runtime ni llamadas de red; se empaquetan con Vite, ≈ +0,7 MB en `dist`).
-- Verificado en `C:\GymApp` con proxy trampa + monitor: 0 peticiones externas del renderer y 0 conexiones no-loopback.
+- Verificado en `D:\Erick\GymApp` con proxy trampa + monitor: 0 peticiones externas del renderer y 0 conexiones no-loopback.
 
 ## Cero tráfico saliente (verificado)
 
@@ -72,7 +72,7 @@ Idempotente. Requiere en la máquina de desarrollo: Ollama instalado con `qwen2.
 ## Carpeta "instalada" de prueba (NO es el instalador)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\empaquetado\armar-app-prueba.ps1 -Destino C:\GymApp
+powershell -ExecutionPolicy Bypass -File scripts\empaquetado\armar-app-prueba.ps1 -Destino D:\Erick\GymApp
 # solo el código de Electron (sin recopiar 6 GB):  … -SoloApp
 ```
 
@@ -85,7 +85,7 @@ electron fuses (`scripts/apply-fuses.cjs`) ni la integridad del asar.
 `scripts/empaquetado/` trae el arnés: `lanzar-limpio.ps1` (entorno vacío: sin Python en el PATH, HOME/AppData
 nuevos, proxy trampa), `trampa.cjs` (proxy en 127.0.0.1:9 que registra cualquier intento de salir) y
 `monitor.ps1` (anota toda conexión no-loopback de los procesos de la carpeta). Uso típico: lanzar
-`C:\GymApp\Gimnasio.exe` con `lanzar-limpio.ps1` y dejar corriendo `monitor.ps1` sobre `C:\GymApp`.
+`D:\Erick\GymApp\Gimnasio.exe` con `lanzar-limpio.ps1` y dejar corriendo `monitor.ps1` sobre `D:\Erick\GymApp`.
 
 Limitación honesta: no se puede desconectar la red de esta PC de desarrollo (no hay administrador y cortaría la
 sesión de trabajo), así que "sin internet" se verificó con proxy trampa + monitor de conexiones + resolución de

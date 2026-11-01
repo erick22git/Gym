@@ -6,10 +6,10 @@
 #
 # NO ejercita: el instalador NSIS, las electron fuses (afterPack) ni la integridad del asar.
 #
-#   powershell -ExecutionPolicy Bypass -File scripts\empaquetado\armar-app-prueba.ps1 [-Destino C:\GymApp]
+#   powershell -ExecutionPolicy Bypass -File scripts\empaquetado\armar-app-prueba.ps1 [-Destino D:\Erick\GymApp]
 #   -SoloApp: solo recompila el bytecode y reemplaza resources\app.asar en un $Destino ya armado
 #             (para iterar sobre el código de Electron sin volver a copiar 6 GB de recursos).
-param([string]$Destino = 'C:\GymApp', [switch]$SoloApp)
+param([string]$Destino = 'D:\Erick\GymApp', [switch]$SoloApp)
 $ErrorActionPreference = 'Stop'
 $raiz = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $rb = Join-Path $raiz 'resources-build'

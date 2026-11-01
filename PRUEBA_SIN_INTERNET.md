@@ -7,8 +7,8 @@ que hace la IA (fotos, chat, dictado, voz).
 
 | Qué | Ruta |
 |---|---|
-| Programa "instalado" de prueba | `C:\GymApp\Gimnasio.exe` (doble clic para abrirlo) |
-| Carpeta con todos sus motores | `C:\GymApp\resources\` (Ollama, servicio OCR, modelos, modelo de dictado) |
+| Programa "instalado" de prueba | `D:\Erick\GymApp\Gimnasio.exe` (doble clic para abrirlo) |
+| Carpeta con todos sus motores | `D:\Erick\GymApp\resources\` (Ollama, servicio OCR, modelos, modelo de dictado) |
 | Logs si algo falla | `%APPDATA%\gimnasio\logs\` → `ollama.log` y `ocr-service.log` |
 
 > Esta carpeta se armó a mano (no es el instalador `.exe` final, que todavía NO se generó). Se comporta como la
@@ -22,7 +22,7 @@ que hace la IA (fotos, chat, dictado, voz).
 2. **Desconecta la red de verdad**: apaga el Wi-Fi (icono de red de la barra de tareas → Wi-Fi apagado) **y**
    desenchufa el cable de red si lo hay. Comprueba que el icono muestre "sin conexión" y que
    `https://www.google.com` no abre en el navegador.
-3. Abre `C:\GymApp\Gimnasio.exe`. Inicia sesión con tu usuario.
+3. Abre `D:\Erick\GymApp\Gimnasio.exe`. Inicia sesión con tu usuario.
 4. **Espera a que la IA esté lista**: al abrir *Importar con IA* verás un aviso "iniciando…". Tarda entre
    **15 segundos y ~1 minuto** la primera vez (carga los modelos en memoria). Cuando el aviso desaparezca, ya se puede usar.
 5. **Prueba A – Foto de inventario**: en *Importar con IA* adjunta una foto de una lista de productos.
@@ -45,7 +45,7 @@ Todo debe responder **igual que con internet**. La única diferencia esperada es
 |---|---|
 | El aviso "iniciando…" no desaparece tras **3 minutos** | Un servicio no arrancó. Mira `%APPDATA%\gimnasio\logs\ocr-service.log` y `ollama.log`. No es por falta de internet, es un fallo local. |
 | Mensaje "El motor de dictado no está disponible todavía" | El servicio de IA aún está cargando (espera) o no arrancó (ver logs). |
-| Mensaje "Falta el modelo de dictado…" | Falta la carpeta `C:\GymApp\resources\whisper-model\` (o su `model.bin`). |
+| Mensaje "Falta el modelo de dictado…" | Falta la carpeta `D:\Erick\GymApp\resources\whisper-model\` (o su `model.bin`). |
 | Algo se queda "cargando" para siempre o un error de red (`fetch failed`, `ECONNREFUSED`, `ENOTFOUND`) | **Esto SÍ indicaría que algo intenta usar internet o un servicio local caído.** Anota el mensaje exacto y en qué paso pasó. |
 | Texto sin tildes/ñ o con letras raras | Problema de fuentes/codificación, no de red. |
 | Quedan procesos (`llama-server.exe`, etc.) tras cerrar | Fallo de cierre; avísame. |

@@ -3,7 +3,7 @@
 # y proxy trampa para cualquier intento de salir a internet. Escribe el PID del proceso lanzador
 # en $PidFile (no por stdout: un hijo que hereda el pipe de captura bloquea al llamador).
 param([string]$Exe, [string]$Salida, [string]$PidFile, [string]$ArgsExe = '', [string]$ExtraJson = '{}')
-$limpio = 'C:\GymClean\perfil'
+$limpio = 'D:\Erick\GymClean\perfil'
 New-Item -ItemType Directory -Force "$limpio\AppData\Roaming", "$limpio\AppData\Local", "$limpio\tmp" | Out-Null
 # Este powershell es desechable: se vacia SU entorno y el hijo hereda solo lo que se define abajo.
 Get-ChildItem Env: | ForEach-Object { Remove-Item ("Env:\" + $_.Name) -ErrorAction SilentlyContinue }

@@ -13,7 +13,7 @@ Hecho y con prueba automática (`npm run test:ui`, `node scripts/pruebas/caja-ci
 - Accesibilidad: tamaño de interfaz 100–200 %, alto contraste, nombres accesibles, modales con foco, registro `aria-live` del chat, movimiento reducido.
 - Menú de iconos siempre visible con barra de desplazamiento.
 - Efecto «goo» solo en Oscuro/Claro (mascota, Enviar, Aprobar, selector de apariencia).
-- Cierre de red del programa empaquetado (`C:\GymApp`, prueba de PC limpia con trampa de proxy y monitor de conexiones).
+- Cierre de red del programa empaquetado (`D:\Erick\GymApp`, prueba de PC limpia con trampa de proxy y monitor de conexiones).
 
 Lo que NO se pudo comprobar de forma automática (queda para revisión humana):
 - Lector de pantalla real (Narrador de Windows): solo se verificaron nombres, roles, estados y orden de foco.

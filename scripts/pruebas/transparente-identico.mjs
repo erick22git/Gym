@@ -1,7 +1,7 @@
 // «Transparente idéntico»: compara numéricamente (% de píxeles distintos) la apariencia Transparente de la app actual contra la
-// base anterior al sprint (worktree en BASE_DIR, p. ej. C:\Erick\GymBase). Mismas páginas, mismos datos (copia descartable), 1366x768.
+// base anterior al sprint (worktree en BASE_DIR, p. ej. D:\Erick\GymBase). Mismas páginas, mismos datos (copia descartable), 1366x768.
 // RUIDO=1 compara la base contra SÍ MISMA (dos corridas): mide el ruido de captura (animaciones, brillos) para no atribuirlo a cambios.
-// Uso: BASE_DIR=C:\Erick\GymBase node scripts/pruebas/transparente-identico.mjs   (GUARDAR=1 guarda las capturas A/B)
+// Uso: BASE_DIR=D:\Erick\GymBase node scripts/pruebas/transparente-identico.mjs   (GUARDAR=1 guarda las capturas A/B)
 import { chromium } from 'playwright-core'
 import { spawn, execFileSync } from 'node:child_process'
 import fs from 'node:fs'
