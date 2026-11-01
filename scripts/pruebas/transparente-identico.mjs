@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const ACTUAL = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const BASE = process.env.BASE_DIR || 'C:\\Erick\\GymBase'
+const BASE = process.env.BASE_DIR || 'D:\\Erick\\GymBase'
 const esp = ms => new Promise(r => setTimeout(r, ms))
 const vivo = url => new Promise(r => http.get(url, res => { res.resume(); r(true) }).on('error', () => r(false)))
 const PAGINAS = [['control-acceso', 'shield-check'], ['caja', 'wallet'], ['dashboard', 'layout-dashboard'], ['clientes', 'users'], ['membresias', 'credit-card'], ['inventario', 'warehouse'], ['ventas', 'shopping-bag'], ['casilleros', 'key-round'], ['reportes', 'chart-no-axes-column'], ['auditoria', 'book-open'], ['ia', 'sparkles'], ['configuracion', 'settings-2']]
