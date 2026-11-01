@@ -748,6 +748,36 @@ function PanelLateral({ modo: modoProp, conversaciones, conversacionActualId, bu
 // (nombre/cantidad) pre-rellenados con la sugerencia si el servicio la
 // trae. Mientras falte completar alguno, "Confirmar y agregar" queda
 // deshabilitado (ver TarjetaResumen) ────────────────────────────────────
+// Recorte de la fila original de la foto (caja = [x1, y1, x2, y2] en píxeles de la imagen que leyó el servicio): para comparar el
+// texto detectado contra lo que realmente dice la foto. Solo existe para imágenes; sin caja o sin imagen no se dibuja nada.
+function RecorteFila({ imagen, caja }) {
+  const canvasRef = useRef(null)
+  useEffect(() => {
+    if (!imagen || !Array.isArray(caja) || caja.length !== 4) return undefined
+    let vivo = true
+    const img = new Image()
+    img.onload = () => {
+      const c = canvasRef.current
+      if (!vivo || !c) return
+      const [x1, y1, x2, y2] = caja
+      const relleno = Math.max(6, Math.round((y2 - y1) * 0.35))
+      const sx = Math.max(0, x1 - relleno), sy = Math.max(0, y1 - relleno)
+      const sw = Math.min(img.naturalWidth - sx, x2 - x1 + 2 * relleno), sh = Math.min(img.naturalHeight - sy, y2 - y1 + 2 * relleno)
+      if (sw <= 0 || sh <= 0) return
+      const escala = Math.min(1.6, 560 / sw)
+      c.width = Math.round(sw * escala); c.height = Math.round(sh * escala)
+      c.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height)
+    }
+    img.src = imagen
+    return () => { vivo = false }
+  }, [imagen, caja])
+  if (!imagen || !Array.isArray(caja) || caja.length !== 4) return null
+  return (
+    <canvas ref={canvasRef} data-testid="recorte-fila" aria-label="Recorte de la fila original en la foto"
+      style={{ display: 'block', maxWidth: '100%', borderRadius: 6, margin: '2px 0 6px', border: '1px solid oklch(1 0 0 / .18)', background: 'oklch(0.2 0 0 / .4)' }} />
+  )
+}
+
 function SeccionRevision({ revision, resuelto, onCambiar }) {
   if (!revision?.length) return null
 
@@ -771,6 +801,7 @@ function SeccionRevision({ revision, resuelto, onCambiar }) {
                 border: `1px solid ${incompleto && !resuelto ? 'oklch(0.82 0.14 75 / .35)' : 'oklch(1 0 0 / .08)'}`,
               }}
             >
+              <RecorteFila imagen={item.imagen} caja={item.caja} />
               <div style={{ fontSize: 10.5, color: 'oklch(0.88 0.01 250 / .6)', marginBottom: 3 }}>
                 {item.origen ? <span className="ia-meta ia-origen" data-testid="origen-dato">Origen: {item.origen} · </span> : null}Texto detectado: <span style={{ color: 'oklch(0.88 0.01 250 / .85)' }}>{(item.texto_ocr_crudo || []).join(' · ')}</span>
               </div>
@@ -1737,6 +1768,7 @@ export default function ImportarIA() {
       nombre_original: esNombreDeProducto(r.nombre_sugerido) ? r.nombre_sugerido : '',
       cantidad_original: r.cantidad_sugerida ?? null,
       motivo: r.motivo,
+      caja: r.caja || null,
     }
   }
 
@@ -1813,7 +1845,7 @@ export default function ImportarIA() {
         // producto resuelto en la tarjeta de resumen sin depender del
         // nombre como key (el nombre es justo uno de los campos editables).
         resueltosTotal.push(...(data.resueltos || []).map(item => ({ ...item, id: nuevoId(), nombre_original: item.nombre, cantidad_original: item.cantidad, origen: archivo.nombre })))
-        revisionTotal.push(...(data.requiere_revision || []).map(r => ({ ...revisionDesdeServicio(r), origen: archivo.nombre })))
+        revisionTotal.push(...(data.requiere_revision || []).map(r => ({ ...revisionDesdeServicio(r), origen: archivo.nombre, imagen: esImagen(archivo) ? archivo.preview : null })))
       } catch (err) {
         if (err?.name === 'AbortError') return // el usuario detuvo el proceso; ya quedó registrado como 'detenido'
         huboErrorServicio = true
