@@ -55,3 +55,4 @@ Reanudar pruebas de UI: `UI_SOLO=vidrio-intacto node scripts/pruebas/ui-auto.mjs
 - Paso 2 HECHO: 5 modelos × 57 grupos, ver DECISIONES_PENDIENTES.md §5 (no se cambia el predeterminado; validación sin ítems esperados). Paso 4: solo criterio documentado (§7).
 - Rutas: app de prueba en D:\Erick\GymApp, perfil en D:\Erick\GymClean (C sin espacio).
 - SIGUIENTE: Paso 5 cierre (test:ui, test:e2e-ia, app empaquetada con trampa de red, sin huérfanos, INFORME_SPRINT3.md). Reanudar: `git checkout feat/sprint3-modelo` y seguir este archivo.
+- Paso 5 HECHO: test:ui completo OK (vidrio-intacto 7/7), test:e2e-ia 20/20, app empaquetada en D:\Erick\GymApp con trampa + monitor: 0 conexiones externas; sin procesos huérfanos. Informe: INFORME_SPRINT3.md. ESTADO: Sprint 3 completo salvo lo listado en §7 del informe.
