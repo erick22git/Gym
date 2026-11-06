@@ -540,7 +540,7 @@ function ModalVentaRapida({ usuario, onClose }) {
         toast.success(`Venta registrada: Bs. ${total.toFixed(2)}`)
         if (!recibosActivo) setTimeout(() => onClose(), 1800)
       } else {
-        toast.error('Error al procesar la venta')
+        toast.error(res.error || 'Error al procesar la venta')
       }
     } catch (err) {
       console.error(err)

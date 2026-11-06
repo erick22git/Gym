@@ -62,6 +62,20 @@ async function principal() {
     const stock = async id => (await api('inventario.getById', id))?.stock
     const U = { usuario_id: null, usuario_nombre: 'QA E2E' }
 
+    // Sprint 4B · Fase 1: los canales sensibles exigen la sesión del proceso principal → se inicia sesión de verdad.
+    // Usuarios de la COPIA descartable: uno Cajero (para comprobar el rechazo por IPC real) y uno Administrador.
+    const CLAVE_QA = 'qa-e2e-' + Math.random().toString(16).slice(2, 8)
+    await api('usuarios.create', { username: 'qa_cajero', nombre_completo: 'QA Cajero', password: CLAVE_QA, rol_id: 3 })
+    await api('usuarios.create', { username: 'qa_e2e', nombre_completo: 'QA E2E', password: CLAVE_QA, rol_id: 1 })
+    const loginQA = async u => (await api('authUsuarios.login', u, CLAVE_QA)).ok === true
+    registrar('seguridad', 'sin sesión, el proceso principal rechaza crear productos', (await api('inventario.create', { nombre: 'SinSesionE2E', stock: 1 })).sin_permiso === true)
+    await loginQA('qa_cajero')
+    const rc = await api('inventario.ajustarStock', { producto_id: 1, tipo: 'entrada', cantidad: 1 })
+    registrar('seguridad', 'Cajero: ajustar stock por IPC real → rechazado', rc.ok === false && rc.sin_permiso === true, JSON.stringify(rc))
+    registrar('seguridad', 'Cajero: anular venta por IPC real → rechazado', (await api('ventas.anular', 1, { motivo: 'x' })).sin_permiso === true)
+    registrar('seguridad', 'Cajero: borrado permanente por IPC real → rechazado', (await api('papelera.eliminarPermanenteProducto', 1)).sin_permiso === true)
+    registrar('seguridad', 'Administrador inicia sesión', await loginQA('qa_e2e'))
+
     // Productos de prueba
     const A = (await api('inventario.create', { nombre: 'E2E Arroz', stock: 10 })).id
     const B = (await api('inventario.create', { nombre: 'E2E Aceite', stock: 5 })).id
@@ -128,8 +142,6 @@ async function principal() {
     }
 
     // ── Sprint 4 · C.1: ventas que descuentan stock y ajuste manual (sin cambiar esquema ni lógica) ──
-    // Lo que sigue prueba el comportamiento ACTUAL. Los «hallazgo» registran un límite conocido (no fallan): están en INVENTARIO_PROPUESTA.md.
-    const hallazgo = (detalle, ok, nota) => registrar('hallazgos', detalle, true, `${ok ? 'CONFIRMADO' : 'NO se reproduce'}: ${nota}`)
     const movsDe = async id => await api('inventario.getMovimientos', id)
     const V1 = (await api('inventario.create', { nombre: 'E2E Venta Agua', stock: 20, precio_venta: 5 })).id
     const V2 = (await api('inventario.create', { nombre: 'E2E Venta Barra', stock: 6, precio_venta: 15 })).id
@@ -150,17 +162,23 @@ async function principal() {
     const m3 = await movsDe(V1)
     registrar('ajuste', 'cada ajuste queda en el kardex con motivo y usuario', ['compra al proveedor', 'merma: botellas rotas', 'conteo físico'].every(t => m3.some(m => m.motivo === t && m.usuario_nombre === 'QA E2E')))
     registrar('ajuste', 'producto inexistente se rechaza sin tocar nada', (await api('inventario.ajustarStock', { producto_id: 999999, tipo: 'entrada', cantidad: 1, ...U })).ok === false)
-    // Hallazgos (límites del comportamiento actual)
-    const H = (await api('inventario.create', { nombre: 'E2E Hallazgo', stock: 2, precio_venta: 10 })).id
-    const vs = await api('inventario.venderProductos', [{ producto_id: H, nombre_producto: 'E2E Hallazgo', cantidad: 5, precio_unitario: 10 }], { ...U, metodo_pago: 'efectivo' })
-    const mh = (await movsDe(H)).find(m => m.tipo === 'venta')
-    hallazgo('vender más que el stock: la venta se acepta y el stock se corta en 0', vs.ok === true && (await stock(H)) === 0, `se vendieron 5 con stock 2; el kardex dice cantidad=${mh?.cantidad} pero ${mh?.stock_anterior}→${mh?.stock_nuevo} (no cuadra)`)
-    const H2 = (await api('inventario.create', { nombre: 'E2E Hallazgo anular', stock: 8, precio_venta: 10 })).id
-    const vh = await api('inventario.venderProductos', [{ producto_id: H2, nombre_producto: 'E2E Hallazgo anular', cantidad: 3, precio_unitario: 10 }], { ...U, metodo_pago: 'efectivo' })
-    const an = await api('ventas.anular', vh.venta_id)
-    hallazgo('anular una venta de productos NO devuelve el stock', an.ok === true && (await stock(H2)) === 5, `anulada ok=${an.ok}; stock queda ${await stock(H2)} (debería volver a 8)`)
+    // Antes «hallazgos» confirmados (Sprint 4): ahora se comprueba que están corregidos (Sprint 4B · Fase 1)
+    const H = (await api('inventario.create', { nombre: 'E2E Sobreventa', stock: 2, precio_venta: 10 })).id
+    const nVentas0 = (await api('ventas.getAll', {})).length
+    const vs = await api('inventario.venderProductos', [{ producto_id: H, nombre_producto: 'E2E Sobreventa', cantidad: 5, precio_unitario: 10 }], { ...U, metodo_pago: 'efectivo' })
+    registrar('integridad', 'vender más que el stock → rechazado, sin venta ni cambio de stock', vs.ok === false && (await stock(H)) === 2 && (await api('ventas.getAll', {})).length === nVentas0, JSON.stringify(vs))
+    const H2 = (await api('inventario.create', { nombre: 'E2E Anular', stock: 8, precio_venta: 10 })).id
+    const vh = await api('inventario.venderProductos', [{ producto_id: H2, nombre_producto: 'E2E Anular', cantidad: 3, precio_unitario: 10 }], { ...U, metodo_pago: 'efectivo' })
+    const det = (await api('ventas.getById', vh.venta_id)).detalle
+    const sinMotivo = await api('ventas.anular', vh.venta_id, { lineas: [{ detalle_id: det[0].id, vuelve_a_stock: true }] })
+    registrar('integridad', 'anular exige motivo', sinMotivo.ok === false && (await stock(H2)) === 5, JSON.stringify(sinMotivo))
+    const an = await api('ventas.anular', vh.venta_id, { motivo: 'error de cobro', lineas: [{ detalle_id: det[0].id, vuelve_a_stock: true }] })
+    registrar('integridad', 'anular una venta de productos devuelve el stock cuando se indica (5 → 8)', an.ok === true && (await stock(H2)) === 8, JSON.stringify(an))
+    registrar('integridad', 'anular dos veces se rechaza', (await api('ventas.anular', vh.venta_id, { motivo: 'otra vez', lineas: [] })).ok === false)
     const as = await api('inventario.ajustarStock', { producto_id: H2, tipo: 'salida', cantidad: 50, ...U })
-    hallazgo('salida mayor que el stock se corta en 0 sin avisar', as.ok === true && (await stock(H2)) === 0, `salida de 50 con stock 5 → stock ${await stock(H2)}, ok=${as.ok}`)
+    registrar('integridad', 'salida mayor que el stock → rechazada (no se corta a 0)', as.ok === false && (await stock(H2)) === 8, JSON.stringify(as))
+    const mH = await movsDe(H2)
+    registrar('integridad', 'el kardex de anulación cuadra (entrada «Anulación venta #N», 5→8)', mH.some(m => m.tipo === 'entrada' && m.stock_anterior === 5 && m.stock_nuevo === 8 && /Anulación venta/.test(m.motivo || '')))
   } finally {
     try { await browser?.close() } catch {}
     try { app.kill() } catch {}
@@ -178,6 +196,5 @@ for (const r of resultados) { porArea[r.area] ||= [0, 0]; porArea[r.area][r.ok ?
 console.log('=== npm run test:e2e-ia — resumen ===')
 console.log('| área | correctas | fallos |' + NL + '|---|---|---|')
 for (const [a, [ok, ko]] of Object.entries(porArea)) console.log(`| ${a} | ${ok} | ${ko} |`)
-for (const h of resultados.filter(r => r.area === 'hallazgos')) console.log(`• hallazgo: ${h.detalle} → ${h.nota}`)
 if (fallos.length) { console.log(`--- ${fallos.length} fallo(s) ---`); for (const f of fallos) console.log(`✗ [${f.area}] ${f.detalle}${f.nota ? ' → ' + f.nota : ''}`) } else console.log('Todo correcto')
 process.exit(fallos.length ? 1 : 0)

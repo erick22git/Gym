@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog, session, shell, Menu } = require('electron')
+const seguridad = require('./seguridad.cjs')
 const { initFacturacion, registrarHandlers: registrarHandlersFacturacion } = require('./facturacion/handlers.cjs')
 const path = require('path')
 const fs = require('fs')
@@ -106,6 +107,10 @@ app.whenReady().then(async () => {
   const dbModule = require('./database.cjs')
   await dbModule.initDB()
   // Fase 0 (Sprint 4B): si la migración de esquema falló, la app arranca con los datos de antes y se avisa.
+  // Fase 1 (Sprint 4B): canales sensibles con permiso verificado en el proceso principal y usuario tomado de la sesión
+  const _guardas = require('./guardas.cjs')({ dbm: dbModule, seguridad })
+  for (const [canal, fn] of Object.entries(_guardas)) ipcMain.handle(canal, (_e, ...args) => fn(...args))
+  ipcMain.handle('inventario:getPoliticaStock', () => dbModule.inventario.getPoliticaStock())
   ipcMain.handle('sistema:estadoMigracion', () => dbModule.estadoMigracion())
   const _mig = dbModule.estadoMigracion()
   if (_mig && _mig.ok === false && !process.env.GYM_SIN_DIALOGOS) {
@@ -240,9 +245,17 @@ ipcMain.handle('auth:checkAdmin', (_, password) => require('./database.cjs').aut
 ipcMain.handle('auth:setAdmin', (_, password) => require('./database.cjs').auth.setAdmin(password))
 
 // Auth nuevo (sistema de usuarios)
-ipcMain.handle('auth:login', (_, username, password) => require('./database.cjs').usuarios.login(username, password))
-ipcMain.handle('auth:logout', (_, token) => require('./database.cjs').sesiones.cerrar(token))
-ipcMain.handle('auth:verificarToken', (_, token) => require('./database.cjs').sesiones.verificar(token))
+ipcMain.handle('auth:login', (_, username, password) => {
+  const r = require('./database.cjs').usuarios.login(username, password)
+  if (r && r.ok) seguridad.establecer(r.usuario); else seguridad.limpiar()
+  return r
+})
+ipcMain.handle('auth:logout', (_, token) => { seguridad.limpiar(); return require('./database.cjs').sesiones.cerrar(token) })
+ipcMain.handle('auth:verificarToken', (_, token) => {
+  const u = require('./database.cjs').sesiones.verificar(token)
+  if (u) seguridad.establecer(u); else seguridad.limpiar()
+  return u
+})
 ipcMain.handle('auth:cambiarPassword', (_, id, passwordActual, nuevaPassword) => {
   const db = require('./database.cjs')
   const ok = db.usuarios.verificarPassword(id, passwordActual)
@@ -326,7 +339,6 @@ ipcMain.handle('ventas:getAll', (_, filtros) => require('./database.cjs').ventas
 ipcMain.handle('ventas:getPaginated', (_, filtros) => require('./database.cjs').ventas.getPaginated(filtros))
 ipcMain.handle('ventas:getById', (_, id) => require('./database.cjs').ventas.getById(id))
 ipcMain.handle('ventas:getKPIs', (_, filtros) => require('./database.cjs').ventas.getKPIs(filtros))
-ipcMain.handle('ventas:anular', (_, id) => require('./database.cjs').ventas.anular(id))
 ipcMain.handle('ventas:setCliente', (_, id, nombre, carnet) => require('./database.cjs').ventas.setCliente(id, nombre, carnet))
 
 // Descuentos
@@ -429,28 +441,15 @@ ipcMain.handle('pos:testPrint', (_, printerName) => new Promise(resolve => {
 
 // Inventario
 ipcMain.handle('inventario:getCategorias', () => require('./database.cjs').inventario.getCategorias())
-ipcMain.handle('inventario:createCategoria', (_, data) => require('./database.cjs').inventario.createCategoria(data))
-ipcMain.handle('inventario:updateCategoria', (_, id, data) => require('./database.cjs').inventario.updateCategoria(id, data))
-ipcMain.handle('inventario:deleteCategoria', (_, id) => require('./database.cjs').inventario.deleteCategoria(id))
 ipcMain.handle('inventario:getProveedores', () => require('./database.cjs').inventario.getProveedores())
-ipcMain.handle('inventario:createProveedor', (_, data) => require('./database.cjs').inventario.createProveedor(data))
-ipcMain.handle('inventario:updateProveedor', (_, id, data) => require('./database.cjs').inventario.updateProveedor(id, data))
-ipcMain.handle('inventario:deleteProveedor', (_, id) => require('./database.cjs').inventario.deleteProveedor(id))
 ipcMain.handle('inventario:getAll', (_, filtros) => require('./database.cjs').inventario.getAll(filtros))
 ipcMain.handle('inventario:getPaginated', (_, filtros) => require('./database.cjs').inventario.getPaginated(filtros))
 ipcMain.handle('inventario:getAllMovimientosPaginated', (_, filtros) => require('./database.cjs').inventario.getAllMovimientosPaginated(filtros))
 ipcMain.handle('inventario:getById', (_, id) => require('./database.cjs').inventario.getById(id))
-ipcMain.handle('inventario:create', (_, data) => require('./database.cjs').inventario.create(data))
-ipcMain.handle('inventario:update', (_, id, data) => require('./database.cjs').inventario.update(id, data))
-ipcMain.handle('inventario:delete', (_, id) => require('./database.cjs').inventario.delete(id))
 ipcMain.handle('inventario:getStockBajo', () => require('./database.cjs').inventario.getStockBajo())
 ipcMain.handle('inventario:buscarPOS', (_, query) => require('./database.cjs').inventario.buscarPOS(query))
-ipcMain.handle('inventario:ajustarStock', (_, data) => require('./database.cjs').inventario.ajustarStock(data))
 ipcMain.handle('inventario:getMovimientos', (_, productoId) => require('./database.cjs').inventario.getMovimientos(productoId))
 ipcMain.handle('inventario:getAllMovimientos', () => require('./database.cjs').inventario.getAllMovimientos())
-ipcMain.handle('inventario:venderProductos', (_, items, meta) => require('./database.cjs').inventario.venderProductos(items, meta))
-ipcMain.handle('inventario:importarLote', (_, data) => require('./database.cjs').inventario.importarLote(data))
-ipcMain.handle('inventario:deshacerLote', (_, data) => require('./database.cjs').inventario.deshacerLote(data))
 ipcMain.handle('iaAuditoria:crear', (_, data) => require('./database.cjs').iaAuditoria.crear(data))
 ipcMain.handle('iaAuditoria:actualizar', (_, id, cambios) => require('./database.cjs').iaAuditoria.actualizar(id, cambios))
 ipcMain.handle('iaAuditoria:getAll', (_, filtros) => require('./database.cjs').iaAuditoria.getAll(filtros))
@@ -506,10 +505,8 @@ ipcMain.handle('papelera:getPlanes', () => require('./database.cjs').papelera.ge
 ipcMain.handle('papelera:getProductos', () => require('./database.cjs').papelera.getProductos())
 ipcMain.handle('papelera:restaurarCliente', (_, id) => require('./database.cjs').papelera.restaurarCliente(id))
 ipcMain.handle('papelera:restaurarPlan', (_, id) => require('./database.cjs').papelera.restaurarPlan(id))
-ipcMain.handle('papelera:restaurarProducto', (_, id) => require('./database.cjs').papelera.restaurarProducto(id))
 ipcMain.handle('papelera:eliminarPermanenteCliente', (_, id) => require('./database.cjs').papelera.eliminarPermanenteCliente(id))
 ipcMain.handle('papelera:eliminarPermanentePlan', (_, id) => require('./database.cjs').papelera.eliminarPermanentePlan(id))
-ipcMain.handle('papelera:eliminarPermanenteProducto', (_, id) => require('./database.cjs').papelera.eliminarPermanenteProducto(id))
 
 // Respaldos
 ipcMain.handle('respaldos:info', () => require('./database.cjs').respaldosDB.info())

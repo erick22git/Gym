@@ -167,6 +167,47 @@ function run(sql, params = []) {
 const MIGRACIONES = [
   { version: 1, nombre: 'línea base versionada', up() { db.run("INSERT OR IGNORE INTO config (key, value) VALUES ('esquema_linea_base', '1')") } },
 ]
+function _addCol(tabla, col, def) {
+  if (!queryAll(`PRAGMA table_info(${tabla})`).some(c => c.name === col)) db.run(`ALTER TABLE ${tabla} ADD COLUMN ${col} ${def}`)
+}
+// Transacción de un solo guardado a disco. `fn` usa db.run (NO run(), que guarda en cada sentencia) y lanza Error
+// para abortar: se revierte todo y se devuelve {ok:false,error}. Lo que `fn` devuelva es el resultado.
+function _tx(fn) {
+  let en = false
+  try {
+    db.run('BEGIN'); en = true
+    const r = fn()
+    db.run('COMMIT'); en = false
+    try { saveDB() } catch (e) { return { ok: false, error: `Los cambios se aplicaron pero no se pudieron guardar en disco: ${e.message}`, persistencia: false } }
+    return r
+  } catch (e) {
+    if (en) { try { db.run('ROLLBACK') } catch (_) { /* ya no había transacción */ } }
+    return { ok: false, error: e.message }
+  }
+}
+function _ins(sql, params) { db.run(sql, params); return db.exec('SELECT last_insert_rowid()')[0].values[0][0] }
+MIGRACIONES.push({
+  version: 2, nombre: 'fase 1: archivado, anulación auditada, política de stock y permisos de inventario',
+  up() {
+    _addCol('productos', 'archivado', 'INTEGER DEFAULT 0')
+    _addCol('productos', 'archivado_at', 'TEXT')
+    _addCol('ventas', 'anulada_at', 'TEXT')
+    _addCol('ventas', 'anulada_por', 'INTEGER')
+    _addCol('ventas', 'anulada_por_nombre', 'TEXT')
+    _addCol('ventas', 'motivo_anulacion', 'TEXT')
+    db.run("INSERT OR IGNORE INTO config (key, value) VALUES ('stock_negativo', 'no_permitir')")
+    // Hasta hoy la pantalla de Inventario permitía todo a quien tuviera `inventario.ver` (los permisos finos no se aplicaban).
+    // Para NO quitarle a nadie lo que hacía, los roles con `inventario.ver` reciben las acciones de esa pantalla.
+    const acciones = ['inventario.crear_producto', 'inventario.editar_producto', 'inventario.eliminar_producto', 'inventario.gestionar_categorias', 'inventario.gestionar_proveedores']
+    const roles = queryAll("SELECT rp.rol_id FROM rol_permisos rp JOIN permisos p ON p.id=rp.permiso_id WHERE p.codigo='inventario.ver'")
+    for (const r of roles) for (const c of acciones) {
+      const p = queryOne('SELECT id FROM permisos WHERE codigo=?', [c])
+      if (p) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (?,?)', [r.rol_id, p.id])
+    }
+    // Admin siempre tiene todos los permisos
+    for (const p of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [p.id])
+  },
+})
 const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version
 let _SQL = null
 let _estadoMigracion = { migrada: false, ok: true, version: null }
@@ -2187,12 +2228,62 @@ const ventas = {
     return { totalVentas, totalIngresos, ventasMembresia, ventasProductos }
   },
 
-  anular(id) {
-    const v = queryOne('SELECT estado FROM ventas WHERE id=?', [id])
-    if (!v) return { ok: false, error: 'Venta no encontrada' }
-    if (v.estado === 'anulada') return { ok: false, error: 'Ya está anulada' }
-    run("UPDATE ventas SET estado='anulada' WHERE id=?", [id])
-    return { ok: true }
+  // Anular una venta (todo o nada). Exige motivo. En ventas de productos se decide POR LÍNEA si vuelve al stock
+  // (movimiento «Anulación venta #N») o es merma (movimiento sin cambio de stock, con su motivo). Si hubo ingreso en
+  // caja se registra un egreso del mismo método en la caja ABIERTA (el esperado en efectivo vuelve a cuadrar).
+  //   opts: { motivo, lineas:[{detalle_id, vuelve_a_stock, motivo_merma}], usuario_id, usuario_nombre }
+  anular(id, opts = {}) {
+    return _tx(() => {
+      const v = queryOne('SELECT id, estado, tipo, factura_id FROM ventas WHERE id=?', [id])
+      if (!v) throw new Error('Venta no encontrada')
+      if (v.estado === 'anulada') throw new Error('La venta ya está anulada.')
+      const motivo = String(opts.motivo ?? '').trim()
+      if (motivo.length < 3) throw new Error('Escribe el motivo de la anulación.')
+      const detalle = queryAll('SELECT * FROM detalle_ventas_productos WHERE venta_id=?', [id])
+      const lineas = Array.isArray(opts.lineas) ? opts.lineas : []
+      const porId = new Map(lineas.map(l => [l.detalle_id, l]))
+      if (detalle.length) {
+        for (const d of detalle) {
+          const l = porId.get(d.id)
+          if (!l || typeof l.vuelve_a_stock !== 'boolean') throw new Error(`Indica si "${d.nombre_producto}" vuelve al stock.`)
+          if (!l.vuelve_a_stock && String(l.motivo_merma ?? '').trim().length < 3) throw new Error(`Escribe el motivo de la merma de "${d.nombre_producto}".`)
+        }
+        for (const l of lineas) if (!detalle.some(d => d.id === l.detalle_id)) throw new Error('Una línea indicada no pertenece a esta venta.')
+      }
+      const uid = opts.usuario_id || null, unombre = opts.usuario_nombre || null
+      db.run("UPDATE ventas SET estado='anulada', anulada_at=datetime('now','localtime'), anulada_por=?, anulada_por_nombre=?, motivo_anulacion=? WHERE id=?", [uid, unombre, motivo, id])
+      for (const d of detalle) {
+        const l = porId.get(d.id)
+        const p = queryOne('SELECT id, stock FROM productos WHERE id=?', [d.producto_id])
+        if (!p) { if (l.vuelve_a_stock) throw new Error(`"${d.nombre_producto}" ya no existe: no puede volver al stock.`); continue }
+        if (l.vuelve_a_stock) {
+          const nuevo = p.stock + d.cantidad
+          db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [nuevo, p.id])
+          db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
+            [p.id, 'entrada', d.cantidad, p.stock, nuevo, `Anulación venta #${id}: ${motivo}`, id, uid, unombre])
+        } else {
+          db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
+            [p.id, 'merma', d.cantidad, p.stock, p.stock, `Merma por anulación venta #${id}: ${String(l.motivo_merma).trim()}`, id, uid, unombre])
+        }
+      }
+      const avisos = []
+      const ingresos = queryAll("SELECT concepto, monto, metodo_pago FROM caja_movimientos WHERE referencia_tipo='venta' AND referencia_id=? AND tipo='ingreso'", [id])
+      let reintegrado = 0
+      if (ingresos.length) {
+        const ses = queryOne("SELECT id FROM caja_sesiones WHERE estado='abierta' ORDER BY id DESC LIMIT 1")
+        if (ses) {
+          for (const m of ingresos) {
+            db.run(`INSERT INTO caja_movimientos (sesion_id, tipo, concepto, monto, metodo_pago, referencia_id, referencia_tipo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
+              [ses.id, 'egreso', `Anulación venta #${id}`, m.monto, m.metodo_pago || 'efectivo', id, 'anulacion_venta', uid, unombre])
+            reintegrado += m.monto
+          }
+        } else avisos.push('No hay caja abierta: el reintegro del dinero no se registró en caja. Regístralo como egreso al abrir la caja.')
+      }
+      if (v.factura_id) avisos.push('La venta tiene factura: anúlala también desde Facturación (a confirmar con el contador).')
+      db.run("INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)",
+        [uid, unombre || 'Sistema', 'ANULAR_VENTA', 'ventas', JSON.stringify({ motivo, lineas: lineas.map(l => ({ detalle_id: l.detalle_id, vuelve: l.vuelve_a_stock, merma: l.motivo_merma || null })), reintegrado_caja: reintegrado }), id, 'venta'])
+      return { ok: true, reintegrado_caja: reintegrado, ...(avisos.length ? { avisos } : {}) }
+    })
   },
 
   setCliente(id, nombre, carnet) {
@@ -2399,7 +2490,7 @@ const inventario = {
       FROM productos p
       LEFT JOIN categorias_productos c ON p.categoria_id=c.id
       LEFT JOIN proveedores pv ON p.proveedor_id=pv.id
-      WHERE p.activo=1 AND p.eliminado=0
+      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=${filtros.archivados ? 1 : 0}
     `
     const params = []
     if (filtros.categoria_id) { sql += ' AND p.categoria_id=?'; params.push(filtros.categoria_id) }
@@ -2421,21 +2512,29 @@ const inventario = {
     `, [id])
   },
   create(data) {
-    const r = run(
-      `INSERT INTO productos (nombre, codigo, descripcion, categoria_id, proveedor_id,
-       precio_compra, precio_venta, stock, stock_minimo, unidad, imagen)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      [data.nombre, data.codigo || null, data.descripcion || null,
-       data.categoria_id || null, data.proveedor_id || null,
-       data.precio_compra || 0, data.precio_venta || 0,
-       data.stock || 0, data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null]
-    )
-    const id = r.lastInsertRowid
-    if (data.stock > 0) {
-      run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
-        [id, 'entrada', data.stock, 0, data.stock, 'Stock inicial', data.usuario_id || null, data.usuario_nombre || null])
-    }
-    return inventario.getById(id)
+    const stock0 = data.stock || 0
+    if (!Number.isInteger(stock0) || stock0 < 0) return { ok: false, error: 'El stock inicial debe ser un número entero mayor o igual a 0.' }
+    if (!String(data.nombre ?? '').trim()) return { ok: false, error: 'El producto necesita un nombre.' }
+    const id = (() => {
+      const r = _tx(() => {
+        const nuevo = _ins(
+          `INSERT INTO productos (nombre, codigo, descripcion, categoria_id, proveedor_id,
+           precio_compra, precio_venta, stock, stock_minimo, unidad, imagen)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+          [data.nombre, data.codigo || null, data.descripcion || null,
+           data.categoria_id || null, data.proveedor_id || null,
+           data.precio_compra || 0, data.precio_venta || 0,
+           stock0, data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null])
+        if (stock0 > 0) {
+          db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
+            [nuevo, 'entrada', stock0, 0, stock0, 'Stock inicial', data.usuario_id || null, data.usuario_nombre || null])
+        }
+        return { ok: true, id: nuevo }
+      })
+      return r
+    })()
+    if (id.ok === false) return id
+    return inventario.getById(id.id)
   },
   update(id, data) {
     run(
@@ -2453,12 +2552,41 @@ const inventario = {
     run("UPDATE productos SET eliminado=1, eliminado_at=datetime('now','localtime'), activo=0 WHERE id=?", [id])
     return { ok: true }
   },
+  // Archivar ≠ papelera: el producto deja de venderse y de listarse, pero conserva toda su historia.
+  archivar(id, u = {}) {
+    const p = queryOne('SELECT id, nombre, archivado FROM productos WHERE id=? AND eliminado=0', [id])
+    if (!p) return { ok: false, error: 'Producto no encontrado' }
+    if (p.archivado) return { ok: false, error: 'El producto ya está archivado.' }
+    run("UPDATE productos SET archivado=1, archivado_at=datetime('now','localtime'), updated_at=datetime('now','localtime') WHERE id=?", [id])
+    try { auditoria.log({ usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre, accion: 'ARCHIVAR_PRODUCTO', modulo: 'inventario', detalle: p.nombre, registro_afectado_id: id, registro_afectado_tipo: 'producto' }) } catch (_) {}
+    return { ok: true }
+  },
+  reactivar(id, u = {}) {
+    const p = queryOne('SELECT id, nombre, archivado FROM productos WHERE id=? AND eliminado=0', [id])
+    if (!p) return { ok: false, error: 'Producto no encontrado' }
+    if (!p.archivado) return { ok: false, error: 'El producto no está archivado.' }
+    run("UPDATE productos SET archivado=0, archivado_at=NULL, activo=1, updated_at=datetime('now','localtime') WHERE id=?", [id])
+    try { auditoria.log({ usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre, accion: 'REACTIVAR_PRODUCTO', modulo: 'inventario', detalle: p.nombre, registro_afectado_id: id, registro_afectado_tipo: 'producto' }) } catch (_) {}
+    return { ok: true }
+  },
+  // Política por negocio: 'no_permitir' (defecto) | 'permitir_con_aviso'
+  getPoliticaStock() {
+    const r = queryOne("SELECT value FROM config WHERE key='stock_negativo'")
+    return r && r.value === 'permitir_con_aviso' ? 'permitir_con_aviso' : 'no_permitir'
+  },
+  setPoliticaStock(valor, u = {}) {
+    if (valor !== 'no_permitir' && valor !== 'permitir_con_aviso') return { ok: false, error: 'Valor de política de stock inválido.' }
+    const antes = inventario.getPoliticaStock()
+    run("INSERT OR REPLACE INTO config (key, value) VALUES ('stock_negativo', ?)", [valor])
+    try { auditoria.log({ usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre, accion: 'POLITICA_STOCK', modulo: 'inventario', detalle: `${antes} → ${valor}` }) } catch (_) {}
+    return { ok: true, politica: valor }
+  },
   getStockBajo() {
     return queryAll(`
       SELECT p.*, c.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos c ON p.categoria_id=c.id
-      WHERE p.activo=1 AND p.eliminado=0 AND p.stock <= p.stock_minimo
+      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=0 AND p.stock <= p.stock_minimo
       ORDER BY p.stock ASC
     `)
   },
@@ -2468,27 +2596,37 @@ const inventario = {
       SELECT p.id, p.nombre, p.codigo, p.precio_venta, p.stock, p.stock_minimo, p.unidad, p.imagen, c.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos c ON p.categoria_id=c.id
-      WHERE p.activo=1 AND p.eliminado=0
+      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=0
         AND (p.nombre LIKE ? OR p.codigo LIKE ? OR c.nombre LIKE ?)
       ORDER BY p.stock DESC, p.nombre LIMIT 20
     `, [q, q, q])
   },
+  // Entrada / salida / ajuste (conteo). Todo o nada. Nunca recorta en silencio: una salida mayor al stock o un
+  // ajuste negativo se RECHAZA (salvo la política «permitir_con_aviso», que deja el stock negativo y lo avisa).
+  // Cuando es válido, `cantidad` del kardex cumple: entrada = nuevo−anterior · salida = anterior−nuevo · ajuste = objetivo.
   ajustarStock(data) {
-    const prod = queryOne('SELECT stock FROM productos WHERE id=?', [data.producto_id])
-    if (!prod) return { ok: false, error: 'Producto no encontrado' }
-    const stockAnterior = prod.stock
-    let stockNuevo
-    if (data.tipo === 'ajuste') {
-      stockNuevo = Math.max(0, data.cantidad)
-    } else if (data.tipo === 'entrada') {
-      stockNuevo = stockAnterior + data.cantidad
-    } else {
-      stockNuevo = Math.max(0, stockAnterior - data.cantidad)
-    }
-    run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, data.producto_id])
-    run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
-      [data.producto_id, data.tipo, data.cantidad, stockAnterior, stockNuevo, data.motivo || null, data.usuario_id || null, data.usuario_nombre || null])
-    return { ok: true, stock_anterior: stockAnterior, stock_nuevo: stockNuevo }
+    return _tx(() => {
+      const prod = queryOne('SELECT stock, archivado, eliminado FROM productos WHERE id=?', [data.producto_id])
+      if (!prod || prod.eliminado) throw new Error('Producto no encontrado')
+      const tipo = data.tipo
+      if (!['entrada', 'salida', 'ajuste'].includes(tipo)) throw new Error('Tipo de movimiento no válido (entrada, salida o ajuste).')
+      const cant = data.cantidad
+      if (!Number.isInteger(cant)) throw new Error('La cantidad debe ser un número entero.')
+      if (tipo !== 'ajuste' && cant <= 0) throw new Error('La cantidad debe ser mayor que 0.')
+      if (tipo === 'ajuste' && cant < 0) throw new Error('El stock contado no puede ser negativo.')
+      const permitirNeg = inventario.getPoliticaStock() === 'permitir_con_aviso'
+      const stockAnterior = prod.stock
+      const stockNuevo = tipo === 'ajuste' ? cant : tipo === 'entrada' ? stockAnterior + cant : stockAnterior - cant
+      let aviso
+      if (stockNuevo < 0) {
+        if (!permitirNeg) throw new Error(`No se puede sacar ${cant}: solo hay ${stockAnterior} en stock.`)
+        aviso = `El stock quedó negativo (${stockNuevo}).`
+      }
+      db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, data.producto_id])
+      db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
+        [data.producto_id, tipo, cant, stockAnterior, stockNuevo, data.motivo || null, data.usuario_id || null, data.usuario_nombre || null])
+      return { ok: true, stock_anterior: stockAnterior, stock_nuevo: stockNuevo, ...(aviso ? { aviso } : {}) }
+    })
   },
   getMovimientos(productoId) {
     return queryAll('SELECT * FROM movimientos_stock WHERE producto_id=? ORDER BY created_at DESC LIMIT 100', [productoId])
@@ -2501,36 +2639,50 @@ const inventario = {
       ORDER BY m.created_at DESC LIMIT 300
     `)
   },
-  venderProductos(items, meta) {
-    const subtotal = items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
-    // Snapshot del cliente al momento de la venta
-    const _cliSnap2 = meta.cliente_id ? queryOne('SELECT nombre, apellido, carnet FROM clientes WHERE id=?', [meta.cliente_id]) : null
-    const _cliNombre2 = _cliSnap2 ? `${_cliSnap2.nombre || ''} ${_cliSnap2.apellido || ''}`.trim() : null
-    const _cliCarnet2 = _cliSnap2?.carnet || null
-
-    const ventaR = run(
-      `INSERT INTO ventas (cliente_id, usuario_id, tipo, subtotal, total, metodo_pago, estado, cliente_nombre, cliente_carnet)
-       VALUES (?,?,?,?,?,?,'completada',?,?)`,
-      [meta.cliente_id || null, meta.usuario_id || null, 'productos', subtotal, subtotal, meta.metodo_pago || 'efectivo',
-       _cliNombre2, _cliCarnet2]
-    )
-    const ventaId = ventaR.lastInsertRowid
-    for (const item of items) {
-      run(`INSERT INTO detalle_ventas_productos (venta_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal) VALUES (?,?,?,?,?,?)`,
-        [ventaId, item.producto_id, item.nombre_producto, item.cantidad, item.precio_unitario, item.cantidad * item.precio_unitario])
-      const prod = queryOne('SELECT stock FROM productos WHERE id=?', [item.producto_id])
-      if (prod) {
-        const stockNuevo = Math.max(0, prod.stock - item.cantidad)
-        run("UPDATE productos SET stock=? WHERE id=?", [stockNuevo, item.producto_id])
-        run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
-          [item.producto_id, 'venta', item.cantidad, prod.stock, stockNuevo, 'Venta', ventaId, meta.usuario_id || null, meta.usuario_nombre || null])
+  // Venta de productos ATÓMICA: valida todo antes de tocar nada y escribe venta + detalle + stock + kardex + caja
+  // en una sola transacción. Si algo falla (stock insuficiente, producto inexistente/archivado) no queda nada a medias.
+  venderProductos(items, meta = {}) {
+    if (!Array.isArray(items) || items.length === 0) return { ok: false, error: 'La venta no tiene productos.' }
+    return _tx(() => {
+      const permitirNeg = inventario.getPoliticaStock() === 'permitir_con_aviso'
+      const pedido = new Map()
+      for (const it of items) {
+        if (!Number.isInteger(it.cantidad) || it.cantidad <= 0) throw new Error(`Cantidad no válida para "${it.nombre_producto || it.producto_id}".`)
+        if (typeof it.precio_unitario !== 'number' || !(it.precio_unitario >= 0)) throw new Error(`Precio no válido para "${it.nombre_producto || it.producto_id}".`)
+        pedido.set(it.producto_id, (pedido.get(it.producto_id) || 0) + it.cantidad)
       }
-    }
-    if (meta.sesion_id) {
-      run(`INSERT INTO caja_movimientos (sesion_id, tipo, concepto, monto, metodo_pago, referencia_id, referencia_tipo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
-        [meta.sesion_id, 'ingreso', 'Venta de productos', subtotal, meta.metodo_pago || 'efectivo', ventaId, 'venta', meta.usuario_id || null, meta.usuario_nombre || null])
-    }
-    return { ok: true, venta_id: ventaId, total: subtotal }
+      const productos = new Map()
+      for (const [pid, cant] of pedido) {
+        const p = queryOne('SELECT id, nombre, stock, activo, eliminado, archivado FROM productos WHERE id=?', [pid])
+        if (!p || p.eliminado || !p.activo) throw new Error('Uno de los productos ya no existe en el inventario.')
+        if (p.archivado) throw new Error(`"${p.nombre}" está archivado y no se puede vender.`)
+        if (p.stock < cant && !permitirNeg) throw new Error(`Stock insuficiente de "${p.nombre}": pides ${cant} y hay ${p.stock}.`)
+        productos.set(pid, p)
+      }
+      const subtotal = items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+      const cli = meta.cliente_id ? queryOne('SELECT nombre, apellido, carnet FROM clientes WHERE id=?', [meta.cliente_id]) : null
+      const cliNombre = cli ? `${cli.nombre || ''} ${cli.apellido || ''}`.trim() : null
+      const ventaId = _ins(
+        `INSERT INTO ventas (cliente_id, usuario_id, tipo, subtotal, total, metodo_pago, estado, cliente_nombre, cliente_carnet)
+         VALUES (?,?,?,?,?,?,'completada',?,?)`,
+        [meta.cliente_id || null, meta.usuario_id || null, 'productos', subtotal, subtotal, meta.metodo_pago || 'efectivo', cliNombre, cli?.carnet || null])
+      let aviso
+      for (const item of items) {
+        db.run(`INSERT INTO detalle_ventas_productos (venta_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal) VALUES (?,?,?,?,?,?)`,
+          [ventaId, item.producto_id, item.nombre_producto || productos.get(item.producto_id).nombre, item.cantidad, item.precio_unitario, item.cantidad * item.precio_unitario])
+        const actual = queryOne('SELECT stock FROM productos WHERE id=?', [item.producto_id]).stock
+        const nuevo = actual - item.cantidad
+        if (nuevo < 0) aviso = 'Algún producto quedó con stock negativo.'
+        db.run('UPDATE productos SET stock=? WHERE id=?', [nuevo, item.producto_id])
+        db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
+          [item.producto_id, 'venta', item.cantidad, actual, nuevo, 'Venta', ventaId, meta.usuario_id || null, meta.usuario_nombre || null])
+      }
+      if (meta.sesion_id) {
+        db.run(`INSERT INTO caja_movimientos (sesion_id, tipo, concepto, monto, metodo_pago, referencia_id, referencia_tipo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
+          [meta.sesion_id, 'ingreso', 'Venta de productos', subtotal, meta.metodo_pago || 'efectivo', ventaId, 'venta', meta.usuario_id || null, meta.usuario_nombre || null])
+      }
+      return { ok: true, venta_id: ventaId, total: subtotal, ...(aviso ? { aviso } : {}) }
+    })
   },
 
   // ─── Importación por IA (todo o nada) ───────────────────────────────────
@@ -2589,8 +2741,9 @@ const inventario = {
           }
           resultados.push({ accion: 'crear', producto_id: lid, nombre, stock_anterior: 0, stock_nuevo: it.cantidad })
         } else {
-          const prod = queryOne('SELECT id, nombre, stock, activo, eliminado FROM productos WHERE id=?', [it.producto_id])
+          const prod = queryOne('SELECT id, nombre, stock, activo, eliminado, archivado FROM productos WHERE id=?', [it.producto_id])
           if (!prod || prod.eliminado || !prod.activo) throw new Error(`El producto "${nombre}" ya no existe en el inventario.`)
+          if (prod.archivado) throw new Error(`El producto "${nombre}" está archivado: reactívalo en Inventario antes de importarlo.`)
           const sumar = modo === 'sumar'
           const stockNuevo = sumar ? prod.stock + it.cantidad : it.cantidad
           db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, prod.id])
@@ -2644,7 +2797,7 @@ const inventario = {
           throw new Error(`"${prod.nombre}" cambió desde la importación (ahora tiene ${prod.stock}, se importó ${it.stock_nuevo}). No toqué nada; corrígelo a mano en Inventario.`)
         }
         if (it.accion === 'crear') {
-          db.run("UPDATE productos SET eliminado=1, eliminado_at=datetime('now','localtime'), activo=0 WHERE id=?", [prod.id])
+          db.run("UPDATE productos SET eliminado=1, eliminado_at=datetime('now','localtime'), activo=0, archivado=0, archivado_at=NULL WHERE id=?", [prod.id])
           db.run(
             `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
             [prod.id, 'salida', prod.stock, prod.stock, 0, motivo + ' (producto eliminado)', uid, unombre]
@@ -2684,7 +2837,7 @@ const inventario = {
       FROM productos p
       LEFT JOIN categorias_productos c ON p.categoria_id=c.id
       LEFT JOIN proveedores pv ON p.proveedor_id=pv.id
-      WHERE p.activo=1 AND p.eliminado=0`
+      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=${filtros.archivados ? 1 : 0}`
     const params = []
     if (filtros.categoria_id) { sql += ' AND p.categoria_id=?'; params.push(filtros.categoria_id) }
     if (filtros.busqueda) {
@@ -2692,7 +2845,7 @@ const inventario = {
       sql += ' AND (p.nombre LIKE ? OR p.codigo LIKE ?)'
       params.push(q, q)
     }
-    const countSql = `SELECT COUNT(*) as n FROM productos p WHERE p.activo=1 AND p.eliminado=0` +
+    const countSql = `SELECT COUNT(*) as n FROM productos p WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=${filtros.archivados ? 1 : 0}` +
       (filtros.categoria_id ? ' AND p.categoria_id=?' : '') +
       (filtros.busqueda ? ' AND (p.nombre LIKE ? OR p.codigo LIKE ?)' : '')
     const countParams = []
@@ -2978,6 +3131,11 @@ const papelera = {
     return { ok: true }
   },
   eliminarPermanenteProducto(id) {
+    const nMov = queryOne('SELECT COUNT(*) n FROM movimientos_stock WHERE producto_id=?', [id]).n
+    const nVen = queryOne('SELECT COUNT(*) n FROM detalle_ventas_productos WHERE producto_id=?', [id]).n
+    if (nMov > 0 || nVen > 0) {
+      return { ok: false, error: `Este producto tiene historial (${nMov} movimientos de stock, ${nVen} ventas). No se borra de forma permanente para no dejar ventas ni kardex huérfanos: archívalo para conservar su historia.` }
+    }
     run('DELETE FROM productos WHERE id=? AND eliminado=1', [id])
     return { ok: true }
   },

@@ -102,10 +102,21 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
     return () => window.removeEventListener('keydown', fn)
   }, [onClose])
 
+  const [motivo, setMotivo] = useState('')
+  const [decisiones, setDecisiones] = useState({}) // detalle_id → { vuelve: true|false|undefined, merma: '' }
+  const [errorAnular, setErrorAnular] = useState('')
+  const [avisosAnular, setAvisosAnular] = useState([])
+
   async function handleAnular() {
+    setErrorAnular('')
+    const lineas = (detalle?.detalle || []).map(d => ({
+      detalle_id: d.id, vuelve_a_stock: decisiones[d.id]?.vuelve, motivo_merma: decisiones[d.id]?.merma || '',
+    }))
     setAnulando(true)
-    await onAnular(venta.id)
+    const r = await onAnular(venta.id, { motivo, lineas })
     setAnulando(false)
+    if (!r || r.ok === false) { setErrorAnular(r?.error || 'No se pudo anular la venta.'); return }
+    if (r.avisos && r.avisos.length) { setAvisosAnular(r.avisos); return }
     onClose()
   }
 
@@ -208,13 +219,44 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
                   </button>
                 ) : (
                   <div>
-                    <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 10, textAlign: 'center' }}>¿Confirmar anulación? Esta acción no se puede deshacer.</p>
+                    <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 10 }}>Anular no se puede deshacer. Indica el motivo{(detalle.detalle || []).length > 0 ? ' y qué pasa con cada producto' : ''}.</p>
+                    <label htmlFor="anular-motivo" style={{ fontSize: 12, color: 'var(--dim)' }}>Motivo de la anulación</label>
+                    <input id="anular-motivo" data-testid="anular-motivo" className="gym-input" aria-label="Motivo de la anulación" value={motivo}
+                      onChange={e => setMotivo(e.target.value)} placeholder="Ej.: error de cobro" style={{ width: '100%', marginBottom: 10 }} />
+                    {(detalle.detalle || []).map(d => {
+                      const dec = decisiones[d.id] || {}
+                      const set = patch => setDecisiones(x => ({ ...x, [d.id]: { ...(x[d.id] || {}), ...patch } }))
+                      return (
+                        <fieldset key={d.id} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                          <legend style={{ fontSize: 13, color: 'var(--ink)', padding: '0 4px' }}>{d.nombre_producto} (x{d.cantidad})</legend>
+                          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--ink)' }}>
+                            <input type="radio" name={`vuelve-${d.id}`} checked={dec.vuelve === true} onChange={() => set({ vuelve: true })} aria-label={`${d.nombre_producto}: vuelve al stock`} /> Vuelve al stock
+                          </label>
+                          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--ink)' }}>
+                            <input type="radio" name={`vuelve-${d.id}`} checked={dec.vuelve === false} onChange={() => set({ vuelve: false })} aria-label={`${d.nombre_producto}: no vuelve, es merma`} /> No vuelve (merma)
+                          </label>
+                          {dec.vuelve === false && (
+                            <input className="gym-input" aria-label={`Motivo de la merma de ${d.nombre_producto}`} placeholder="Motivo de la merma (ej.: paquete abierto)"
+                              value={dec.merma || ''} onChange={e => set({ merma: e.target.value })} style={{ width: '100%', marginTop: 6 }} />
+                          )}
+                        </fieldset>
+                      )
+                    })}
+                    {errorAnular && <p role="alert" data-testid="anular-error" style={{ fontSize: 13, color: 'oklch(0.75 0.18 25)', marginBottom: 8 }}>Error: {errorAnular}</p>}
+                    {avisosAnular.length > 0 && (
+                      <div role="status" style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 8 }}>
+                        <strong>Venta anulada.</strong>
+                        {avisosAnular.map((a, i) => <p key={i} style={{ marginTop: 4 }}>Aviso: {a}</p>)}
+                        <button onClick={onClose} className="clientes-glass-btn" style={{ marginTop: 8 }}><div className="clientes-glass-bg" /><span className="clientes-glass-content">Entendido</span></button>
+                      </div>
+                    )}
+                    {avisosAnular.length === 0 && (
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={() => setConfirmarAnular(false)} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}>
                         <div className="clientes-glass-bg" />
                         <span className="clientes-glass-content">Cancelar</span>
                       </button>
-                      <button onClick={handleAnular} disabled={anulando} className="clientes-glass-btn"
+                      <button onClick={handleAnular} disabled={anulando} data-testid="confirmar-anulacion" className="clientes-glass-btn"
                         style={{ flex: 1, padding: '9px', borderRadius: 9, background: 'transparent', border: '1px solid oklch(0.75 0.18 25 / .5)', cursor: 'pointer', opacity: anulando ? 0.6 : 1 }}>
                         <div className="clientes-glass-bg" />
                         <span className="clientes-glass-content" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 14, fontWeight: 700 }}>
@@ -222,6 +264,7 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
                         </span>
                       </button>
                     </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -798,8 +841,8 @@ export default function Ventas() {
     cargar(1, pageSize, busqueda, f, mesKPI, null)
   }
 
-  async function handleAnular(id) {
-    const r = await window.api.ventas.anular(id)
+  async function handleAnular(id, opts) {
+    const r = await window.api.ventas.anular(id, opts)
     if (r.ok) await cargar(page, pageSize, busqueda, filtros, mesKPI, sesionFiltro)
     return r
   }

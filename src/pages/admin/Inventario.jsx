@@ -84,6 +84,7 @@ const TIPO_MOV = {
   salida:  { label: 'Salida',  color: 'oklch(0.75 0.18 25)',  icon: ArrowDown },
   ajuste:  { label: 'Ajuste',  color: 'oklch(0.82 0.14 75)',  icon: Sliders },
   venta:   { label: 'Venta',   color: 'oklch(0.74 0.13 250)', icon: Package },
+  merma:   { label: 'Merma',   color: 'oklch(0.80 0.15 60)',  icon: AlertTriangle },
 }
 
 function fmtMoney(n) { return 'Bs. ' + Number(n || 0).toFixed(2) }
@@ -215,13 +216,9 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
         usuario_id: usuario?.id,
         usuario_nombre: usuario?.nombre_completo,
       }
-      if (esNuevo) {
-        await window.api.inventario.create(data)
-        toast.success('Producto creado')
-      } else {
-        await window.api.inventario.update(producto.id, data)
-        toast.success('Producto actualizado')
-      }
+      const r = esNuevo ? await window.api.inventario.create(data) : await window.api.inventario.update(producto.id, data)
+      if (r && r.ok === false) { toast.error(r.error || 'No se pudo guardar'); return }
+      toast.success(esNuevo ? 'Producto creado' : 'Producto actualizado')
       onSaved()
       onClose()
     } catch {
@@ -371,7 +368,7 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
     const cant = parseInt(cantidad) || 0
     if (tipo === 'ajuste') return cant
     if (tipo === 'entrada') return (producto.stock || 0) + cant
-    return Math.max(0, (producto.stock || 0) - cant)
+    return (producto.stock || 0) - cant
   })()
 
   return (
@@ -509,6 +506,13 @@ function ProductCard({ p, onEdit, onStock, onEliminar }) {
 // ─── Tab Productos ────────────────────────────────────────────────────────────
 
 function TabProductos({ categorias, proveedores, usuario }) {
+  const { tienePermiso } = useAuth()
+  const puedeCrear = tienePermiso('inventario.crear_producto'), puedeEditar = tienePermiso('inventario.editar_producto')
+  const puedeEliminar = tienePermiso('inventario.eliminar_producto'), puedeAjustar = tienePermiso('inventario.ajustar_stock')
+  const puedeConfigurar = tienePermiso('configuracion.editar_gym')
+  const [verArchivados, setVerArchivados] = useState(false)
+  const [politica, setPolitica] = useState('no_permitir')
+  useEffect(() => { window.api.inventario.getPoliticaStock().then(v => setPolitica(v || 'no_permitir')).catch(() => {}) }, [])
   const [productos, setProductos] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -521,10 +525,10 @@ function TabProductos({ categorias, proveedores, usuario }) {
   const confirmar = useConfirm()
   const debounceRef = useRef(null)
 
-  async function cargar(p, ps, b, cat) {
+  async function cargar(p = page, ps = pageSize, b = busqueda, cat = filtroCategoria, arch = verArchivados) {
     setCargando(true)
     try {
-      const result = await window.api.inventario.getPaginated({ page: p, pageSize: ps, busqueda: b || undefined, categoria_id: cat || undefined })
+      const result = await window.api.inventario.getPaginated({ page: p, pageSize: ps, busqueda: b || undefined, categoria_id: cat || undefined, archivados: arch || undefined })
       setProductos(result?.data || [])
       setTotal(result?.total || 0)
     } finally {
@@ -547,9 +551,33 @@ function TabProductos({ categorias, proveedores, usuario }) {
   async function eliminar(p) {
     const ok = await confirmar({ titulo: '¿Eliminar producto?', mensaje: `"${p.nombre}" se moverá a la papelera. Puedes restaurarlo después.`, tipo: 'advertencia', textoConfirmar: 'Mover a papelera' })
     if (!ok) return
-    await window.api.inventario.delete(p.id)
+    const r = await window.api.inventario.delete(p.id)
+    if (r && r.ok === false) { toast.error(r.error || 'No se pudo eliminar'); return }
     toast.success('Producto eliminado (papelera)')
     cargar()
+  }
+
+  async function archivar(p) {
+    const ok = await confirmar({ titulo: '¿Archivar producto?', mensaje: `"${p.nombre}" dejará de venderse y de aparecer en el punto de venta, pero conserva todo su historial. Puedes reactivarlo cuando quieras.`, tipo: 'advertencia', textoConfirmar: 'Archivar' })
+    if (!ok) return
+    const r = await window.api.inventario.archivar(p.id)
+    if (r && r.ok === false) { toast.error(r.error || 'No se pudo archivar'); return }
+    toast.success('Producto archivado')
+    cargar()
+  }
+
+  async function reactivar(p) {
+    const r = await window.api.inventario.reactivar(p.id)
+    if (r && r.ok === false) { toast.error(r.error || 'No se pudo reactivar'); return }
+    toast.success('Producto reactivado')
+    cargar()
+  }
+
+  async function cambiarPolitica(v) {
+    const r = await window.api.inventario.setPoliticaStock(v)
+    if (r && r.ok === false) { toast.error(r.error || 'No se pudo guardar'); return }
+    setPolitica(v)
+    toast.success(v === 'permitir_con_aviso' ? 'Se permitirá vender sin stock (queda negativo, con aviso)' : 'No se permitirá vender más de lo que hay')
   }
 
   const stockBajo = productos.filter(p => p.stock <= p.stock_minimo)
@@ -618,14 +646,28 @@ function TabProductos({ categorias, proveedores, usuario }) {
             <span className="clientes-glass-content" style={{ color: vistaGrid ? 'oklch(0.76 0.20 25)' : 'var(--dim)' }}><LayoutGrid size={15} /></span>
           </button>
         </div>
-        <button onClick={cargar} aria-label="Actualizar la lista" className="clientes-glass-btn btn-secondary">
+        <button onClick={() => cargar()} aria-label="Actualizar la lista" className="clientes-glass-btn btn-secondary">
           <div className="clientes-glass-bg" />
           <span className="clientes-glass-content"><RefreshCw size={14} /></span>
         </button>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+          <input type="checkbox" checked={verArchivados} onChange={e => { setVerArchivados(e.target.checked); setPage(1); cargar(1, pageSize, busqueda, filtroCategoria, e.target.checked) }} aria-label="Ver productos archivados" />
+          Ver archivados
+        </label>
+        {puedeConfigurar && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+            Si no hay stock:
+            <select className="gym-input" aria-label="Política de stock negativo" value={politica} onChange={e => cambiarPolitica(e.target.value)} style={{ padding: '6px 8px', fontSize: 13 }}>
+              <option value="no_permitir">No permitir vender</option>
+              <option value="permitir_con_aviso">Permitir con aviso</option>
+            </select>
+          </label>
+        )}
+        {puedeCrear && (
         <button onClick={() => setModal('crear')} className="clientes-glass-btn btn-primary">
           <div className="clientes-glass-bg" />
           <span className="clientes-glass-content"><Plus size={15} /> Nuevo producto</span>
-        </button>
+        </button>)}
       </div>
 
       {/* Lista / Grid */}
@@ -711,21 +753,38 @@ function TabProductos({ categorias, proveedores, usuario }) {
 
                   {/* Acciones */}
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    {verArchivados ? (
+                      puedeEliminar && (
+                        <button onClick={() => reactivar(p)} aria-label={`Reactivar ${p.nombre}`} className="clientes-glass-btn btn-secondary" style={{ padding: '6px 10px', fontSize: 13 }}>
+                          <div className="clientes-glass-bg" />
+                          <span className="clientes-glass-content"><RefreshCw size={13} /> Reactivar</span>
+                        </button>
+                      )
+                    ) : (<>
+                    {puedeAjustar && (
                     <button
                       onClick={() => setModal({ tipo: 'stock', p })}
                       title="Ajustar stock"
+                      aria-label={`Ajustar stock de ${p.nombre}`}
                       className="clientes-glass-btn btn-secondary"
                       style={{ padding: '6px 10px', fontSize: 13 }}
                     >
                       <div className="clientes-glass-bg" />
                       <span className="clientes-glass-content"><Sliders size={13} /> Stock</span>
-                    </button>
-                    <button onClick={() => setModal({ tipo: 'editar', p })} title="Editar" className="clientes-action-icon">
+                    </button>)}
+                    {puedeEditar && (
+                    <button onClick={() => setModal({ tipo: 'editar', p })} title="Editar" aria-label={`Editar ${p.nombre}`} className="clientes-action-icon">
                       <Edit2 size={16} color="oklch(0.88 0.01 250 / .85)" />
-                    </button>
-                    <button onClick={() => eliminar(p)} title="Eliminar" className="clientes-action-icon">
+                    </button>)}
+                    {puedeEliminar && (
+                    <button onClick={() => archivar(p)} title="Archivar (conserva el historial)" aria-label={`Archivar ${p.nombre}`} className="clientes-action-icon">
+                      <Box size={16} color="oklch(0.80 0.15 60)" />
+                    </button>)}
+                    {puedeEliminar && (
+                    <button onClick={() => eliminar(p)} title="Mover a la papelera" aria-label={`Mover ${p.nombre} a la papelera`} className="clientes-action-icon">
                       <Trash2 size={16} color="oklch(0.75 0.18 25)" />
-                    </button>
+                    </button>)}
+                    </>)}
                   </div>
                 </motion.div>
               )
@@ -1062,7 +1121,7 @@ function TabMovimientos() {
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--display)', color: t.color }}>
-                    {m.tipo === 'salida' || m.tipo === 'venta' ? '-' : '+'}{m.cantidad}
+                    {m.tipo === 'merma' ? '' : (m.tipo === 'salida' || m.tipo === 'venta' ? '-' : '+')}{m.cantidad}
                   </div>
                   {m.stock_nuevo != null && (
                     <div style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)' }}>{m.stock_anterior}→{m.stock_nuevo}</div>

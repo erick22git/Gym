@@ -205,13 +205,15 @@ function TabProductos({ onRefresh }) {
   useEffect(() => { cargar() }, [cargar])
 
   async function restaurar(id) {
-    await window.api.papelera.restaurarProducto(id)
+    const r = await window.api.papelera.restaurarProducto(id)
+    if (r && r.ok === false) { toast.error(r.error || 'No se pudo restaurar'); return }
     toast.success('Producto restaurado')
     cargar(); onRefresh()
   }
 
   async function eliminar(id) {
-    await window.api.papelera.eliminarPermanenteProducto(id)
+    const r = await window.api.papelera.eliminarPermanenteProducto(id)
+    if (r && r.ok === false) { toast.error(r.error || 'No se pudo eliminar'); return }
     toast.success('Producto eliminado permanentemente')
     cargar(); onRefresh()
   }
