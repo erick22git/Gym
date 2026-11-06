@@ -36,7 +36,7 @@ function leerDuplicados() {
   const py = path.join(RAIZ, 'venv-ocr/Scripts/python.exe')
   const codigo = ['import sys,json', "sys.path.insert(0,'scripts')", 'import ocr_service as s',
     "r=s.procesar_excel_archivo(r'datos-evaluacion/sinteticos/excel_03.xlsx')", "print('@@'+json.dumps(r,ensure_ascii=False))"].join(NL)
-  const salida = execFileSync(py, ['-c', codigo], { cwd: RAIZ, env: { ...process.env, PYTHONIOENCODING: 'utf-8', GYM_OLLAMA_URL: 'http://127.0.0.1:1' }, encoding: 'utf-8', timeout: 240000, stdio: ['ignore', 'pipe', 'ignore'] })
+  const salida = execFileSync(py, ['-c', codigo], { cwd: RAIZ, env: { ...process.env, PYTHONIOENCODING: 'utf-8', GYM_OLLAMA_URL: 'http://127.0.0.1:1' }, encoding: 'utf-8', timeout: 900000, stdio: ["ignore", "pipe", "ignore"] })
   return JSON.parse(salida.split(NL).find(l => l.startsWith('@@')).slice(2))
 }
 

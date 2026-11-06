@@ -162,6 +162,8 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
     stock: producto?.stock || 0,
     stock_minimo: producto?.stock_minimo ?? 5,
     unidad: producto?.unidad || 'unidad',
+    permite_decimal: producto?.permite_decimal ? 1 : 0,
+    decimales: producto?.decimales || 2,
     imagen: producto?.imagen || '',
   })
   const [cambiandoImg, setCambiandoImg] = useState(false)
@@ -209,8 +211,11 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
         ...form,
         precio_compra: parseFloat(form.precio_compra) || 0,
         precio_venta: parseFloat(form.precio_venta) || 0,
-        stock: parseInt(form.stock) || 0,
+        stock: form.permite_decimal ? (parseFloat(form.stock) || 0) : (parseInt(form.stock) || 0),
         stock_minimo: parseInt(form.stock_minimo) || 5,
+        permite_decimal: form.permite_decimal ? 1 : 0,
+        decimales: form.permite_decimal ? Number(form.decimales) : 0,
+        unidad_medida: form.unidad || 'unidad',
         categoria_id: form.categoria_id || null,
         proveedor_id: form.proveedor_id || null,
         imagen: form.imagen || null,
@@ -249,6 +254,20 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
         <div style={{ gridColumn: '1/-1' }}>{inp('Nombre *', 'nombre', { placeholder: 'Proteína Whey 1kg' })}</div>
         {inp('Código / SKU', 'codigo', { placeholder: 'PRO-001' })}
         {inp('Unidad', 'unidad', { placeholder: 'unidad, kg, litro...' })}
+        <div style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <label htmlFor="prod-permite-decimal" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+            <input id="prod-permite-decimal" type="checkbox" checked={!!form.permite_decimal} onChange={e => set('permite_decimal', e.target.checked ? 1 : 0)} aria-label="Este producto se cuenta y vende con decimales (kg, litros)" />
+            Se cuenta y vende con decimales (kg, litros…)
+          </label>
+          {!!form.permite_decimal && (
+            <label htmlFor="prod-decimales" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+              Decimales
+              <select id="prod-decimales" className="gym-input" aria-label="Cantidad de decimales" value={form.decimales} onChange={e => set('decimales', Number(e.target.value))} style={{ width: 70 }}>
+                {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          )}
+        </div>
         <FormField label="Categoría">
           <Select
             value={form.categoria_id}
@@ -271,7 +290,7 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
         </FormField>
         {inp('Precio compra (Bs.)', 'precio_compra', { type: 'number', min: 0, step: '0.01', placeholder: '0.00' })}
         {inp('Precio venta (Bs.) *', 'precio_venta', { type: 'number', min: 0, step: '0.01', placeholder: '0.00' })}
-        {esNuevo && inp('Stock inicial', 'stock', { type: 'number', min: 0, placeholder: '0' })}
+        {esNuevo && inp('Stock inicial', 'stock', { type: 'number', min: 0, step: form.permite_decimal ? 'any' : 1, placeholder: '0' })}
         {inp('Stock mínimo', 'stock_minimo', { type: 'number', min: 0, placeholder: '5' })}
         <div style={{ gridColumn: '1/-1' }}>
           <FormField label="Descripción">
@@ -341,7 +360,7 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
   const [guardando, setGuardando] = useState(false)
 
   async function guardar() {
-    const cant = parseInt(cantidad)
+    const cant = producto.permite_decimal ? parseFloat(cantidad) : parseInt(cantidad)
     if (!cant || cant <= 0) return toast.error('La cantidad debe ser mayor a 0')
     setGuardando(true)
     try {
@@ -366,10 +385,11 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
   }
 
   const stockPreview = (() => {
-    const cant = parseInt(cantidad) || 0
-    if (tipo === 'ajuste') return cant
-    if (tipo === 'entrada') return (producto.stock || 0) + cant
-    return (producto.stock || 0) - cant
+    const cant = (producto.permite_decimal ? parseFloat(cantidad) : parseInt(cantidad)) || 0
+    const redo = x => (producto.permite_decimal ? Math.round(x * 10 ** (producto.decimales || 0)) / 10 ** (producto.decimales || 0) : x)
+    if (tipo === 'ajuste') return redo(cant)
+    if (tipo === 'entrada') return redo((producto.stock || 0) + cant)
+    return redo((producto.stock || 0) - cant)
   })()
 
   return (
@@ -392,7 +412,7 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
         <FormField label={tipo === 'ajuste' ? 'Nuevo stock total' : 'Cantidad'}>
           <input
             className="gym-input"
-            type="number" min="1"
+            type="number" min={producto.permite_decimal ? '0' : '1'} step={producto.permite_decimal ? 'any' : 1}
             value={cantidad}
             onChange={e => setCantidad(e.target.value)}
             placeholder="0"
@@ -1679,7 +1699,7 @@ function TabConteo() {
                 <tr key={l.producto_id} style={{ borderTop: '1px solid var(--line)' }}>
                   <td>{l.nombre_producto}</td>
                   <td>{abierto.estado === 'borrador'
-                    ? <input type="number" min="0" step="1" className="gym-input" aria-label={`Cantidad contada de ${l.nombre_producto}`} value={valores[l.producto_id] ?? ''} onChange={e => setValores(v => ({ ...v, [l.producto_id]: e.target.value }))} style={{ width: 90, padding: '4px 6px' }} />
+                    ? <input type="number" min="0" step="any" className="gym-input" aria-label={`Cantidad contada de ${l.nombre_producto}`} value={valores[l.producto_id] ?? ''} onChange={e => setValores(v => ({ ...v, [l.producto_id]: e.target.value }))} style={{ width: 90, padding: '4px 6px' }} />
                     : (l.contado === null ? 'No contado' : l.contado)}</td>
                   {'diferencia' in l && (<>
                     <td>{l.stock_sistema_congelado}</td>

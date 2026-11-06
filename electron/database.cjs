@@ -266,6 +266,32 @@ MIGRACIONES.push({
     for (const p of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [p.id])
   },
 })
+// ── v5 · Fase 4: unidades y decimales por producto (opción C mínima, sin conversión automática) ──
+MIGRACIONES.push({
+  version: 5, nombre: 'fase 4: unidades y decimales por producto',
+  up() {
+    _addCol('productos', 'permite_decimal', 'INTEGER DEFAULT 0')
+    _addCol('productos', 'decimales', 'INTEGER DEFAULT 0')
+    _addCol('productos', 'unidad_medida', 'TEXT')
+    db.run("UPDATE productos SET unidad_medida = COALESCE(NULLIF(TRIM(unidad),''),'unidad') WHERE unidad_medida IS NULL")
+  },
+})
+// Redondeo decimal estable (evita 0.1+0.2 = 0.30000000000000004 y 1.005*100 = 100.49999…).
+function _redondear(x, d) {
+  const f = 10 ** d
+  return Math.round(Number((x * f).toPrecision(15))) / f
+}
+// Valida/normaliza una cantidad según la configuración del producto: enteros salvo `permite_decimal`.
+function _cantidadProducto(prod, cant) {
+  if (typeof cant !== 'number' || !Number.isFinite(cant)) throw new Error('La cantidad no es un número válido.')
+  if (!prod?.permite_decimal) {
+    if (!Number.isInteger(cant)) throw new Error('La cantidad debe ser un número entero (este producto no admite decimales).')
+    return cant
+  }
+  return _redondear(cant, prod.decimales ?? 0)
+}
+const _redondearStock = (prod, x) => (prod?.permite_decimal ? _redondear(x, prod.decimales ?? 0) : x)
+const _CFG_DEC = 'COALESCE(permite_decimal,0) AS permite_decimal, COALESCE(decimales,0) AS decimales'
 const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version
 let _SQL = null
 let _estadoMigracion = { migrada: false, ok: true, version: null }
@@ -2312,10 +2338,10 @@ const ventas = {
       db.run("UPDATE ventas SET estado='anulada', anulada_at=datetime('now','localtime'), anulada_por=?, anulada_por_nombre=?, motivo_anulacion=? WHERE id=?", [uid, unombre, motivo, id])
       for (const d of detalle) {
         const l = porId.get(d.id)
-        const p = queryOne('SELECT id, stock FROM productos WHERE id=?', [d.producto_id])
+        const p = queryOne(`SELECT id, stock, ${_CFG_DEC} FROM productos WHERE id=?`, [d.producto_id])
         if (!p) { if (l.vuelve_a_stock) throw new Error(`"${d.nombre_producto}" ya no existe: no puede volver al stock.`); continue }
         if (l.vuelve_a_stock) {
-          const nuevo = p.stock + d.cantidad
+          const nuevo = _redondearStock(p, p.stock + d.cantidad)
           db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [nuevo, p.id])
           db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
             [p.id, 'entrada', d.cantidad, p.stock, nuevo, `Anulación venta #${id}: ${motivo}`, id, uid, unombre])
@@ -2570,19 +2596,24 @@ const inventario = {
     `, [id])
   },
   create(data) {
-    const stock0 = data.stock || 0
-    if (!Number.isInteger(stock0) || stock0 < 0) return { ok: false, error: 'El stock inicial debe ser un número entero mayor o igual a 0.' }
+    const pd = data.permite_decimal ? 1 : 0
+    const dec = pd ? (data.decimales ?? 2) : 0
+    if (!Number.isInteger(dec) || dec < 0 || dec > 3) return { ok: false, error: 'Los decimales deben ser un número entre 0 y 3.' }
+    let stock0
+    try { stock0 = _cantidadProducto({ permite_decimal: pd, decimales: dec }, data.stock || 0) } catch (e) { return { ok: false, error: `Stock inicial: ${e.message}` } }
+    if (stock0 < 0) return { ok: false, error: 'El stock inicial debe ser mayor o igual a 0.' }
     if (!String(data.nombre ?? '').trim()) return { ok: false, error: 'El producto necesita un nombre.' }
     const id = (() => {
       const r = _tx(() => {
         const nuevo = _ins(
           `INSERT INTO productos (nombre, codigo, descripcion, categoria_id, proveedor_id,
-           precio_compra, precio_venta, stock, stock_minimo, unidad, imagen)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+           precio_compra, precio_venta, stock, stock_minimo, unidad, imagen, permite_decimal, decimales, unidad_medida)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           [data.nombre, data.codigo || null, data.descripcion || null,
            data.categoria_id || null, data.proveedor_id || null,
            data.precio_compra || 0, data.precio_venta || 0,
-           stock0, data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null])
+           stock0, data.stock_minimo ?? 5, data.unidad || data.unidad_medida || 'unidad', data.imagen || null,
+           pd, dec, data.unidad_medida || data.unidad || 'unidad'])
         if (stock0 > 0) {
           db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
             [nuevo, 'entrada', stock0, 0, stock0, 'Stock inicial', data.usuario_id || null, data.usuario_nombre || null])
@@ -2595,6 +2626,17 @@ const inventario = {
     return inventario.getById(id.id)
   },
   update(id, data) {
+    let cfg = null
+    if (data.permite_decimal !== undefined || data.decimales !== undefined || data.unidad_medida !== undefined) {
+      const actual = queryOne(`SELECT stock, unidad_medida, ${_CFG_DEC} FROM productos WHERE id=?`, [id])
+      if (!actual) return { ok: false, error: 'Producto no encontrado' }
+      const pd = data.permite_decimal === undefined ? actual.permite_decimal : (data.permite_decimal ? 1 : 0)
+      const dec = pd ? (data.decimales ?? (actual.decimales || 2)) : 0
+      if (!Number.isInteger(dec) || dec < 0 || dec > 3) return { ok: false, error: 'Los decimales deben ser un número entre 0 y 3.' }
+      if (!pd && !Number.isInteger(actual.stock)) return { ok: false, error: `No se puede dejar el producto en enteros: hoy tiene ${actual.stock} en stock. Cuéntalo/ajústalo primero.` }
+      if (pd && dec < (actual.decimales || 0) && Math.abs(_redondear(actual.stock, dec) - actual.stock) > 1e-9) return { ok: false, error: `Con ${dec} decimales el stock actual (${actual.stock}) perdería precisión. Ajusta el stock primero.` }
+      cfg = { pd, dec, um: data.unidad_medida || actual.unidad_medida || data.unidad || 'unidad' }
+    }
     run(
       `UPDATE productos SET nombre=?, codigo=?, descripcion=?, categoria_id=?, proveedor_id=?,
        precio_compra=?, precio_venta=?, stock_minimo=?, unidad=?, imagen=?,
@@ -2605,6 +2647,7 @@ const inventario = {
        data.precio_compra || 0, data.precio_venta || 0,
        data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null, data.precio_venta || 0, id]
     )
+    if (cfg) run('UPDATE productos SET permite_decimal=?, decimales=?, unidad_medida=? WHERE id=?', [cfg.pd, cfg.dec, cfg.um, id])
     return { ok: true }
   },
   delete(id) {
@@ -2712,7 +2755,7 @@ const inventario = {
   buscarPOS(query) {
     const q = `%${query}%`
     return queryAll(`
-      SELECT p.id, p.nombre, p.codigo, p.precio_venta, p.stock, p.stock_minimo, p.unidad, p.imagen, c.nombre as categoria_nombre
+      SELECT p.id, p.nombre, p.codigo, p.precio_venta, p.stock, p.stock_minimo, p.unidad, p.imagen, COALESCE(p.permite_decimal,0) AS permite_decimal, COALESCE(p.decimales,0) AS decimales, p.unidad_medida, c.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos c ON p.categoria_id=c.id
       WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=0 AND COALESCE(p.pendiente_completar,0)=0
@@ -2725,17 +2768,16 @@ const inventario = {
   // Cuando es válido, `cantidad` del kardex cumple: entrada = nuevo−anterior · salida = anterior−nuevo · ajuste = objetivo.
   ajustarStock(data) {
     return _tx(() => {
-      const prod = queryOne('SELECT stock, archivado, eliminado FROM productos WHERE id=?', [data.producto_id])
+      const prod = queryOne(`SELECT stock, archivado, eliminado, ${_CFG_DEC} FROM productos WHERE id=?`, [data.producto_id])
       if (!prod || prod.eliminado) throw new Error('Producto no encontrado')
       const tipo = data.tipo
       if (!['entrada', 'salida', 'ajuste'].includes(tipo)) throw new Error('Tipo de movimiento no válido (entrada, salida o ajuste).')
-      const cant = data.cantidad
-      if (!Number.isInteger(cant)) throw new Error('La cantidad debe ser un número entero.')
+      const cant = _cantidadProducto(prod, data.cantidad)
       if (tipo !== 'ajuste' && cant <= 0) throw new Error('La cantidad debe ser mayor que 0.')
       if (tipo === 'ajuste' && cant < 0) throw new Error('El stock contado no puede ser negativo.')
       const permitirNeg = inventario.getPoliticaStock() === 'permitir_con_aviso'
       const stockAnterior = prod.stock
-      const stockNuevo = tipo === 'ajuste' ? cant : tipo === 'entrada' ? stockAnterior + cant : stockAnterior - cant
+      const stockNuevo = _redondearStock(prod, tipo === 'ajuste' ? cant : tipo === 'entrada' ? stockAnterior + cant : stockAnterior - cant)
       let aviso
       if (stockNuevo < 0) {
         if (!permitirNeg) throw new Error(`No se puede sacar ${cant}: solo hay ${stockAnterior} en stock.`)
@@ -2765,21 +2807,30 @@ const inventario = {
     return _tx(() => {
       const permitirNeg = inventario.getPoliticaStock() === 'permitir_con_aviso'
       const pedido = new Map()
-      for (const it of items) {
-        if (!Number.isInteger(it.cantidad) || it.cantidad <= 0) throw new Error(`Cantidad no válida para "${it.nombre_producto || it.producto_id}".`)
-        if (typeof it.precio_unitario !== 'number' || !(it.precio_unitario >= 0)) throw new Error(`Precio no válido para "${it.nombre_producto || it.producto_id}".`)
-        pedido.set(it.producto_id, (pedido.get(it.producto_id) || 0) + it.cantidad)
-      }
+      const cfgProd = new Map()
+      items = items.map(it => {
+        const nom = it.nombre_producto || it.producto_id
+        if (!cfgProd.has(it.producto_id)) cfgProd.set(it.producto_id, queryOne(`SELECT ${_CFG_DEC} FROM productos WHERE id=?`, [it.producto_id]))
+        const cfg = cfgProd.get(it.producto_id)
+        let c
+        try { c = cfg ? _cantidadProducto(cfg, it.cantidad) : it.cantidad } catch (e) { throw new Error(`Cantidad no válida para "${nom}": ${e.message}`) }
+        if (!Number.isInteger(c) && !cfg?.permite_decimal) throw new Error(`Cantidad no válida para "${nom}".`)
+        if (!(c > 0)) throw new Error(`Cantidad no válida para "${nom}".`)
+        if (typeof it.precio_unitario !== 'number' || !(it.precio_unitario >= 0)) throw new Error(`Precio no válido para "${nom}".`)
+        const linea = cfg?.permite_decimal ? _redondear(c * it.precio_unitario, 2) : c * it.precio_unitario
+        pedido.set(it.producto_id, _redondearStock(cfg, (pedido.get(it.producto_id) || 0) + c))
+        return { ...it, cantidad: c, _linea: linea }
+      })
       const productos = new Map()
       for (const [pid, cant] of pedido) {
-        const p = queryOne('SELECT id, nombre, stock, activo, eliminado, archivado, pendiente_completar FROM productos WHERE id=?', [pid])
+        const p = queryOne(`SELECT id, nombre, stock, activo, eliminado, archivado, pendiente_completar, ${_CFG_DEC} FROM productos WHERE id=?`, [pid])
         if (!p || p.eliminado || !p.activo) throw new Error('Uno de los productos ya no existe en el inventario.')
         if (p.archivado) throw new Error(`"${p.nombre}" está archivado y no se puede vender.`)
         if (p.pendiente_completar) throw new Error(`"${p.nombre}" está por completar: ponle un precio de venta en Inventario antes de venderlo.`)
-        if (p.stock < cant && !permitirNeg) throw new Error(`Stock insuficiente de "${p.nombre}": pides ${cant} y hay ${p.stock}.`)
+        if (_redondearStock(p, p.stock - cant) < 0 && !permitirNeg) throw new Error(`Stock insuficiente de "${p.nombre}": pides ${cant} y hay ${p.stock}.`)
         productos.set(pid, p)
       }
-      const subtotal = items.reduce((s, i) => s + i.cantidad * i.precio_unitario, 0)
+      const subtotal = _redondear(items.reduce((s, i) => s + i._linea, 0), 2)
       const cli = meta.cliente_id ? queryOne('SELECT nombre, apellido, carnet FROM clientes WHERE id=?', [meta.cliente_id]) : null
       const cliNombre = cli ? `${cli.nombre || ''} ${cli.apellido || ''}`.trim() : null
       const ventaId = _ins(
@@ -2789,9 +2840,9 @@ const inventario = {
       let aviso
       for (const item of items) {
         db.run(`INSERT INTO detalle_ventas_productos (venta_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal) VALUES (?,?,?,?,?,?)`,
-          [ventaId, item.producto_id, item.nombre_producto || productos.get(item.producto_id).nombre, item.cantidad, item.precio_unitario, item.cantidad * item.precio_unitario])
+          [ventaId, item.producto_id, item.nombre_producto || productos.get(item.producto_id).nombre, item.cantidad, item.precio_unitario, item._linea])
         const actual = queryOne('SELECT stock FROM productos WHERE id=?', [item.producto_id]).stock
-        const nuevo = actual - item.cantidad
+        const nuevo = _redondearStock(productos.get(item.producto_id), actual - item.cantidad)
         if (nuevo < 0) aviso = 'Algún producto quedó con stock negativo.'
         db.run('UPDATE productos SET stock=? WHERE id=?', [nuevo, item.producto_id])
         db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -2821,7 +2872,7 @@ const inventario = {
   //   Si hay ítems 'actualizar', el modo debe venir explícito: el sistema no
   //   adivina si el archivo es un conteo o una compra.
   importarLote(data) {
-    const items = Array.isArray(data?.items) ? data.items : []
+    let items = Array.isArray(data?.items) ? data.items : []
     if (items.length === 0) return { ok: false, error: 'No hay productos para importar.' }
     const modo = data.modo
     if (items.some(i => i.accion === 'actualizar') && modo !== 'sumar' && modo !== 'reemplazar') {
@@ -2834,13 +2885,24 @@ const inventario = {
     let enTransaccion = false
     try {
       // Validar TODO antes de tocar la base.
-      items.forEach((it, i) => {
+      items = items.map((it, i) => {
         const nombre = String(it?.nombre ?? '').trim()
         if (!nombre) throw new Error(`El producto #${i + 1} no tiene nombre.`)
-        if (!Number.isInteger(it.cantidad) || it.cantidad < 0) {
+        if (it.accion !== 'crear' && it.accion !== 'actualizar') throw new Error(`Acción desconocida para "${nombre}".`)
+        let cant = it.cantidad
+        if (it.accion === 'actualizar') {
+          const pr = queryOne(`SELECT unidad_medida, unidad, ${_CFG_DEC} FROM productos WHERE id=?`, [it.producto_id])
+          if (pr) {
+            const um = String(pr.unidad_medida || pr.unidad || 'unidad').trim().toLowerCase()
+            const uArchivo = String(it.unidad ?? '').trim().toLowerCase()
+            if (uArchivo && uArchivo !== um) throw new Error(`La unidad del archivo ("${it.unidad}") no coincide con la del producto "${nombre}" ("${um}"): revísalo antes de importar. No se convierten unidades automáticamente.`)
+            try { cant = _cantidadProducto(pr, it.cantidad) } catch (e) { throw new Error(`La cantidad de "${nombre}" no es válida (${it.cantidad}): ${e.message}`) }
+          }
+        }
+        if (!Number.isFinite(cant) || cant < 0 || (it.accion === 'crear' && !Number.isInteger(cant)) || (it.accion === 'actualizar' && cant === it.cantidad && !Number.isInteger(cant) && !queryOne('SELECT 1 FROM productos WHERE id=? AND COALESCE(permite_decimal,0)=1', [it.producto_id]))) {
           throw new Error(`La cantidad de "${nombre}" no es un número entero válido (${it.cantidad}).`)
         }
-        if (it.accion !== 'crear' && it.accion !== 'actualizar') throw new Error(`Acción desconocida para "${nombre}".`)
+        return { ...it, cantidad: cant }
       })
 
       db.run('BEGIN')
@@ -2861,11 +2923,11 @@ const inventario = {
           }
           resultados.push({ accion: 'crear', producto_id: lid, nombre, stock_anterior: 0, stock_nuevo: it.cantidad })
         } else {
-          const prod = queryOne('SELECT id, nombre, stock, activo, eliminado, archivado FROM productos WHERE id=?', [it.producto_id])
+          const prod = queryOne(`SELECT id, nombre, stock, activo, eliminado, archivado, ${_CFG_DEC} FROM productos WHERE id=?`, [it.producto_id])
           if (!prod || prod.eliminado || !prod.activo) throw new Error(`El producto "${nombre}" ya no existe en el inventario.`)
           if (prod.archivado) throw new Error(`El producto "${nombre}" está archivado: reactívalo en Inventario antes de importarlo.`)
           const sumar = modo === 'sumar'
-          const stockNuevo = sumar ? prod.stock + it.cantidad : it.cantidad
+          const stockNuevo = _redondearStock(prod, sumar ? prod.stock + it.cantidad : it.cantidad)
           db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, prod.id])
           db.run(
             `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
@@ -2913,7 +2975,7 @@ const inventario = {
       for (const it of [...items].reverse()) {
         const prod = queryOne('SELECT id, nombre, stock, activo, eliminado FROM productos WHERE id=?', [it.producto_id])
         if (!prod || prod.eliminado) throw new Error(`"${it.nombre}" ya no existe; no se puede deshacer ese cambio.`)
-        if (prod.stock !== it.stock_nuevo) {
+        if (Math.abs(prod.stock - it.stock_nuevo) > 1e-6) {
           throw new Error(`"${prod.nombre}" cambió desde la importación (ahora tiene ${prod.stock}, se importó ${it.stock_nuevo}). No toqué nada; corrígelo a mano en Inventario.`)
         }
         if (it.accion === 'crear') {
@@ -3001,18 +3063,19 @@ const inventario = {
 const conteos = {
   _lineas(conteoId, verDiferencias, estado) {
     const c = queryOne('SELECT ultimo_mov_id_apertura u FROM conteos WHERE id=?', [conteoId])
-    const rows = queryAll(`SELECT l.*, p.stock AS stock_actual FROM conteo_lineas l LEFT JOIN productos p ON p.id=l.producto_id WHERE l.conteo_id=? ORDER BY l.nombre_producto, l.id`, [conteoId])
+    const rows = queryAll(`SELECT l.*, p.stock AS stock_actual, COALESCE(p.permite_decimal,0) AS pd, COALESCE(p.decimales,0) AS dc FROM conteo_lineas l LEFT JOIN productos p ON p.id=l.producto_id WHERE l.conteo_id=? ORDER BY l.nombre_producto, l.id`, [conteoId])
     return rows.map(l => {
       const base = { id: l.id, producto_id: l.producto_id, nombre_producto: l.nombre_producto, contado: l.contado }
       if (estado === 'borrador' || !verDiferencias) return base      // ciego: nunca el esperado ni la diferencia
       const post = queryOne('SELECT COALESCE(SUM(delta),0) d FROM movimientos_stock WHERE producto_id=? AND id>? AND (conteo_id IS NULL OR conteo_id<>?)', [l.producto_id, c.u, conteoId]).d
       const contado = l.contado
+      const rd = x => (l.pd ? _redondear(x, l.dc) : x)
       return {
         ...base, stock_sistema_congelado: l.stock_sistema_congelado, stock_actual: l.stock_actual,
-        esperado_actual: l.stock_sistema_congelado + post,
-        diferencia: contado === null ? null : contado - l.stock_sistema_congelado,
-        stock_final_previsto: contado === null ? null : contado + post,
-        ajuste_previsto: contado === null ? null : (contado + post) - l.stock_actual,
+        esperado_actual: rd(l.stock_sistema_congelado + post),
+        diferencia: contado === null ? null : rd(contado - l.stock_sistema_congelado),
+        stock_final_previsto: contado === null ? null : rd(contado + post),
+        ajuste_previsto: contado === null ? null : rd((contado + post) - l.stock_actual),
       }
     })
   },
@@ -3051,8 +3114,12 @@ const conteos = {
       for (const it of items) {
         if (!queryOne('SELECT id FROM conteo_lineas WHERE conteo_id=? AND producto_id=?', [id, it.producto_id])) throw new Error('Un producto no pertenece a este conteo.')
         if (it.contado !== null && (typeof it.contado !== 'number' || !Number.isFinite(it.contado) || it.contado < 0)) throw new Error('Lo contado debe ser un número mayor o igual a 0.')
-        if (it.contado !== null && !Number.isInteger(it.contado)) throw new Error('Lo contado debe ser un número entero.')
-        db.run('UPDATE conteo_lineas SET contado=? WHERE conteo_id=? AND producto_id=?', [it.contado, id, it.producto_id])
+        let contado = it.contado
+        if (contado !== null) {
+          const pc = queryOne(`SELECT ${_CFG_DEC} FROM productos WHERE id=?`, [it.producto_id])
+          try { contado = _cantidadProducto(pc, contado) } catch (e) { throw new Error(`Lo contado no es válido: ${e.message}`) }
+        }
+        db.run('UPDATE conteo_lineas SET contado=? WHERE conteo_id=? AND producto_id=?', [contado, id, it.producto_id])
       }
       return { ok: true }
     })
@@ -3111,9 +3178,9 @@ const conteos = {
       const ms = queryAll("SELECT producto_id, delta FROM movimientos_stock WHERE conteo_id=? AND tipo='ajuste' ORDER BY id DESC", [id])
       let revertidos = 0
       for (const m of ms) {
-        const p = queryOne('SELECT id, nombre, stock FROM productos WHERE id=?', [m.producto_id])
+        const p = queryOne(`SELECT id, nombre, stock, ${_CFG_DEC} FROM productos WHERE id=?`, [m.producto_id])
         if (!p) continue
-        const nuevo = p.stock - m.delta
+        const nuevo = _redondearStock(p, p.stock - m.delta)
         if (nuevo < 0 && !permitirNeg) throw new Error(`No se puede revertir: "${p.nombre}" quedaría con stock negativo (${nuevo}). No toqué nada.`)
         db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [nuevo, p.id])
         db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
@@ -3131,11 +3198,11 @@ const conteos = {
     const items = (Array.isArray(data.items) ? data.items : []).filter(i => i.accion === 'actualizar' && i.producto_id)
     const ignorados = (Array.isArray(data.items) ? data.items.length : 0) - items.length
     if (!items.length) return { ok: false, error: 'El archivo no tiene productos existentes para contar.' }
-    for (const it of items) if (!Number.isInteger(it.cantidad) || it.cantidad < 0) return { ok: false, error: `La cantidad de "${it.nombre}" no es un número entero válido.` }
+    for (const it of items) if (typeof it.cantidad !== 'number' || !Number.isFinite(it.cantidad) || it.cantidad < 0) return { ok: false, error: `La cantidad de "${it.nombre}" no es un número válido.` }
     const r = conteos.abrir({ producto_ids: items.map(i => i.producto_id), nota: data.nota || 'Importado desde archivo', origen: 'importacion', usuario_id: data.usuario_id, usuario_nombre: data.usuario_nombre })
     if (!r.ok) return r
     const g = conteos.registrar(r.conteo_id, items.map(i => ({ producto_id: i.producto_id, contado: i.cantidad })))
-    if (!g.ok) return g
+    if (!g.ok) { conteos.cancelar(r.conteo_id); return g }
     return { ok: true, conteo_id: r.conteo_id, lineas: r.lineas, ignorados }
   },
 }

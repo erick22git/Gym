@@ -442,6 +442,9 @@ function ModalVentaRapida({ usuario, onClose }) {
         precio_unitario: precioEfectivo,
         precio_original: (promo && promo.tipo !== '2x1') ? prod.precio_venta : null,
         cantidad,
+        permite_decimal: prod.permite_decimal ? 1 : 0,
+        decimales: prod.decimales || 0,
+        unidad_medida: prod.unidad_medida || prod.unidad || '',
         stock: prod.stock,
         promo_tipo: promo?.tipo || null,
         promo_nombre: promo?.nombre || null,
@@ -468,10 +471,26 @@ function ModalVentaRapida({ usuario, onClose }) {
     })
   }
 
+  // Productos que admiten decimales (kg, litros…): la cantidad se escribe a mano.
+  function fijarCantidad(idx, texto) {
+    const v = Number(texto)
+    if (!Number.isFinite(v) || v <= 0) return
+    setCarrito(prev => {
+      const it = prev[idx]
+      if (!it) return prev
+      const f = 10 ** (it.decimales || 0)
+      const n = Math.round(v * f) / f
+      if (n <= 0) return prev
+      if (n > it.stock) { toast.error(`Stock insuficiente (máx: ${it.stock})`); return prev }
+      const next = [...prev]; next[idx] = { ...it, cantidad: n }; return next
+    })
+  }
+
   function cambiarCantidad(idx, delta) {
     setCarrito(prev => {
       const next = [...prev]
-      const nuevo = next[idx].cantidad + delta
+      const nuevoBruto = next[idx].cantidad + delta
+      const nuevo = next[idx].permite_decimal ? Math.round(nuevoBruto * 10 ** (next[idx].decimales || 0)) / 10 ** (next[idx].decimales || 0) : nuevoBruto
       if (nuevo <= 0) { next.splice(idx, 1); return next }
       if (nuevo > next[idx].stock) { toast.error(`Stock insuficiente (máx: ${next[idx].stock})`); return prev }
       next[idx] = { ...next[idx], cantidad: nuevo }
@@ -1056,7 +1075,9 @@ function ModalVentaRapida({ usuario, onClose }) {
                             {!item._es_gratis && (
                               <>
                                 <button onClick={() => cambiarCantidad(idx, -1)} style={{ width: 24, height: 24, borderRadius: 6, background: 'oklch(1 0 0 / .06)', border: '1px solid var(--line)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}><Minus size={11} /></button>
-                                <span style={{ minWidth: 20, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{item.cantidad}</span>
+                                {item.permite_decimal
+                                  ? <input type="number" className="gym-input" min="0" step={1 / 10 ** (item.decimales || 0)} defaultValue={item.cantidad} key={`${item.producto_id}-${item.cantidad}`} onBlur={e => fijarCantidad(idx, e.target.value)} onKeyDown={e => { if (e.key === 'Enter') fijarCantidad(idx, e.currentTarget.value) }} aria-label={`Cantidad de ${item.nombre_producto} en ${item.unidad_medida || 'unidades'}`} style={{ width: 70, padding: '2px 6px', fontSize: 13 }} />
+                                  : <span style={{ minWidth: 20, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{item.cantidad}</span>}
                                 <button onClick={() => cambiarCantidad(idx, 1)} style={{ width: 24, height: 24, borderRadius: 6, background: 'oklch(1 0 0 / .06)', border: '1px solid var(--line)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink)' }}><Plus size={11} /></button>
                               </>
                             )}
