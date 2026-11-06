@@ -46,7 +46,7 @@ function clasificarContraInventario(items, inventario) {
   const nuevos = []
   const existentes = []
   items.forEach(item => {
-    const m = buscarCoincidencia(item.nombre, inventario)
+    const m = buscarCoincidencia(item.nombre, inventario, item.codigo)
     if (m) {
       existentes.push({
         ...item,

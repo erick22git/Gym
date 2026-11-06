@@ -265,6 +265,7 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <div style={{ gridColumn: '1/-1' }}>{inp('Nombre *', 'nombre', { placeholder: 'Proteína Whey 1kg' })}</div>
         {inp('Código / SKU', 'codigo', { placeholder: 'PRO-001' })}
+        {String(form.codigo || '').trim() && <div style={{ gridColumn: '1/-1' }}><VistaCodigoBarras codigo={form.codigo} /></div>}
         {inp('Unidad', 'unidad', { placeholder: 'unidad, kg, litro...' })}
         <div style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <label htmlFor="prod-permite-decimal" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
@@ -595,6 +596,8 @@ function TabProductos({ categorias, proveedores, usuario }) {
   const [soloPendientes, setSoloPendientes] = useState(false)
   const [nPendientes, setNPendientes] = useState(0)
   const [alertas, setAlertas] = useState(null)
+  const [dupCodigos, setDupCodigos] = useState([])
+  useEffect(() => { window.api.inventario.getCodigosDuplicados().then(r => setDupCodigos(Array.isArray(r) ? r : [])).catch(() => {}) }, [])
   const [politica, setPolitica] = useState('no_permitir')
   const [umbral, setUmbral] = useState('0')
   useEffect(() => { window.api.inventario.getUmbralAprobacion().then(v => setUmbral(String(v ?? 0))).catch(() => {}) }, [])
@@ -747,6 +750,11 @@ function TabProductos({ categorias, proveedores, usuario }) {
           <input type="checkbox" checked={verArchivados} onChange={e => { setVerArchivados(e.target.checked); setPage(1); cargar(1, pageSize, busqueda, filtroCategoria, e.target.checked) }} aria-label="Ver productos archivados" />
           Ver archivados
         </label>
+        {dupCodigos.length > 0 && (
+          <span role="status" data-testid="codigos-repetidos" style={{ fontSize: 13, color: 'oklch(0.82 0.14 75)' }}>
+            <strong>Códigos repetidos ({dupCodigos.length}):</strong> {dupCodigos.slice(0, 5).map(d => `${d.codigo} → ${d.productos.map(p => p.nombre).join(' / ')}`).join(' · ')}. Cambia uno de cada par para poder usar el escáner con seguridad.
+          </span>
+        )}
         {alertas && alertas.total > 0 && (
           <span role="status" data-testid="alertas-stock" style={{ fontSize: 13, color: 'var(--ink)' }}>
             <strong>Alertas de stock:</strong>{' '}
@@ -1950,6 +1958,69 @@ function TabReportes() {
   )
 }
 
+// ─── Códigos de barras y etiquetas (Fase 11) ──────────────────────────────────
+
+function VistaCodigoBarras({ codigo }) {
+  const [res, setRes] = useState(null)
+  const c = String(codigo || '').trim()
+  useEffect(() => {
+    if (!c) { setRes(null); return }
+    let vivo = true
+    const t = setTimeout(async () => {
+      const r = await window.api.codigos.svg(c, { alto: 48, modulo: 2 })
+      if (vivo) setRes(r)
+    }, 250)
+    return () => { vivo = false; clearTimeout(t) }
+  }, [c])
+  if (!c || !res) return null
+  if (res.ok === false) return <p role="status" data-testid="codigo-barras-error" style={{ fontSize: 12.5, color: 'oklch(0.75 0.18 25)' }}>No se puede imprimir como código de barras: {res.error}</p>
+  return <div data-testid="codigo-barras" style={{ background: '#fff', borderRadius: 6, padding: 4, display: 'inline-block', maxWidth: '100%', overflow: 'auto' }} dangerouslySetInnerHTML={{ __html: res.svg }} />
+}
+
+function SeccionEtiquetas() {
+  const [productos, setProductos] = useState([])
+  const [q, setQ] = useState('')
+  const [sel, setSel] = useState({})        // id → copias
+  const [aviso, setAviso] = useState('')
+  const [error, setError] = useState('')
+  const [trabajando, setTrabajando] = useState(false)
+  useEffect(() => { window.api.inventario.getAll({}).then(r => setProductos(Array.isArray(r) ? r : [])).catch(() => {}) }, [])
+  const visibles = productos.filter(p => !q.trim() || `${p.nombre} ${p.codigo || ''}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 60)
+  const elegidos = Object.keys(sel)
+  async function generar() {
+    setError(''); setAviso(''); setTrabajando(true)
+    try {
+      const r = await window.api.etiquetas.generarPdf({ items: elegidos.map(id => ({ producto_id: Number(id), copias: Number(sel[id]) || 1 })) })
+      if (!r || r.ok === false) { setError(r?.error || 'No se pudo generar la hoja'); return }
+      if (r.omitidos?.length) setAviso(`No se imprimieron: ${r.omitidos.map(o => `${o.nombre} (${o.motivo})`).join('; ')}.`)
+      if (!r.base64) { setError('Ningún producto elegido se puede imprimir.'); return }
+      const g = await window.api.etiquetas.guardarPdf(r.base64, 'etiquetas.pdf')
+      if (g?.cancelado) return
+      if (g?.ok === false) { setError(g.error || 'No se pudo guardar'); return }
+      toast.success(`Hoja guardada (${r.etiquetas} etiquetas, ${r.paginas} hoja(s)): ${g.ruta}`)
+    } finally { setTrabajando(false) }
+  }
+  return (
+    <section aria-label="Etiquetas con código de barras" data-testid="seccion-etiquetas" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+      <strong style={{ color: 'var(--ink)', fontSize: 14 }}>Etiquetas con código de barras</strong>
+      <p style={{ color: 'var(--dim)', fontSize: 12.5, margin: '4px 0 10px' }}>Elige productos y cuántas etiquetas de cada uno; se genera una hoja PDF para imprimir. Los productos sin código no se imprimen.</p>
+      <input className="gym-input" aria-label="Buscar producto para etiquetas" placeholder="Buscar por nombre o código…" value={q} onChange={e => setQ(e.target.value)} style={{ marginBottom: 8, maxWidth: 320 }} />
+      <div style={{ maxHeight: 220, overflow: 'auto' }}>
+        {visibles.map(p => (
+          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '3px 0', fontSize: 13, color: 'var(--ink)' }}>
+            <input type="checkbox" id={`etq-${p.id}`} checked={p.id in sel} aria-label={`Imprimir etiquetas de ${p.nombre}`} onChange={e => setSel(s => { const n = { ...s }; if (e.target.checked) n[p.id] = n[p.id] || 1; else delete n[p.id]; return n })} />
+            <label htmlFor={`etq-${p.id}`} style={{ flex: 1 }}>{p.nombre} <span style={{ color: 'var(--dim)' }}>{p.codigo ? `· ${p.codigo}` : '· sin código'}</span></label>
+            {p.id in sel && <input type="number" min="1" max="1000" className="gym-input" aria-label={`Copias de ${p.nombre}`} value={sel[p.id]} onChange={e => setSel(s => ({ ...s, [p.id]: e.target.value }))} style={{ width: 70, padding: '4px 6px', fontSize: 13 }} />}
+          </div>
+        ))}
+      </div>
+      {error && <p role="alert" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13, marginTop: 8 }}>Error: {error}</p>}
+      {aviso && <p role="status" style={{ color: 'var(--ink)', fontSize: 13, marginTop: 8 }}>{aviso}</p>}
+      <button onClick={generar} disabled={elegidos.length === 0 || trabajando} aria-label="Generar la hoja de etiquetas en PDF" data-testid="generar-etiquetas" className="clientes-glass-btn btn-primary" style={{ marginTop: 10 }}><div className="clientes-glass-bg" /><span className="clientes-glass-content">{trabajando ? 'Generando…' : `Generar hoja (${elegidos.length} producto(s))`}</span></button>
+    </section>
+  )
+}
+
 // ─── Importar / exportar CSV (Fase 9) ─────────────────────────────────────────
 
 const ETIQ_CAMPO = {
@@ -2081,6 +2152,7 @@ function TabIntercambio({ categorias, proveedores }) {
           )}
         </section>
       )}
+      {puedeExportar && <SeccionEtiquetas />}
       {puedeImportar && historial.length > 0 && (
         <section aria-label="Importaciones anteriores" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
           <strong style={{ color: 'var(--ink)', fontSize: 14 }}>Importaciones anteriores</strong>

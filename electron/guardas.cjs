@@ -2,6 +2,8 @@
 // Cada canal IPC sensible pasa por aquí: 1) se exige el permiso de la sesión del proceso principal,
 // 2) se sobrescribe el usuario (id y nombre) con el de la sesión: lo que mande la pantalla se ignora.
 // Se usa desde main.cjs y desde las pruebas (sin Electron).
+const barras = require('./codigobarras.cjs')
+const etiquetas = require('./etiquetas.cjs')
 module.exports = function crearGuardas({ dbm, seguridad }) {
   const G = {}
   const con = (canal, permiso, fn) => {
@@ -45,6 +47,20 @@ module.exports = function crearGuardas({ dbm, seguridad }) {
   con('reportes:exportar', 'inventario.exportar', (nombre, f) => {
     if (rep().NECESITAN_COSTOS.includes(nombre)) { const e = seguridad.exigir('inventario.ver_costos'); if (e) return e }
     return rep().aCsv(nombre, { ...(f || {}), costos: seguridad.tiene('inventario.ver_costos') })
+  })
+  // Códigos de barras y etiquetas (Fase 11)
+  con('codigos:svg', 'inventario.ver', (codigo, o) => { try { return { ok: true, svg: barras.svg(codigo, o) } } catch (e) { return { ok: false, error: e.message } } })
+  con('inventario:getCodigosDuplicados', 'inventario.ver', () => inv().getCodigosDuplicados())
+  con('etiquetas:generarPdf', 'inventario.exportar', async (d) => {
+    try {
+      const items = (d?.items || []).map(it => {
+        if (!it.producto_id) return it
+        const p = dbm.inventario.getById(it.producto_id)
+        return p ? { nombre: p.nombre, codigo: p.codigo, precio: p.precio_venta, copias: it.copias } : { nombre: `#${it.producto_id}`, codigo: null, copias: it.copias }
+      })
+      const r = await etiquetas.generarPdf(items, { columnas: d?.columnas, filas: d?.filas })
+      return { ok: true, base64: r.buffer ? r.buffer.toString('base64') : null, paginas: r.paginas, etiquetas: r.etiquetas, omitidos: r.omitidos }
+    } catch (e) { return { ok: false, error: e.message } }
   })
   const cont = () => dbm.conteos
   con('conteos:abrir', 'inventario.conteo', d => cont().abrir(sello(d)))

@@ -448,6 +448,7 @@ const MOTIVOS_STOCK = {
     { codigo: 'vencimiento', etiqueta: 'Vencimiento' }, { codigo: 'dano', etiqueta: 'Producto dañado' }, { codigo: 'robo_perdida', etiqueta: 'Robo o pérdida' }, { codigo: 'otro', etiqueta: 'Otro (explícalo)' },
   ],
 }
+const _codNorm = c => { const t = String(c ?? '').trim(); return t || null }
 // Redondeo decimal estable (evita 0.1+0.2 = 0.30000000000000004 y 1.005*100 = 100.49999…).
 function _redondear(x, d) {
   const f = 10 ** d
@@ -502,6 +503,31 @@ MIGRACIONES.push({
     for (const rid of roles('inventario.ver')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (?, ?)', [rid, pExp.id])
     for (const pp of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [pp.id])
   },
+})
+// ── v11 · Fase 11: índice único del código de producto ──
+// Parcial (solo productos con código y fuera de la papelera) y sin distinguir mayúsculas/espacios. Si YA hay códigos
+// repetidos NO se falla ni se arregla nada solo: se listan (inventario.getCodigosDuplicados) y el índice se crea
+// cuando dejan de repetirse (inventario.asegurarIndiceCodigo, que también se reintenta al guardar un producto).
+const _SQL_INDICE_CODIGO = "CREATE UNIQUE INDEX IF NOT EXISTS idx_productos_codigo_unico ON productos(lower(trim(codigo))) WHERE codigo IS NOT NULL AND trim(codigo) <> '' AND eliminado = 0"
+function _codigosDuplicados() {
+  const por = new Map()
+  for (const p of queryAll("SELECT id, nombre, codigo, COALESCE(archivado,0) AS archivado FROM productos WHERE eliminado=0 AND codigo IS NOT NULL AND trim(codigo) <> '' ORDER BY id")) {
+    const k = p.codigo.trim().toLowerCase()
+    if (!por.has(k)) por.set(k, { codigo: p.codigo.trim(), productos: [] })
+    por.get(k).productos.push({ id: p.id, nombre: p.nombre, archivado: !!p.archivado })
+  }
+  return [...por.values()].filter(g => g.productos.length > 1)
+}
+function _crearIndiceCodigo() {
+  const duplicados = _codigosDuplicados()
+  if (duplicados.length) return { creado: false, duplicados }
+  if (queryOne("SELECT 1 AS x FROM sqlite_master WHERE type='index' AND name='idx_productos_codigo_unico'")) return { creado: false, duplicados: [] }
+  db.run(_SQL_INDICE_CODIGO)
+  return { creado: true, duplicados: [] }
+}
+MIGRACIONES.push({
+  version: 11, nombre: 'fase 11: índice único del código de producto',
+  up() { _crearIndiceCodigo() },
 })
 const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version
 let _SQL = null
@@ -2918,13 +2944,15 @@ const inventario = {
     try { stock0 = _cantidadProducto({ permite_decimal: pd, decimales: dec }, data.stock || 0) } catch (e) { return { ok: false, error: `Stock inicial: ${e.message}` } }
     if (stock0 < 0) return { ok: false, error: 'El stock inicial debe ser mayor o igual a 0.' }
     if (!String(data.nombre ?? '').trim()) return { ok: false, error: 'El producto necesita un nombre.' }
+    const dueno = inventario._codigoEnUso(data.codigo)
+    if (dueno) return { ok: false, error: `El código «${dueno.codigo}» ya lo usa «${dueno.nombre}». Cada producto necesita un código distinto.` }
     const id = (() => {
       const r = _tx(() => {
         const nuevo = _ins(
           `INSERT INTO productos (nombre, codigo, descripcion, categoria_id, proveedor_id,
            precio_compra, precio_venta, stock, stock_minimo, unidad, imagen, permite_decimal, decimales, unidad_medida)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-          [data.nombre, data.codigo || null, data.descripcion || null,
+          [data.nombre, _codNorm(data.codigo), data.descripcion || null,
            data.categoria_id || null, data.proveedor_id || null,
            data.precio_compra || 0, data.precio_venta || 0,
            stock0, data.stock_minimo ?? 5, data.unidad || data.unidad_medida || 'unidad', data.imagen || null,
@@ -2938,6 +2966,7 @@ const inventario = {
       return r
     })()
     if (id.ok === false) return id
+    inventario._reintentarIndiceCodigo()
     return inventario.getById(id.id)
   },
   update(id, data) {
@@ -2948,6 +2977,13 @@ const inventario = {
       const pr = num(data.punto_reorden), cr = num(data.cantidad_reorden)
       if ([pr, cr].some(v => v !== null && (!Number.isFinite(v) || v < 0))) return { ok: false, error: 'El punto y la cantidad de reorden deben ser números mayores o iguales a 0.' }
       reorden = [pr, cr]
+    }
+    if (data.codigo !== undefined && _codNorm(data.codigo)) {
+      const actualCod = queryOne('SELECT codigo FROM productos WHERE id=?', [id])
+      if (actualCod && String(actualCod.codigo ?? '').trim().toLowerCase() !== _codNorm(data.codigo).toLowerCase()) {
+        const dueno = inventario._codigoEnUso(data.codigo, id)
+        if (dueno) return { ok: false, error: `El código «${dueno.codigo}» ya lo usa «${dueno.nombre}». Cada producto necesita un código distinto.` }
+      }
     }
     const preciosAntes = queryOne('SELECT precio_venta, precio_compra FROM productos WHERE id=?', [id])
     if (data.permite_decimal !== undefined || data.decimales !== undefined || data.unidad_medida !== undefined) {
@@ -2965,11 +3001,12 @@ const inventario = {
        precio_compra=?, precio_venta=?, stock_minimo=?, unidad=?, imagen=?,
        pendiente_completar = CASE WHEN ? > 0 THEN 0 ELSE COALESCE(pendiente_completar,0) END,
        updated_at=datetime('now','localtime') WHERE id=?`,
-      [data.nombre, data.codigo || null, data.descripcion || null,
+      [data.nombre, _codNorm(data.codigo), data.descripcion || null,
        data.categoria_id || null, data.proveedor_id || null,
        data.precio_compra || 0, data.precio_venta || 0,
        data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null, data.precio_venta || 0, id]
     )
+    inventario._reintentarIndiceCodigo()
     if (cfg) run('UPDATE productos SET permite_decimal=?, decimales=?, unidad_medida=? WHERE id=?', [cfg.pd, cfg.dec, cfg.um, id])
     if (reorden) run('UPDATE productos SET punto_reorden=?, cantidad_reorden=? WHERE id=?', [reorden[0], reorden[1], id])
     if (preciosAntes) {
@@ -2978,6 +3015,26 @@ const inventario = {
       _histPrecio(run, id, 'precio_compra', preciosAntes.precio_compra, Number(data.precio_compra) || 0, data, origen)
     }
     return { ok: true }
+  },
+  // ─── Códigos de producto (Fase 11) ───
+  _codigoEnUso(codigo, exceptoId) {
+    const c = _codNorm(codigo)
+    if (!c) return null
+    return queryOne("SELECT id, nombre, codigo FROM productos WHERE eliminado=0 AND codigo IS NOT NULL AND lower(trim(codigo)) = lower(?) AND id <> ? LIMIT 1", [c, exceptoId ?? -1]) || null
+  },
+  getCodigosDuplicados() { return _codigosDuplicados() },
+  asegurarIndiceCodigo() { return { ok: true, ..._crearIndiceCodigo() } },
+  _reintentarIndiceCodigo() { try { if (!queryOne("SELECT 1 AS x FROM sqlite_master WHERE name='idx_productos_codigo_unico'")) _crearIndiceCodigo() } catch (_) {} },
+  // Lectura del escáner: código EXACTO (sin distinguir mayúsculas ni espacios/saltos que añade el lector). Solo productos vendibles.
+  buscarPorCodigo(codigo) {
+    const c = _codNorm(codigo)
+    if (!c) return null
+    return queryOne(`
+      SELECT p.id, p.nombre, p.codigo, p.precio_venta, p.stock, p.stock_minimo, p.unidad, p.imagen, COALESCE(p.permite_decimal,0) AS permite_decimal, COALESCE(p.decimales,0) AS decimales, p.unidad_medida, cat.nombre as categoria_nombre
+      FROM productos p LEFT JOIN categorias_productos cat ON p.categoria_id=cat.id
+      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=0 AND COALESCE(p.pendiente_completar,0)=0
+        AND p.codigo IS NOT NULL AND lower(trim(p.codigo)) = lower(?)
+      LIMIT 1`, [c]) || null
   },
   delete(id) {
     run("UPDATE productos SET eliminado=1, eliminado_at=datetime('now','localtime'), activo=0 WHERE id=?", [id])
@@ -2996,6 +3053,8 @@ const inventario = {
     const p = queryOne('SELECT id, nombre, archivado FROM productos WHERE id=? AND eliminado=0', [id])
     if (!p) return { ok: false, error: 'Producto no encontrado' }
     if (!p.archivado) return { ok: false, error: 'El producto no está archivado.' }
+    const dueno = inventario._codigoEnUso(queryOne('SELECT codigo FROM productos WHERE id=?', [id]).codigo, id)
+    if (dueno) return { ok: false, error: `No se puede reactivar: el código «${dueno.codigo}» ya lo usa «${dueno.nombre}». Cambia uno de los dos códigos.` }
     run("UPDATE productos SET archivado=0, archivado_at=NULL, activo=1, updated_at=datetime('now','localtime') WHERE id=?", [id])
     try { auditoria.log({ usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre, accion: 'REACTIVAR_PRODUCTO', modulo: 'inventario', detalle: p.nombre, registro_afectado_id: id, registro_afectado_tipo: 'producto' }) } catch (_) {}
     return { ok: true }
@@ -3837,6 +3896,9 @@ const papelera = {
     return { ok: true }
   },
   restaurarProducto(id) {
+    const cod = queryOne('SELECT codigo FROM productos WHERE id=?', [id])
+    const dueno = cod ? inventario._codigoEnUso(cod.codigo, id) : null
+    if (dueno) return { ok: false, error: `No se puede restaurar: el código «${dueno.codigo}» ya lo usa «${dueno.nombre}». Cambia uno de los dos códigos.` }
     run("UPDATE productos SET eliminado=0, eliminado_at=NULL, activo=1 WHERE id=?", [id])
     return { ok: true }
   },

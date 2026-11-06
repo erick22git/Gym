@@ -94,7 +94,15 @@ export function puntajeCoincidencia(a, b) {
 
 // Devuelve { producto, puntaje, exacta } o null. `inventario` es la lista de
 // window.api.inventario.getAll().
-export function buscarCoincidencia(nombre, inventario) {
+// Si se da `codigo`, es la PRIMERA llave: un código exacto (sin distinguir mayúsculas/espacios) gana sobre el nombre.
+// Si el código lo comparten varios productos no se adivina: se vuelve a la búsqueda por nombre.
+export function buscarCoincidencia(nombre, inventario, codigo) {
+  const cod = String(codigo ?? '').trim().toLowerCase()
+  if (cod) {
+    const porCodigo = (inventario || []).filter(p => String(p.codigo ?? '').trim().toLowerCase() === cod)
+    if (porCodigo.length === 1) return { producto: porCodigo[0], puntaje: 1, exacta: true, porCodigo: true }
+    if (porCodigo.length > 1) return null
+  }
   if (!nombre?.toString().trim()) return null
   const candidatos = []
   for (const p of inventario || []) {

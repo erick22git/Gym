@@ -131,6 +131,14 @@ app.whenReady().then(async () => {
       return { ok: true, texto: fs.readFileSync(r.filePaths[0], 'utf-8'), archivo: require('path').basename(r.filePaths[0]) }
     } catch (err) { return { ok: false, error: `No se pudo leer el archivo: ${err.message}` } }
   })
+  ipcMain.handle('inventario:buscarPorCodigo', (_e, codigo) => dbModule.inventario.buscarPorCodigo(codigo))
+  ipcMain.handle('archivos:guardarBinario', async (_e, base64, nombre) => {
+    const den = seguridad.exigir('inventario.exportar'); if (den) return den
+    if (typeof base64 !== 'string' || !base64) return { ok: false, error: 'No hay contenido para guardar.' }
+    const r = await dialog.showSaveDialog(mainWindow, { title: 'Guardar archivo', defaultPath: String(nombre || 'etiquetas.pdf').replace(/[\\/:*?"<>|]/g, '_'), filters: [{ name: 'PDF', extensions: ['pdf'] }] })
+    if (r.canceled || !r.filePath) return { cancelado: true }
+    try { fs.writeFileSync(r.filePath, Buffer.from(base64, 'base64')); return { ok: true, ruta: r.filePath } } catch (err) { return { ok: false, error: `No se pudo guardar el archivo: ${err.message}` } }
+  })
   ipcMain.handle('inventario:contarPendientes', () => dbModule.inventario.contarPendientes())
   ipcMain.handle('inventario:getPoliticaStock', () => dbModule.inventario.getPoliticaStock())
   ipcMain.handle('sistema:estadoMigracion', () => dbModule.estadoMigracion())

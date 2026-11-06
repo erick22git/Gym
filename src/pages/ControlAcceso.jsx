@@ -924,6 +924,19 @@ function ModalVentaRapida({ usuario, onClose }) {
                     placeholder="Buscar producto por nombre o código..."
                     value={busqueda}
                     onChange={e => setBusqueda(e.target.value)}
+                    onKeyDown={async e => {
+                      // Escáner de código de barras: escribe el código y pulsa Enter → se agrega el producto EXACTO (nunca uno parecido).
+                      if (e.key !== 'Enter' || !busqueda.trim()) return
+                      e.preventDefault()
+                      const p = await window.api.inventario.buscarPorCodigo(busqueda)
+                      if (!p) { toast.error(`No hay ningún producto con el código «${busqueda.trim()}».`); return }
+                      if (p.stock <= 0) { toast.error(`«${p.nombre}» no tiene stock.`); return }
+                      const enCarrito = carrito.filter(i => i.producto_id === p.id && !i._es_gratis).reduce((s, i) => s + i.cantidad, 0)
+                      if (enCarrito + 1 > p.stock) { toast.error(`Solo hay ${p.stock} de «${p.nombre}» en stock.`); return }
+                      agregarItem(p)
+                      setBusqueda(''); setProductos([])
+                      toast.success(`Agregado: ${p.nombre}`)
+                    }}
                     style={{ paddingLeft: 32, paddingRight: 12, fontSize: 13, height: 40 }}
                   />
                 </div>

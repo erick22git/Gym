@@ -258,6 +258,11 @@ contextBridge.exposeInMainWorld('api', {
     getById: (id) => ipcRenderer.invoke('compras:getById', id),
     sugerirReposicion: () => ipcRenderer.invoke('compras:sugerirReposicion'),
   },
+  codigos: { svg: (codigo, o) => ipcRenderer.invoke('codigos:svg', codigo, o) },
+  etiquetas: {
+    generarPdf: (d) => ipcRenderer.invoke('etiquetas:generarPdf', d),
+    guardarPdf: (base64, nombre) => ipcRenderer.invoke('archivos:guardarBinario', base64, nombre),
+  },
   reportes: {
     valorInventario: (f) => ipcRenderer.invoke('reportes:valorInventario', f),
     masVendidos: (f) => ipcRenderer.invoke('reportes:masVendidos', f),
@@ -311,6 +316,8 @@ contextBridge.exposeInMainWorld('api', {
     getAlertas: () => ipcRenderer.invoke('inventario:getAlertas'),
     getHistorialPrecios: (id, opts) => ipcRenderer.invoke('inventario:getHistorialPrecios', id, opts),
     buscarPOS: (query) => ipcRenderer.invoke('inventario:buscarPOS', query),
+    buscarPorCodigo: (codigo) => ipcRenderer.invoke('inventario:buscarPorCodigo', codigo),
+    getCodigosDuplicados: () => ipcRenderer.invoke('inventario:getCodigosDuplicados'),
     ajustarStock: (data) => ipcRenderer.invoke('inventario:ajustarStock', data),
     getMotivos: () => ipcRenderer.invoke('inventario:getMotivos'),
     getUmbralAprobacion: () => ipcRenderer.invoke('inventario:getUmbralAprobacion'),
