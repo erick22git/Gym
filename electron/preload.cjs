@@ -281,6 +281,8 @@ contextBridge.exposeInMainWorld('api', {
     update: (id, data) => ipcRenderer.invoke('inventario:update', id, data),
     delete: (id) => ipcRenderer.invoke('inventario:delete', id),
     getStockBajo: () => ipcRenderer.invoke('inventario:getStockBajo'),
+    getAlertas: () => ipcRenderer.invoke('inventario:getAlertas'),
+    getHistorialPrecios: (id, opts) => ipcRenderer.invoke('inventario:getHistorialPrecios', id, opts),
     buscarPOS: (query) => ipcRenderer.invoke('inventario:buscarPOS', query),
     ajustarStock: (data) => ipcRenderer.invoke('inventario:ajustarStock', data),
     getMovimientos: (productoId) => ipcRenderer.invoke('inventario:getMovimientos', productoId),

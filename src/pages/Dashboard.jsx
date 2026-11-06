@@ -10,6 +10,7 @@ import {
 import KPICard from '../components/dashboard/KPICard'
 import { useApp } from '../context/AppContext'
 import { PAGES } from '../constants'
+import { useAuth } from '../context/AuthContext'
 
 // ─── Section card wrapper ─────────────────────────────────────────────────────
 function Card({ children, style }) {
@@ -88,6 +89,15 @@ export default function Dashboard() {
   const [inactivos, setInactivos] = useState([])
   const [topClientes, setTopClientes] = useState([])
   const [cargando, setCargando] = useState(true)
+  const { tienePermiso } = useAuth()
+  const [alertasInv, setAlertasInv] = useState(null)
+
+  // Alertas de inventario (Fase 7): sin stock, bajo el mínimo o en su punto de reorden. Solo con permiso de ver inventario.
+  useEffect(() => {
+    if (!tienePermiso('inventario.ver')) return
+    window.api.inventario.getAlertas().then(a => setAlertasInv(a && a.ok !== false ? a : null)).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -130,7 +140,8 @@ export default function Dashboard() {
     { icon: DollarSign, label: 'Ingresos del mes (Bs.)', value: stats?.ingresosMes || 0, prefix: '', decimals: 0, color: 'oklch(0.75 0.18 60)' },
   ]
 
-  const hayAlertas = stats?.vencidas > 0 || stats?.porVencer > 0
+  const hayAlertasInv = (alertasInv?.total || 0) > 0
+  const hayAlertas = stats?.vencidas > 0 || stats?.porVencer > 0 || hayAlertasInv
   const totalPlanes = planesData.reduce((s, p) => s + p.cantidad, 0)
 
   return (
@@ -192,6 +203,7 @@ export default function Dashboard() {
             <div style={{ fontSize: 9, color: 'oklch(0.88 0.08 25)', lineHeight: 1.35, position: 'relative' }}>
               {stats.vencidas > 0 && <div><strong>{stats.vencidas}</strong> vencidas</div>}
               {stats.porVencer > 0 && <div><strong>{stats.porVencer}</strong> por vencer</div>}
+              {hayAlertasInv && <div data-testid="alerta-stock"><strong>{alertasInv.total}</strong> con stock en alerta</div>}
             </div>
           </div>
         )}

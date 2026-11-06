@@ -21,6 +21,12 @@ module.exports = function crearGuardas({ dbm, seguridad }) {
   con('inventario:reactivar', 'inventario.eliminar_producto', id => inv().reactivar(id, seguridad.usuario()))
   con('inventario:conciliacion', 'inventario.conciliar', () => inv().conciliacion())
   con('inventario:repararConciliacion', 'inventario.conciliar', d => inv().repararConciliacion(sello(d)))
+  con('inventario:getAlertas', 'inventario.ver', () => inv().getAlertas())
+  // El historial mezcla precios de venta (visibles) y costos: sin «ver costos» solo se devuelven los precios de venta.
+  con('inventario:getHistorialPrecios', 'inventario.ver', (id, opts) => {
+    const filas = inv().getHistorialPrecios(id, opts)
+    return seguridad.tiene('inventario.ver_costos') ? filas : filas.filter(x => x.campo === 'precio_venta')
+  })
   const cont = () => dbm.conteos
   con('conteos:abrir', 'inventario.conteo', d => cont().abrir(sello(d)))
   con('conteos:getAll', 'inventario.conteo', () => cont().getAll())

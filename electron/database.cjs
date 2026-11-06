@@ -385,6 +385,32 @@ MIGRACIONES.push({
     for (const pp of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [pp.id])
   },
 })
+// ── v8 · Fase 7: historial de precios y costos ──
+TABLAS_NUEVAS.push('precios_historial')
+MIGRACIONES.push({
+  version: 8, nombre: 'fase 7: historial de precios',
+  up() {
+    db.run(`CREATE TABLE IF NOT EXISTS precios_historial (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      producto_id INTEGER NOT NULL REFERENCES productos(id),
+      campo TEXT NOT NULL,
+      valor_anterior REAL,
+      valor_nuevo REAL,
+      fecha TEXT DEFAULT (datetime('now','localtime')),
+      usuario_id INTEGER, usuario_nombre TEXT,
+      origen TEXT
+    )`)
+    db.run('CREATE INDEX IF NOT EXISTS idx_precios_hist_prod ON precios_historial(producto_id)')
+  },
+})
+// Anota un cambio de precio/costo SOLO si el valor cambió (null → valor cuenta como cambio). `exec` = db.run (en transacción) o run.
+function _histPrecio(exec, productoId, campo, anterior, nuevo, u, origen) {
+  const a = anterior == null ? null : Number(anterior), n = nuevo == null ? null : Number(nuevo)
+  if (a === n || (a !== null && n !== null && Math.abs(a - n) < 1e-9)) return false
+  exec('INSERT INTO precios_historial (producto_id, campo, valor_anterior, valor_nuevo, usuario_id, usuario_nombre, origen) VALUES (?,?,?,?,?,?,?)',
+    [productoId, campo, a, n, u?.usuario_id || null, u?.usuario_nombre || null, origen || 'Edición manual'])
+  return true
+}
 // Redondeo decimal estable (evita 0.1+0.2 = 0.30000000000000004 y 1.005*100 = 100.49999…).
 function _redondear(x, d) {
   const f = 10 ** d
@@ -2840,6 +2866,14 @@ const inventario = {
   },
   update(id, data) {
     let cfg = null
+    let reorden = null
+    if (data.punto_reorden !== undefined || data.cantidad_reorden !== undefined) {
+      const num = v => (v === null || v === '' || v === undefined ? null : Number(v))
+      const pr = num(data.punto_reorden), cr = num(data.cantidad_reorden)
+      if ([pr, cr].some(v => v !== null && (!Number.isFinite(v) || v < 0))) return { ok: false, error: 'El punto y la cantidad de reorden deben ser números mayores o iguales a 0.' }
+      reorden = [pr, cr]
+    }
+    const preciosAntes = queryOne('SELECT precio_venta, precio_compra FROM productos WHERE id=?', [id])
     if (data.permite_decimal !== undefined || data.decimales !== undefined || data.unidad_medida !== undefined) {
       const actual = queryOne(`SELECT stock, unidad_medida, ${_CFG_DEC} FROM productos WHERE id=?`, [id])
       if (!actual) return { ok: false, error: 'Producto no encontrado' }
@@ -2861,11 +2895,11 @@ const inventario = {
        data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null, data.precio_venta || 0, id]
     )
     if (cfg) run('UPDATE productos SET permite_decimal=?, decimales=?, unidad_medida=? WHERE id=?', [cfg.pd, cfg.dec, cfg.um, id])
-    if (data.punto_reorden !== undefined || data.cantidad_reorden !== undefined) {
-      const num = v => (v === null || v === '' || v === undefined ? null : Number(v))
-      const pr = num(data.punto_reorden), cr = num(data.cantidad_reorden)
-      if ([pr, cr].some(v => v !== null && (!Number.isFinite(v) || v < 0))) return { ok: false, error: 'El punto y la cantidad de reorden deben ser números mayores o iguales a 0.' }
-      run('UPDATE productos SET punto_reorden=?, cantidad_reorden=? WHERE id=?', [pr, cr, id])
+    if (reorden) run('UPDATE productos SET punto_reorden=?, cantidad_reorden=? WHERE id=?', [reorden[0], reorden[1], id])
+    if (preciosAntes) {
+      const origen = data.origen || 'Edición manual'
+      _histPrecio(run, id, 'precio_venta', preciosAntes.precio_venta, Number(data.precio_venta) || 0, data, origen)
+      _histPrecio(run, id, 'precio_compra', preciosAntes.precio_compra, Number(data.precio_compra) || 0, data, origen)
     }
     return { ok: true }
   },
@@ -2961,6 +2995,21 @@ const inventario = {
     run("INSERT OR REPLACE INTO config (key, value) VALUES ('stock_negativo', ?)", [valor])
     try { auditoria.log({ usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre, accion: 'POLITICA_STOCK', modulo: 'inventario', detalle: `${antes} → ${valor}` }) } catch (_) {}
     return { ok: true, politica: valor }
+  },
+  getHistorialPrecios(productoId, opts = {}) {
+    const lim = Math.min(Math.max(parseInt(opts.limite) || 100, 1), 500)
+    return queryAll('SELECT * FROM precios_historial WHERE producto_id=? ORDER BY id DESC LIMIT ?', [productoId, lim])
+  },
+  // Productos que piden atención: sin stock, bajo el mínimo (stock>0) y en/bajo su punto de reorden. Excluye archivados y eliminados.
+  getAlertas() {
+    const filas = queryAll(`SELECT p.id, p.nombre, p.stock, p.stock_minimo, p.punto_reorden, p.unidad, c.nombre AS categoria_nombre
+      FROM productos p LEFT JOIN categorias_productos c ON c.id=p.categoria_id
+      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=0 ORDER BY p.stock ASC, p.nombre`)
+    const sin_stock = filas.filter(x => x.stock <= 0)
+    const bajo_minimo = filas.filter(x => x.stock > 0 && x.stock <= (x.stock_minimo ?? 0))
+    const a_reponer = filas.filter(x => (x.punto_reorden ?? 0) > 0 && x.stock <= x.punto_reorden)
+    const ids = new Set([...sin_stock, ...bajo_minimo, ...a_reponer].map(x => x.id))
+    return { sin_stock, bajo_minimo, a_reponer, total: ids.size }
   },
   getStockBajo() {
     return queryAll(`
@@ -4484,6 +4533,7 @@ const compras = {
       const stockNuevo = _redondearStock(p, p.stock + it.cantidad)
       const prom = (p.stock <= 0 || p.costo_promedio == null) ? it.costo : _redondear((p.stock * p.costo_promedio + it.cantidad * it.costo) / (p.stock + it.cantidad), 4)
       db.run("UPDATE productos SET stock=?, costo_promedio=?, ultimo_costo=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, prom, it.costo, p.id])
+      _histPrecio(db.run.bind(db), p.id, 'costo_promedio', p.costo_promedio, prom, u, `Compra #${ordenId}`)
       db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre, costo_unitario) VALUES (?,?,?,?,?,?,?,?,?)`,
         [p.id, 'entrada', it.cantidad, p.stock, stockNuevo, `Compra #${ordenId}`, u.usuario_id || null, u.usuario_nombre || null, it.costo])
       const mid = queryOne('SELECT last_insert_rowid() AS id').id
@@ -4596,9 +4646,10 @@ const compras = {
         if (Math.abs(p.stock - l.stock_despues) > 1e-6) throw new Error(`"${p.nombre}" cambió desde la compra (hoy tiene ${p.stock}; justo después de la compra tenía ${l.stock_despues}): no se puede revertir sin pisar ese cambio. No toqué nada; corrígelo con un ajuste.`)
       }
       for (const l of ls) {
-        const p = queryOne(`SELECT id, stock, ${_CFG_DEC} FROM productos WHERE id=?`, [l.producto_id])
+        const p = queryOne(`SELECT id, stock, costo_promedio, ${_CFG_DEC} FROM productos WHERE id=?`, [l.producto_id])
         const nuevo = _redondearStock(p, p.stock - l.cantidad)
         db.run("UPDATE productos SET stock=?, costo_promedio=?, ultimo_costo=?, updated_at=datetime('now','localtime') WHERE id=?", [nuevo, l.costo_promedio_anterior, l.ultimo_costo_anterior, p.id])
+        _histPrecio(db.run.bind(db), p.id, 'costo_promedio', p.costo_promedio, l.costo_promedio_anterior, u, `Reversión de la recepción #${recId}`)
         db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre, costo_unitario) VALUES (?,?,?,?,?,?,?,?,?)`,
           [p.id, 'salida', l.cantidad, p.stock, nuevo, `Reversión de la recepción #${recId} (compra #${r.orden_id})`, u.usuario_id || null, u.usuario_nombre || null, l.costo_unitario])
         if (l.linea_id) db.run('UPDATE orden_compra_lineas SET cantidad_recibida = MAX(0, cantidad_recibida - ?) WHERE id=?', [l.cantidad, l.linea_id])

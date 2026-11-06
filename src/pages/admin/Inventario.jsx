@@ -171,6 +171,11 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
   })
   const [cambiandoImg, setCambiandoImg] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  const [historial, setHistorial] = useState(null)
+  async function verHistorial() {
+    const r = await window.api.inventario.getHistorialPrecios(producto.id)
+    setHistorial(Array.isArray(r) ? r : [])
+  }
 
   function set(k, v) { setForm(p => ({ ...p, [k]: v })) }
 
@@ -299,6 +304,30 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
         {inp('Stock mínimo', 'stock_minimo', { type: 'number', min: 0, placeholder: '5' })}
         {!esNuevo && inp('Punto de reorden (avisa cuándo reponer)', 'punto_reorden', { type: 'number', min: 0, step: 'any', placeholder: 'Sin definir' })}
         {!esNuevo && inp('Cantidad a pedir al reponer', 'cantidad_reorden', { type: 'number', min: 0, step: 'any', placeholder: 'Automática' })}
+        {!esNuevo && (
+          <div style={{ gridColumn: '1/-1' }}>
+            <button type="button" onClick={historial ? () => setHistorial(null) : verHistorial} aria-expanded={!!historial} className="clientes-glass-btn btn-secondary">
+              <div className="clientes-glass-bg" /><span className="clientes-glass-content">{historial ? 'Ocultar historial de precios' : 'Ver historial de precios'}</span>
+            </button>
+            {historial && (historial.length === 0
+              ? <p role="status" style={{ fontSize: 13, color: 'var(--dim)', marginTop: 8 }}>Este producto todavía no tiene cambios de precio registrados.</p>
+              : (
+                <table data-testid="historial-precios" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, color: 'var(--ink)', marginTop: 8 }}>
+                  <thead><tr style={{ textAlign: 'left', color: 'var(--dim)' }}><th scope="col">Fecha</th><th scope="col">Qué cambió</th><th scope="col">Antes</th><th scope="col">Después</th><th scope="col">Quién y por qué</th></tr></thead>
+                  <tbody>
+                    {historial.map(h => (
+                      <tr key={h.id} style={{ borderTop: '1px solid var(--line)' }}>
+                        <td>{h.fecha}</td>
+                        <td>{{ precio_venta: 'Precio de venta', precio_compra: 'Precio de compra', costo_promedio: 'Costo promedio' }[h.campo] || h.campo}</td>
+                        <td>{h.valor_anterior ?? '—'}</td><td>{h.valor_nuevo ?? '—'}</td>
+                        <td>{h.usuario_nombre || 'Sistema'} · {h.origen}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ))}
+          </div>
+        )}
         <div style={{ gridColumn: '1/-1' }}>
           <FormField label="Descripción">
             <textarea
@@ -541,6 +570,7 @@ function TabProductos({ categorias, proveedores, usuario }) {
   const [verArchivados, setVerArchivados] = useState(false)
   const [soloPendientes, setSoloPendientes] = useState(false)
   const [nPendientes, setNPendientes] = useState(0)
+  const [alertas, setAlertas] = useState(null)
   const [politica, setPolitica] = useState('no_permitir')
   useEffect(() => { window.api.inventario.getPoliticaStock().then(v => setPolitica(v || 'no_permitir')).catch(() => {}) }, [])
   const [productos, setProductos] = useState([])
@@ -559,6 +589,7 @@ function TabProductos({ categorias, proveedores, usuario }) {
     setCargando(true)
     try {
       window.api.inventario.contarPendientes().then(n => setNPendientes(n || 0)).catch(() => {})
+      window.api.inventario.getAlertas().then(a => setAlertas(a && a.ok !== false ? a : null)).catch(() => {})
       const result = await window.api.inventario.getPaginated({ page: p, pageSize: ps, busqueda: b || undefined, categoria_id: cat || undefined, archivados: arch || undefined, pendientes: pend || undefined })
       setProductos(result?.data || [])
       setTotal(result?.total || 0)
@@ -685,6 +716,16 @@ function TabProductos({ categorias, proveedores, usuario }) {
           <input type="checkbox" checked={verArchivados} onChange={e => { setVerArchivados(e.target.checked); setPage(1); cargar(1, pageSize, busqueda, filtroCategoria, e.target.checked) }} aria-label="Ver productos archivados" />
           Ver archivados
         </label>
+        {alertas && alertas.total > 0 && (
+          <span role="status" data-testid="alertas-stock" style={{ fontSize: 13, color: 'var(--ink)' }}>
+            <strong>Alertas de stock:</strong>{' '}
+            {alertas.sin_stock.length > 0 && `${alertas.sin_stock.length} sin stock`}
+            {alertas.sin_stock.length > 0 && (alertas.bajo_minimo.length > 0 || alertas.a_reponer.length > 0) && ' · '}
+            {alertas.bajo_minimo.length > 0 && `${alertas.bajo_minimo.length} bajo el mínimo`}
+            {alertas.bajo_minimo.length > 0 && alertas.a_reponer.length > 0 && ' · '}
+            {alertas.a_reponer.length > 0 && `${alertas.a_reponer.length} por reponer`}
+          </span>
+        )}
         {nPendientes > 0 && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
             <input type="checkbox" data-testid="filtro-por-completar" checked={soloPendientes} onChange={e => { setSoloPendientes(e.target.checked); setPage(1); cargar(1, pageSize, busqueda, filtroCategoria, verArchivados, e.target.checked) }} aria-label={`Ver solo los ${nPendientes} productos por completar`} />
