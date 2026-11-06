@@ -110,6 +110,27 @@ app.whenReady().then(async () => {
   // Fase 1 (Sprint 4B): canales sensibles con permiso verificado en el proceso principal y usuario tomado de la sesión
   const _guardas = require('./guardas.cjs')({ dbm: dbModule, seguridad })
   for (const [canal, fn] of Object.entries(_guardas)) ipcMain.handle(canal, (_e, ...args) => fn(...args))
+  // Fase 9: guardar / abrir archivos CSV con el diálogo del sistema (el permiso se vuelve a exigir aquí).
+  ipcMain.handle('intercambio:guardarArchivo', async (_e, texto, nombre) => {
+    const den = seguridad.exigir('inventario.exportar'); if (den) return den
+    if (typeof texto !== 'string') return { ok: false, error: 'No hay contenido para guardar.' }
+    const r = await dialog.showSaveDialog(mainWindow, {
+      title: 'Guardar archivo CSV',
+      defaultPath: String(nombre || 'inventario.csv').replace(/[\\/:*?"<>|]/g, '_'),
+      filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }],
+    })
+    if (r.canceled || !r.filePath) return { cancelado: true }
+    try { fs.writeFileSync(r.filePath, texto, 'utf-8'); return { ok: true, ruta: r.filePath } } catch (err) { return { ok: false, error: `No se pudo guardar el archivo: ${err.message}` } }
+  })
+  ipcMain.handle('intercambio:abrirArchivo', async () => {
+    const den = seguridad.exigir('inventario.importar'); if (den) return den
+    const r = await dialog.showOpenDialog(mainWindow, { title: 'Elegir archivo CSV', filters: [{ name: 'CSV (Excel)', extensions: ['csv', 'txt'] }], properties: ['openFile'] })
+    if (r.canceled || !r.filePaths[0]) return { cancelado: true }
+    try {
+      if (fs.statSync(r.filePaths[0]).size > 8 * 1024 * 1024) return { ok: false, error: 'El archivo pesa más de 8 MB. Divídelo en partes.' }
+      return { ok: true, texto: fs.readFileSync(r.filePaths[0], 'utf-8'), archivo: require('path').basename(r.filePaths[0]) }
+    } catch (err) { return { ok: false, error: `No se pudo leer el archivo: ${err.message}` } }
+  })
   ipcMain.handle('inventario:contarPendientes', () => dbModule.inventario.contarPendientes())
   ipcMain.handle('inventario:getPoliticaStock', () => dbModule.inventario.getPoliticaStock())
   ipcMain.handle('sistema:estadoMigracion', () => dbModule.estadoMigracion())

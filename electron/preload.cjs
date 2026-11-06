@@ -258,6 +258,17 @@ contextBridge.exposeInMainWorld('api', {
     getById: (id) => ipcRenderer.invoke('compras:getById', id),
     sugerirReposicion: () => ipcRenderer.invoke('compras:sugerirReposicion'),
   },
+  intercambio: {
+    plantilla: () => ipcRenderer.invoke('intercambio:plantilla'),
+    exportarInventario: () => ipcRenderer.invoke('intercambio:exportarInventario'),
+    exportarKardex: (f) => ipcRenderer.invoke('intercambio:exportarKardex', f),
+    previsualizar: (texto) => ipcRenderer.invoke('intercambio:previsualizar', texto),
+    aplicar: (texto, d) => ipcRenderer.invoke('intercambio:aplicar', texto, d),
+    deshacer: (id) => ipcRenderer.invoke('intercambio:deshacer', id),
+    getImportaciones: () => ipcRenderer.invoke('intercambio:getImportaciones'),
+    guardarArchivo: (texto, nombre) => ipcRenderer.invoke('intercambio:guardarArchivo', texto, nombre),
+    abrirArchivo: () => ipcRenderer.invoke('intercambio:abrirArchivo'),
+  },
   conteos: {
     abrir: (data) => ipcRenderer.invoke('conteos:abrir', data),
     getAll: () => ipcRenderer.invoke('conteos:getAll'),

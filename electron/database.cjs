@@ -464,6 +464,45 @@ function _cantidadProducto(prod, cant) {
 }
 const _redondearStock = (prod, x) => (prod?.permite_decimal ? _redondear(x, prod.decimales ?? 0) : x)
 const _CFG_DEC = 'COALESCE(permite_decimal,0) AS permite_decimal, COALESCE(decimales,0) AS decimales'
+// ── v10 · Fase 9: importación / exportación CSV ──
+TABLAS_NUEVAS.push('importaciones', 'importacion_lineas')
+MIGRACIONES.push({
+  version: 10, nombre: 'fase 9: importación y exportación CSV con deshacer',
+  up() {
+    db.run(`CREATE TABLE IF NOT EXISTS importaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha TEXT DEFAULT (datetime('now','localtime')),
+      archivo TEXT,
+      estado TEXT NOT NULL DEFAULT 'aplicada',
+      resumen TEXT,
+      usuario_id INTEGER, usuario_nombre TEXT,
+      deshecha_por INTEGER, deshecha_por_nombre TEXT, deshecha_at TEXT
+    )`)
+    db.run(`CREATE TABLE IF NOT EXISTS importacion_lineas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      importacion_id INTEGER NOT NULL REFERENCES importaciones(id),
+      linea INTEGER,
+      producto_id INTEGER REFERENCES productos(id),
+      accion TEXT NOT NULL,
+      antes TEXT, despues TEXT,
+      stock_despues REAL,
+      mov_ref INTEGER
+    )`)
+    db.run('CREATE INDEX IF NOT EXISTS idx_imp_lineas_imp ON importacion_lineas(importacion_id)')
+    for (const [codigo, nombre, desc] of [
+      ['inventario.importar', 'Importar inventario desde un archivo', 'Crear y actualizar productos y stock desde un archivo CSV, y deshacer esa importación'],
+      ['inventario.exportar', 'Exportar inventario a un archivo', 'Descargar el inventario, el kardex y la plantilla de importación en CSV'],
+    ]) db.run("INSERT OR IGNORE INTO permisos (codigo, modulo, nombre, descripcion) VALUES (?, 'inventario', ?, ?)", [codigo, nombre, desc])
+    // Importar equivale a crear + editar + ajustar stock: solo lo reciben los roles que YA tenían las tres. Exportar, a ver el inventario.
+    const roles = codigo => queryAll('SELECT rp.rol_id FROM rol_permisos rp JOIN permisos p ON p.id=rp.permiso_id WHERE p.codigo=?', [codigo]).map(r => r.rol_id)
+    const pImp = queryOne("SELECT id FROM permisos WHERE codigo='inventario.importar'")
+    const pExp = queryOne("SELECT id FROM permisos WHERE codigo='inventario.exportar'")
+    const [rc, re, ra] = ['inventario.crear_producto', 'inventario.editar_producto', 'inventario.ajustar_stock'].map(roles)
+    for (const rid of rc.filter(r => re.includes(r) && ra.includes(r))) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (?, ?)', [rid, pImp.id])
+    for (const rid of roles('inventario.ver')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (?, ?)', [rid, pExp.id])
+    for (const pp of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [pp.id])
+  },
+})
 const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version
 let _SQL = null
 let _estadoMigracion = { migrada: false, ok: true, version: null }
@@ -4791,6 +4830,320 @@ const compras = {
   },
 }
 
+// ─── Importar / exportar CSV (Fase 9) ─────────────────────────────────────────
+// Determinista: sin IA. Columnas por NOMBRE (en cualquier orden), vista previa antes/después, todo o nada,
+// deshacer con movimientos inversos. Celda vacía = «no cambiar». Los costos solo se leen/escriben con `opts.costos`.
+const csv = require('./csv.cjs')
+const _IMP_ALIAS = {
+  codigo: ['codigo', 'cod', 'sku', 'codigo_de_barras', 'codigo_barras', 'barcode'],
+  nombre: ['nombre', 'producto', 'articulo'],
+  categoria: ['categoria'], proveedor: ['proveedor'], descripcion: ['descripcion'],
+  unidad_medida: ['unidad_medida', 'unidad'], permite_decimal: ['permite_decimal', 'admite_decimales', 'decimales_permitidos'],
+  decimales: ['decimales', 'cantidad_decimales'],
+  precio_venta: ['precio_venta', 'precio'], precio_compra: ['precio_compra', 'costo_compra'],
+  stock: ['stock', 'existencia', 'cantidad'], stock_minimo: ['stock_minimo', 'minimo'],
+  punto_reorden: ['punto_reorden', 'punto_de_reorden'], cantidad_reorden: ['cantidad_reorden', 'cantidad_a_pedir'],
+}
+const _IMP_SOLO_LECTURA = ['id', 'costo_promedio', 'ultimo_costo', 'estado']
+const _IMP_MAX_FILAS = 5000
+const _normTxt = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+const _mismo = (a, b) => (typeof a === 'number' || typeof b === 'number') && a != null && b != null ? Math.abs(Number(a) - Number(b)) < 1e-9 : (a ?? null) === (b ?? null)
+
+const intercambio = {
+  COLUMNAS_PLANTILLA: ['codigo', 'nombre', 'categoria', 'proveedor', 'descripcion', 'unidad_medida', 'permite_decimal', 'decimales', 'precio_venta', 'precio_compra', 'stock', 'stock_minimo', 'punto_reorden', 'cantidad_reorden'],
+  plantilla() {
+    const cab = intercambio.COLUMNAS_PLANTILLA
+    return csv.generar(cab, [['EJ-001', 'Producto de ejemplo (borra esta fila)', '', '', '', 'unidad', 'no', 0, 1.5, 0.8, 10, 5, 3, 12]])
+  },
+  _cabeceraInventario(costos) {
+    return ['codigo', 'nombre', 'categoria', 'proveedor', 'descripcion', 'unidad_medida', 'permite_decimal', 'decimales', 'precio_venta']
+      .concat(costos ? ['precio_compra'] : []).concat(['stock', 'stock_minimo', 'punto_reorden', 'cantidad_reorden'])
+      .concat(costos ? ['costo_promedio', 'ultimo_costo'] : [])
+  },
+  exportarInventario(opts = {}) {
+    const costos = !!opts.costos
+    const cab = intercambio._cabeceraInventario(costos)
+    const filas = queryAll(`SELECT p.*, c.nombre AS categoria_nombre, pv.nombre AS proveedor_nombre
+      FROM productos p LEFT JOIN categorias_productos c ON p.categoria_id=c.id LEFT JOIN proveedores pv ON p.proveedor_id=pv.id
+      WHERE p.eliminado=0 AND COALESCE(p.archivado,0)=0 ORDER BY p.nombre, p.id`)
+    return csv.generar(cab, filas.map(p => cab.map(k => {
+      switch (k) {
+        case 'categoria': return p.categoria_nombre
+        case 'proveedor': return p.proveedor_nombre
+        case 'permite_decimal': return p.permite_decimal ? 'si' : 'no'
+        case 'decimales': return p.decimales || 0
+        case 'unidad_medida': return p.unidad_medida || p.unidad || 'unidad'
+        default: return p[k]
+      }
+    })))
+  },
+  exportarKardex(f = {}) {
+    const costos = !!f.costos
+    const cab = ['fecha', 'producto', 'codigo', 'tipo', 'cantidad', 'stock_anterior', 'stock_nuevo', 'motivo_codigo', 'motivo', 'usuario'].concat(costos ? ['costo_unitario'] : [])
+    const where = [], params = []
+    if (f.producto_id) { where.push('m.producto_id=?'); params.push(f.producto_id) }
+    if (f.desde) { where.push('m.created_at >= ?'); params.push(f.desde) }
+    if (f.hasta) { where.push('m.created_at <= ?'); params.push(f.hasta + ' 23:59:59') }
+    const filas = queryAll(`SELECT m.*, p.nombre AS producto_nombre, p.codigo AS producto_codigo FROM movimientos_stock m JOIN productos p ON p.id=m.producto_id
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY m.id`, params)
+    return csv.generar(cab, filas.map(m => [m.created_at, m.producto_nombre, m.producto_codigo, m.tipo, m.cantidad, m.stock_anterior, m.stock_nuevo, m.motivo_codigo, m.motivo, m.usuario_nombre].concat(costos ? [m.costo_unitario] : [])))
+  },
+
+  // Análisis puro (no escribe). Devuelve una fila por línea del archivo con acción, cambios antes/después y errores.
+  _analizar(texto, opts = {}) {
+    const costos = !!opts.costos
+    const mal = error => ({ ok: false, error, filas: [], errores_cabecera: [error], resumen: { total: 0, crear: 0, actualizar: 0, sin_cambios: 0, errores: 0 } })
+    if (typeof texto !== 'string' || !texto.trim()) return mal('El archivo está vacío.')
+    if (texto.length > 8_000_000) return mal('El archivo es demasiado grande (máximo unos 8 MB).')
+    let parsed
+    try { parsed = csv.parsear(texto) } catch (e) { return mal(e.message) }
+    const [cabRaw, ...datos] = parsed.filas
+    if (!cabRaw) return mal('El archivo está vacío.')
+    if (datos.length === 0) return mal('El archivo solo tiene encabezados: no hay productos para importar.')
+    if (datos.length > _IMP_MAX_FILAS) return mal(`El archivo tiene ${datos.length} filas; el máximo por importación es ${_IMP_MAX_FILAS}. Divídelo en partes.`)
+    // Encabezados → claves canónicas
+    const idx = {}, ignoradas = [], errCab = []
+    cabRaw.forEach((h, i) => {
+      const n = csv.normalizarEncabezado(csv.celdaATexto(h))
+      const clave = Object.keys(_IMP_ALIAS).find(k => _IMP_ALIAS[k].includes(n))
+      if (!clave) { if (n) ignoradas.push(n); return }
+      if (idx[clave] !== undefined) { errCab.push(`La columna «${clave}» aparece dos veces en el encabezado.`); return }
+      idx[clave] = i
+    })
+    if (idx.nombre === undefined && idx.codigo === undefined) errCab.push('El archivo necesita al menos una columna «codigo» o «nombre» para saber de qué producto se trata.')
+    const hayCompra = idx.precio_compra !== undefined
+    if (hayCompra && !costos) { ignoradas.push('precio_compra'); delete idx.precio_compra }
+    if (errCab.length) return { ok: false, error: errCab[0], filas: [], errores_cabecera: errCab, columnas_ignoradas: ignoradas, resumen: { total: datos.length, crear: 0, actualizar: 0, sin_cambios: 0, errores: 0 } }
+
+    const prods = queryAll(`SELECT *, ${_CFG_DEC} FROM productos WHERE eliminado=0`)
+    const porCodigo = new Map(), porNombre = new Map()
+    for (const p of prods) {
+      if (p.codigo) { const k = _normTxt(p.codigo); porCodigo.set(k, [...(porCodigo.get(k) || []), p]) }
+      const k = _normTxt(p.nombre); porNombre.set(k, [...(porNombre.get(k) || []), p])
+    }
+    const cats = new Map(queryAll('SELECT id, nombre FROM categorias_productos WHERE activo=1').map(c => [_normTxt(c.nombre), c.id]))
+    const provs = new Map(queryAll('SELECT id, nombre FROM proveedores WHERE activo=1').map(c => [_normTxt(c.nombre), c.id]))
+    const vistos = new Map()   // clave interna → línea
+    const filas = []
+    const resumen = { total: datos.length, crear: 0, actualizar: 0, sin_cambios: 0, errores: 0 }
+
+    datos.forEach((row, i) => {
+      const linea = i + 2
+      const errores = []
+      const cel = k => (idx[k] === undefined ? undefined : csv.celdaATexto(row[idx[k]]))
+      const txt = k => { const v = cel(k); return v === undefined || v === '' ? undefined : v }
+      const num = (k, { entero = false, max } = {}) => {
+        const v = cel(k); if (v === undefined || v === '') return undefined
+        const n = csv.textoANumero(v)
+        if (Number.isNaN(n)) { errores.push(`${k}: «${v}» no es un número.`); return undefined }
+        if (n < 0) { errores.push(`${k}: no puede ser negativo (${v}).`); return undefined }
+        if (entero && !Number.isInteger(n)) { errores.push(`${k}: debe ser un número entero (${v}).`); return undefined }
+        if (max !== undefined && n > max) { errores.push(`${k}: no puede ser mayor que ${max} (${v}).`); return undefined }
+        return n
+      }
+      const bool = k => {
+        const v = cel(k); if (v === undefined || v === '') return undefined
+        const n = _normTxt(v)
+        if (['si', 's', '1', 'true', 'x', 'yes'].includes(n)) return 1
+        if (['no', 'n', '0', 'false'].includes(n)) return 0
+        errores.push(`${k}: escribe «si» o «no» (no «${v}»).`); return undefined
+      }
+      const codigo = txt('codigo'), nombre = txt('nombre')
+      const ref = (k, mapa, etiqueta) => {
+        const v = txt(k); if (v === undefined) return undefined
+        const id = mapa.get(_normTxt(v))
+        if (id === undefined) { errores.push(`${etiqueta} «${v}» no existe. Créala/créalo antes de importar.`); return undefined }
+        return id
+      }
+      const vals = {
+        categoria_id: ref('categoria', cats, 'La categoría'), proveedor_id: ref('proveedor', provs, 'El proveedor'),
+        descripcion: txt('descripcion'), unidad_medida: txt('unidad_medida'),
+        precio_venta: num('precio_venta'), precio_compra: num('precio_compra'),
+        stock_minimo: num('stock_minimo'), punto_reorden: num('punto_reorden'), cantidad_reorden: num('cantidad_reorden'),
+      }
+      const pd = bool('permite_decimal'), dec = num('decimales', { entero: true, max: 3 })
+      const stock = num('stock')
+      const clave = codigo || nombre || ''
+      const fila = { linea, clave, nombre: nombre || null, accion: 'error', cambios: [], antes: {}, despues: {}, errores, producto_id: null }
+
+      // ── ¿qué producto es? ──
+      let objetivo = null, crear = false
+      if (!codigo && !nombre) errores.push('La fila no tiene código ni nombre.')
+      else {
+        let porCod = codigo ? (porCodigo.get(_normTxt(codigo)) || []) : []
+        if (porCod.length > 1) errores.push(`El código «${codigo}» pertenece a varios productos (${porCod.map(p => p.nombre).join(', ')}). Corrige los duplicados primero.`)
+        else if (porCod.length === 1) objetivo = porCod[0]
+        else {
+          const porNom = nombre ? (porNombre.get(_normTxt(nombre)) || []) : []
+          if (porNom.length > 1) errores.push(`El nombre «${nombre}» corresponde a más de un producto (ambiguo). Usa el código para distinguirlos.`)
+          else if (porNom.length === 1) {
+            if (codigo && porNom[0].codigo) errores.push(`El nombre «${nombre}» ya existe con otro código («${porNom[0].codigo}»). Revisa el código de esta fila.`)
+            else objetivo = porNom[0]
+          } else if (!nombre) errores.push(`No existe ningún producto con el código «${codigo}» y la fila no trae nombre para crearlo.`)
+          else crear = true
+        }
+      }
+      // repetidos dentro del archivo
+      if (!errores.length) {
+        const clv = objetivo ? 'id:' + objetivo.id : 'nuevo:' + _normTxt(codigo || nombre)
+        if (vistos.has(clv)) errores.push(`Este producto aparece repetido en el archivo (también en la línea ${vistos.get(clv)}).`)
+        else vistos.set(clv, linea)
+      }
+      if (objetivo && objetivo.archivado) errores.push('El producto está archivado: reactívalo antes de importar cambios.')
+
+      if (!errores.length && objetivo) {
+        fila.producto_id = objetivo.id
+        fila.nombre = objetivo.nombre
+        const cambia = (campo, nuevo, mostrar) => {
+          if (nuevo === undefined) return
+          const ant = objetivo[campo] ?? null
+          if (_mismo(ant, nuevo)) return
+          fila.cambios.push({ campo: mostrar || campo, antes: ant, despues: nuevo })
+          fila.antes[campo] = ant; fila.despues[campo] = nuevo
+        }
+        if (nombre && nombre !== objetivo.nombre && codigo) cambia('nombre', nombre)
+        if (codigo && !objetivo.codigo) cambia('codigo', codigo)
+        else if (codigo && objetivo.codigo && codigo !== objetivo.codigo) cambia('codigo', codigo)
+        cambia('categoria_id', vals.categoria_id); cambia('proveedor_id', vals.proveedor_id)
+        cambia('descripcion', vals.descripcion)
+        if (vals.unidad_medida !== undefined && vals.unidad_medida !== (objetivo.unidad_medida || objetivo.unidad || 'unidad')) {
+          fila.cambios.push({ campo: 'unidad_medida', antes: objetivo.unidad_medida || objetivo.unidad || 'unidad', despues: vals.unidad_medida })
+          fila.antes.unidad_medida = objetivo.unidad_medida ?? null; fila.despues.unidad_medida = vals.unidad_medida
+        }
+        cambia('precio_venta', vals.precio_venta); cambia('precio_compra', vals.precio_compra)
+        cambia('stock_minimo', vals.stock_minimo); cambia('punto_reorden', vals.punto_reorden); cambia('cantidad_reorden', vals.cantidad_reorden)
+        if (pd !== undefined && pd !== (objetivo.permite_decimal ? 1 : 0)) errores.push('No se puede cambiar desde el archivo si el producto admite decimales: hazlo en la ficha del producto.')
+        if (dec !== undefined && objetivo.permite_decimal && dec !== (objetivo.decimales || 0)) errores.push('No se puede cambiar desde el archivo la cantidad de decimales: hazlo en la ficha del producto.')
+        if (stock !== undefined) {
+          try { cambia('stock', _cantidadProducto(objetivo, stock)) } catch (e) { errores.push(`stock: ${e.message}`) }
+        }
+        if (!errores.length) fila.accion = fila.cambios.length ? 'actualizar' : 'sin_cambios'
+      } else if (!errores.length && crear) {
+        if (!nombre) errores.push('El producto nuevo necesita un nombre.')
+        const pdN = pd ?? 0, decN = pdN ? (dec ?? 2) : 0
+        if (!pdN && dec) errores.push('Indicaste decimales pero el producto no admite decimales (permite_decimal = no).')
+        let stockN = 0
+        if (stock !== undefined) { try { stockN = _cantidadProducto({ permite_decimal: pdN, decimales: decN }, stock) } catch (e) { errores.push(`stock: ${e.message}`) } }
+        if (!errores.length) {
+          fila.accion = 'crear'
+          fila.despues = {
+            nombre, codigo: codigo || null, categoria_id: vals.categoria_id ?? null, proveedor_id: vals.proveedor_id ?? null, descripcion: vals.descripcion ?? null,
+            unidad_medida: vals.unidad_medida || 'unidad', permite_decimal: pdN, decimales: decN,
+            precio_venta: vals.precio_venta ?? 0, precio_compra: vals.precio_compra ?? 0, stock: stockN, stock_minimo: vals.stock_minimo ?? 5,
+            punto_reorden: vals.punto_reorden ?? null, cantidad_reorden: vals.cantidad_reorden ?? null,
+          }
+          fila.cambios = Object.entries(fila.despues).filter(([k, v]) => v !== null && v !== 0 && v !== '').map(([campo, despues]) => ({ campo, antes: null, despues }))
+        }
+      }
+      if (errores.length) fila.accion = 'error'
+      resumen[fila.accion === 'error' ? 'errores' : fila.accion]++
+      filas.push(fila)
+    })
+    const ok = resumen.errores === 0
+    return { ok, ...(ok ? {} : { error: `Hay ${resumen.errores} fila(s) con error: no se importó nada. Corrige el archivo y vuelve a intentarlo.` }), delimitador: parsed.delimitador, columnas_ignoradas: ignoradas, errores_cabecera: [], filas, resumen }
+  },
+  previsualizar(texto, opts = {}) { return intercambio._analizar(texto, opts) },
+
+  aplicar(texto, opts = {}) {
+    const an = intercambio._analizar(texto, opts)
+    if (!an.ok) return an
+    if (an.resumen.crear + an.resumen.actualizar === 0) return { ...an, sin_cambios: true, mensaje: 'El archivo no cambia nada: el inventario ya está igual.' }
+    const u = { usuario_id: opts.usuario_id || null, usuario_nombre: opts.usuario_nombre || null }
+    const r = _tx(() => {
+      const impId = _ins('INSERT INTO importaciones (archivo, resumen, usuario_id, usuario_nombre) VALUES (?,?,?,?)',
+        [opts.archivo || null, JSON.stringify(an.resumen), u.usuario_id, u.usuario_nombre])
+      const origen = `Importación CSV #${impId}`
+      const exec = (sql, p) => db.run(sql, p)
+      for (const f of an.filas) {
+        if (f.accion === 'crear') {
+          const d = f.despues
+          const pid = _ins(`INSERT INTO productos (nombre, codigo, descripcion, categoria_id, proveedor_id, precio_compra, precio_venta, stock, stock_minimo, unidad, unidad_medida, permite_decimal, decimales, punto_reorden, cantidad_reorden)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [d.nombre, d.codigo, d.descripcion, d.categoria_id, d.proveedor_id, d.precio_compra, d.precio_venta, d.stock, d.stock_minimo, d.unidad_medida, d.unidad_medida, d.permite_decimal, d.decimales, d.punto_reorden, d.cantidad_reorden])
+          if (d.stock > 0) {
+            db.run('INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)',
+              [pid, 'entrada', d.stock, 0, d.stock, `Stock inicial (${origen})`, u.usuario_id, u.usuario_nombre])
+          }
+          const ref = queryOne('SELECT COALESCE(MAX(id),0) m FROM movimientos_stock WHERE producto_id=?', [pid]).m
+          db.run('INSERT INTO importacion_lineas (importacion_id, linea, producto_id, accion, antes, despues, stock_despues, mov_ref) VALUES (?,?,?,?,?,?,?,?)',
+            [impId, f.linea, pid, 'crear', null, JSON.stringify(d), d.stock, ref])
+        } else if (f.accion === 'actualizar') {
+          const campos = Object.keys(f.despues).filter(k => k !== 'stock')
+          if (campos.length) {
+            const sets = campos.map(k => `${k}=?`)
+            const vals = campos.map(k => f.despues[k])
+            if (campos.includes('unidad_medida')) { sets.push('unidad=?'); vals.push(f.despues.unidad_medida) }
+            if (campos.includes('precio_venta') && f.despues.precio_venta > 0) sets.push('pendiente_completar=0')
+            db.run(`UPDATE productos SET ${sets.join(', ')}, updated_at=datetime('now','localtime') WHERE id=?`, [...vals, f.producto_id])
+            for (const k of ['precio_venta', 'precio_compra']) if (campos.includes(k)) _histPrecio(exec, f.producto_id, k, f.antes[k], f.despues[k], u, origen)
+          }
+          if ('stock' in f.despues) {
+            inventario._ajusteCore({ producto_id: f.producto_id, tipo: 'ajuste', cantidad: f.despues.stock, motivo: origen, motivo_codigo: 'conteo_fisico', ...u })
+          }
+          const st = queryOne('SELECT stock FROM productos WHERE id=?', [f.producto_id]).stock
+          const ref = queryOne('SELECT COALESCE(MAX(id),0) m FROM movimientos_stock WHERE producto_id=?', [f.producto_id]).m
+          db.run('INSERT INTO importacion_lineas (importacion_id, linea, producto_id, accion, antes, despues, stock_despues, mov_ref) VALUES (?,?,?,?,?,?,?,?)',
+            [impId, f.linea, f.producto_id, 'actualizar', JSON.stringify(f.antes), JSON.stringify(f.despues), st, ref])
+        }
+      }
+      db.run('INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)',
+        [u.usuario_id, u.usuario_nombre || 'Sistema', 'IMPORTAR_INVENTARIO', 'inventario', JSON.stringify({ archivo: opts.archivo || null, ...an.resumen }), impId, 'importacion'])
+      return { ok: true, importacion_id: impId }
+    })
+    if (r.ok === false) return { ...an, ok: false, error: r.error }
+    return { ...an, ...r }
+  },
+
+  getImportaciones() {
+    return queryAll('SELECT * FROM importaciones ORDER BY id DESC LIMIT 100').map(i => ({ ...i, resumen: (() => { try { return JSON.parse(i.resumen) } catch (_) { return null } })() }))
+  },
+
+  // Deshace una importación con movimientos INVERSOS (el kardex conserva todo). Solo si nada cambió después.
+  deshacer(id, u = {}) {
+    const imp = queryOne('SELECT * FROM importaciones WHERE id=?', [id])
+    if (!imp) return { ok: false, error: 'Importación no encontrada.' }
+    if (imp.estado !== 'aplicada') return { ok: false, error: 'Esta importación ya fue deshecha.' }
+    const lineas = queryAll('SELECT * FROM importacion_lineas WHERE importacion_id=? ORDER BY id', [id])
+    const prob = []
+    for (const l of lineas) {
+      const p = queryOne('SELECT * FROM productos WHERE id=?', [l.producto_id])
+      const nom = p?.nombre || `#${l.producto_id}`
+      if (!p || p.eliminado) { prob.push(`${nom}: ya no está disponible.`); continue }
+      if (Math.abs(p.stock - l.stock_despues) > 1e-9) { prob.push(`${nom}: el stock cambió después de la importación (movimiento posterior).`); continue }
+      if (queryOne('SELECT COUNT(*) n FROM movimientos_stock WHERE producto_id=? AND id>?', [l.producto_id, l.mov_ref]).n > 0) { prob.push(`${nom}: tiene movimientos posteriores a la importación.`); continue }
+      const despues = JSON.parse(l.despues || '{}')
+      const cambio = Object.keys(despues).filter(k => k !== 'stock' && !_mismo(p[k] ?? null, despues[k] ?? null))
+      if (cambio.length) prob.push(`${nom}: se editó después de la importación (${cambio.join(', ')}).`)
+    }
+    if (prob.length) return { ok: false, error: `No se puede deshacer porque hubo actividad posterior: ${prob.join(' ')}`, detalles: prob }
+    const origen = `Deshacer importación CSV #${id}`
+    const exec = (sql, p) => db.run(sql, p)
+    const r = _tx(() => {
+      for (const l of [...lineas].reverse()) {
+        const antes = JSON.parse(l.antes || '{}'), despues = JSON.parse(l.despues || '{}')
+        if (l.accion === 'crear') {
+          if (despues.stock > 0) inventario._ajusteCore({ producto_id: l.producto_id, tipo: 'ajuste', cantidad: 0, motivo: origen, motivo_codigo: 'correccion_error', usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre })
+          db.run("UPDATE productos SET eliminado=1, eliminado_at=datetime('now','localtime'), activo=0 WHERE id=?", [l.producto_id])
+        } else {
+          const campos = Object.keys(antes).filter(k => k !== 'stock')
+          if (campos.length) {
+            const sets = campos.map(k => `${k}=?`), vals = campos.map(k => antes[k])
+            if (campos.includes('unidad_medida')) { sets.push('unidad=?'); vals.push(antes.unidad_medida ?? 'unidad') }
+            db.run(`UPDATE productos SET ${sets.join(', ')}, updated_at=datetime('now','localtime') WHERE id=?`, [...vals, l.producto_id])
+            for (const k of ['precio_venta', 'precio_compra']) if (campos.includes(k)) _histPrecio(exec, l.producto_id, k, despues[k], antes[k], u, origen)
+          }
+          if ('stock' in antes) inventario._ajusteCore({ producto_id: l.producto_id, tipo: 'ajuste', cantidad: antes.stock, motivo: origen, motivo_codigo: 'correccion_error', usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre })
+        }
+      }
+      db.run("UPDATE importaciones SET estado='deshecha', deshecha_por=?, deshecha_por_nombre=?, deshecha_at=datetime('now','localtime') WHERE id=?", [u.usuario_id || null, u.usuario_nombre || null, id])
+      db.run('INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)',
+        [u.usuario_id || null, u.usuario_nombre || 'Sistema', 'DESHACER_IMPORTACION', 'inventario', JSON.stringify({ importacion: id, lineas: lineas.length }), id, 'importacion'])
+      return { ok: true, lineas: lineas.length }
+    })
+    return r
+  },
+}
+
 module.exports = {
   initDB, saveDB, mantenimiento,
   VERSION_ESQUEMA, estadoMigracion, contarTablasClave, contarDesdeArchivo,
@@ -4798,7 +5151,7 @@ module.exports = {
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
   ventas, descuentos, configuracionPOS,
-  inventario, conteos, compras, aprobaciones, iaAuditoria, vozConfig, iaConfig, caja, papelera,
+  inventario, conteos, compras, aprobaciones, intercambio, iaAuditoria, vozConfig, iaConfig, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,

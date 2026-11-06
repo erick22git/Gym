@@ -167,6 +167,12 @@ async function principal() {
     const sc = await api('inventario.ajustarStock', { producto_id: V1, tipo: 'salida', cantidad: 1, motivo: 'sin código', ...U })
     registrar('ajuste', 'salida sin motivo de la lista → rechazada por el canal real (Fase 8)', sc.ok === false && /motivo/i.test(sc.error || '') && (await stock(V1)) === 21, JSON.stringify(sc))
     registrar('ajuste', 'el kardex guarda el código del motivo', (await movsDe(V1)).some(m => m.motivo_codigo === 'merma'))
+    const exI = await api('intercambio.exportarInventario')
+    registrar('importar', 'exportar inventario por el canal real devuelve CSV con BOM', exI.ok === true && exI.texto.charCodeAt(0) === 0xFEFF, JSON.stringify(exI).slice(0, 150))
+    const pvI = await api('intercambio.previsualizar', exI.texto)
+    registrar('importar', 'exportar → importar = 0 cambios por el canal real', pvI.ok === true && pvI.resumen.crear === 0 && pvI.resumen.actualizar === 0, JSON.stringify(pvI.resumen) + JSON.stringify((pvI.filas || []).filter(f => f.accion === 'actualizar')))
+    const malI = await api('intercambio.aplicar', ['nombre;precio_venta', 'Producto E2E inexistente;abc', ''].join(String.fromCharCode(13, 10)), { archivo: 'mal.csv' })
+    registrar('importar', 'un CSV con error se rechaza completo por el canal real', malI.ok === false && (malI.resumen?.errores || 0) >= 1)
     registrar('ajuste', 'producto inexistente se rechaza sin tocar nada', (await api('inventario.ajustarStock', { producto_id: 999999, tipo: 'entrada', cantidad: 1, ...U })).ok === false)
     // Antes «hallazgos» confirmados (Sprint 4): ahora se comprueba que están corregidos (Sprint 4B · Fase 1)
     const H = (await api('inventario.create', { nombre: 'E2E Sobreventa', stock: 2, precio_venta: 10 })).id

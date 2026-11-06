@@ -78,6 +78,7 @@ const TABS = [
   { id: 'movimientos', label: 'Movimientos', icon: BarChart2 },
   { id: 'conteo',      label: 'Conteo físico', icon: Check, permiso: 'inventario.conteo' },
   { id: 'compras',     label: 'Compras',     icon: Truck, permiso: 'inventario.compras' },
+  { id: 'intercambio', label: 'Importar / exportar', icon: ArrowUp, permiso: 'inventario.importar|inventario.exportar' },
   { id: 'promociones', label: 'Promociones', icon: Percent },
 ]
 
@@ -1856,6 +1857,155 @@ function DetalleCompra({ id, onClose, onCambio }) {
   )
 }
 
+// ─── Importar / exportar CSV (Fase 9) ─────────────────────────────────────────
+
+const ETIQ_CAMPO = {
+  nombre: 'Nombre', codigo: 'Código', categoria_id: 'Categoría', proveedor_id: 'Proveedor', descripcion: 'Descripción', unidad_medida: 'Unidad',
+  precio_venta: 'Precio de venta', precio_compra: 'Precio de compra', stock: 'Stock', stock_minimo: 'Stock mínimo', punto_reorden: 'Punto de reorden',
+  cantidad_reorden: 'Cantidad a pedir', permite_decimal: 'Admite decimales', decimales: 'Decimales',
+}
+
+function TabIntercambio({ categorias, proveedores }) {
+  const { tienePermiso } = useAuth()
+  const puedeExportar = tienePermiso('inventario.exportar')
+  const puedeImportar = tienePermiso('inventario.importar')
+  const [texto, setTexto] = useState(null)
+  const [archivo, setArchivo] = useState('')
+  const [vista, setVista] = useState(null)
+  const [error, setError] = useState('')
+  const [trabajando, setTrabajando] = useState(false)
+  const [historial, setHistorial] = useState([])
+
+  async function cargarHistorial() {
+    if (!puedeImportar) return
+    const r = await window.api.intercambio.getImportaciones()
+    if (Array.isArray(r)) setHistorial(r)
+  }
+  useEffect(() => { cargarHistorial() }, [])
+
+  async function descargar(fn, ok) {
+    setError('')
+    const r = await fn()
+    if (!r || r.ok === false) { setError(r?.error || 'No se pudo preparar el archivo'); return }
+    const g = await window.api.intercambio.guardarArchivo(r.texto, r.nombre_sugerido)
+    if (g?.cancelado) return
+    if (g?.ok === false) { setError(g.error || 'No se pudo guardar el archivo'); return }
+    toast.success(`${ok}: ${g.ruta}`)
+  }
+  async function elegir() {
+    setError(''); setVista(null)
+    const a = await window.api.intercambio.abrirArchivo()
+    if (a?.cancelado) return
+    if (!a || a.ok === false) { setError(a?.error || 'No se pudo abrir el archivo'); return }
+    setTexto(a.texto); setArchivo(a.archivo)
+    const v = await window.api.intercambio.previsualizar(a.texto)
+    if (v?.sin_permiso) { setError(v.error); return }
+    setVista(v)
+  }
+  async function aplicar() {
+    setTrabajando(true); setError('')
+    try {
+      const r = await window.api.intercambio.aplicar(texto, { archivo })
+      if (r?.ok === false) { setError(r.error || 'No se pudo importar'); if (r.filas) setVista(r); return }
+      if (r?.sin_cambios) { toast.success(r.mensaje); return }
+      toast.success(`Importación lista: ${r.resumen.crear} creados, ${r.resumen.actualizar} actualizados`)
+      setVista(null); setTexto(null); setArchivo(''); cargarHistorial()
+    } finally { setTrabajando(false) }
+  }
+  async function deshacer(id) {
+    setError('')
+    const r = await window.api.intercambio.deshacer(id)
+    if (r?.ok === false) { setError(r.error || 'No se pudo deshacer'); return }
+    toast.success('Importación deshecha (el kardex conserva los movimientos inversos)')
+    cargarHistorial()
+  }
+  const nombreDe = (campo, v) => {
+    if (v === null || v === undefined || v === '') return '—'
+    if (campo === 'categoria_id') return categorias?.find(c => c.id === v)?.nombre || v
+    if (campo === 'proveedor_id') return proveedores?.find(c => c.id === v)?.nombre || v
+    if (campo === 'permite_decimal') return v ? 'Sí' : 'No'
+    return String(v)
+  }
+  const btn = (props, icono, texto2, clase = 'btn-secondary') => (
+    <button {...props} className={`clientes-glass-btn ${clase}`}><div className="clientes-glass-bg" /><span className="clientes-glass-content">{icono} {texto2}</span></button>
+  )
+  const filas = vista?.filas || []
+  const conInteres = filas.filter(f => f.accion !== 'sin_cambios')
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }} data-testid="tab-intercambio">
+      {error && <p role="alert" data-testid="intercambio-error" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13 }}>Error: {error}</p>}
+      {puedeExportar && (
+        <section aria-label="Descargar archivos" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+          <strong style={{ color: 'var(--ink)', fontSize: 14 }}>Descargar</strong>
+          <p style={{ color: 'var(--dim)', fontSize: 12.5, margin: '4px 0 10px' }}>Archivos CSV que abre Excel (con tildes bien). La plantilla trae las columnas que acepta la importación.</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {btn({ onClick: () => descargar(window.api.intercambio.plantilla, 'Plantilla guardada'), 'aria-label': 'Descargar la plantilla de importación', 'data-testid': 'descargar-plantilla' }, null, 'Plantilla de importación')}
+            {btn({ onClick: () => descargar(window.api.intercambio.exportarInventario, 'Inventario guardado'), 'aria-label': 'Descargar el inventario actual', 'data-testid': 'descargar-inventario' }, null, 'Inventario actual')}
+            {btn({ onClick: () => descargar(() => window.api.intercambio.exportarKardex({}), 'Kardex guardado'), 'aria-label': 'Descargar el kardex completo', 'data-testid': 'descargar-kardex' }, null, 'Kardex (movimientos)')}
+          </div>
+        </section>
+      )}
+      {puedeImportar && (
+        <section aria-label="Importar desde un archivo" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+          <strong style={{ color: 'var(--ink)', fontSize: 14 }}>Importar</strong>
+          <p style={{ color: 'var(--dim)', fontSize: 12.5, margin: '4px 0 10px' }}>Las columnas se leen por su nombre. Una celda vacía significa «no cambiar». Primero ves qué cambiaría; si una fila tiene error no se importa nada.</p>
+          {btn({ onClick: elegir, 'aria-label': 'Elegir un archivo CSV para importar', 'data-testid': 'elegir-csv' }, null, 'Elegir archivo CSV…', 'btn-primary')}
+          {vista && (
+            <div data-testid="vista-previa-importacion" style={{ marginTop: 12 }}>
+              <p style={{ color: 'var(--ink)', fontSize: 13 }}>
+                {archivo}: {vista.resumen?.crear || 0} por crear · {vista.resumen?.actualizar || 0} por actualizar · {vista.resumen?.sin_cambios || 0} sin cambios · {vista.resumen?.errores || 0} con error
+              </p>
+              {(vista.columnas_ignoradas || []).length > 0 && <p style={{ color: 'var(--dim)', fontSize: 12.5 }}>Columnas ignoradas: {vista.columnas_ignoradas.join(', ')}.</p>}
+              {(vista.errores_cabecera || []).map((e, i) => <p key={i} role="alert" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13 }}>Error: {e}</p>)}
+              {conInteres.length > 0 && (
+                <div style={{ maxHeight: 320, overflow: 'auto', marginTop: 8 }}>
+                  <table style={{ width: '100%', fontSize: 12.5, color: 'var(--ink)', borderCollapse: 'collapse' }}>
+                    <caption style={{ position: 'absolute', left: -9999 }}>Vista previa de la importación</caption>
+                    <thead><tr style={{ textAlign: 'left', color: 'var(--dim)' }}><th scope="col">Línea</th><th scope="col">Producto</th><th scope="col">Qué pasa</th><th scope="col">Antes → Después</th></tr></thead>
+                    <tbody>
+                      {conInteres.slice(0, 300).map(f => (
+                        <tr key={f.linea} style={{ borderTop: '1px solid var(--line)', verticalAlign: 'top' }}>
+                          <td>{f.linea}</td>
+                          <td>{f.nombre || f.clave}</td>
+                          <td>{f.accion === 'error' ? 'Error' : f.accion === 'crear' ? 'Crear' : 'Actualizar'}</td>
+                          <td>
+                            {f.accion === 'error'
+                              ? <span role="alert" style={{ color: 'oklch(0.75 0.18 25)' }}>{f.errores.join(' ')}</span>
+                              : f.cambios.map(c => <div key={c.campo}>{ETIQ_CAMPO[c.campo] || c.campo}: {nombreDe(c.campo, c.antes)} → <strong>{nombreDe(c.campo, c.despues)}</strong></div>)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {conInteres.length > 300 && <p style={{ color: 'var(--dim)', fontSize: 12.5 }}>Se muestran las primeras 300 filas de {conInteres.length}.</p>}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                {vista.ok && (vista.resumen.crear + vista.resumen.actualizar) > 0 && btn({ onClick: aplicar, disabled: trabajando, 'aria-label': 'Aplicar la importación', 'data-testid': 'aplicar-importacion' }, <Check size={14} />, trabajando ? 'Importando…' : 'Aplicar importación', 'btn-primary')}
+                {btn({ onClick: () => { setVista(null); setTexto(null); setArchivo('') }, 'aria-label': 'Cancelar la importación' }, null, 'Cancelar')}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+      {puedeImportar && historial.length > 0 && (
+        <section aria-label="Importaciones anteriores" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+          <strong style={{ color: 'var(--ink)', fontSize: 14 }}>Importaciones anteriores</strong>
+          {historial.slice(0, 10).map(i => (
+            <div key={i.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderTop: '1px solid var(--line)', fontSize: 13, color: 'var(--ink)', flexWrap: 'wrap' }}>
+              <span style={{ flex: 1, minWidth: 220 }}>
+                #{i.id} · {i.fecha} · {i.archivo || 'sin nombre'}<br />
+                <span style={{ color: 'var(--dim)', fontSize: 12 }}>{i.resumen ? `${i.resumen.crear} creados, ${i.resumen.actualizar} actualizados` : ''} · {i.usuario_nombre || '—'} · {i.estado === 'deshecha' ? 'deshecha' : 'aplicada'}</span>
+              </span>
+              {i.estado === 'aplicada' && btn({ onClick: () => deshacer(i.id), 'aria-label': `Deshacer la importación ${i.id}`, 'data-testid': `deshacer-${i.id}` }, null, 'Deshacer')}
+            </div>
+          ))}
+        </section>
+      )}
+    </div>
+  )
+}
+
 function TabCompras() {
   const [lista, setLista] = useState([])
   const [sugeridos, setSugeridos] = useState(null)
@@ -2084,7 +2234,7 @@ export default function Inventario() {
         borderRadius: 10, padding: 4,
         boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .09), 0 0 12px 2px oklch(1 0 0 / .06), 0 10px 26px oklch(0 0 0 / .35)',
       }}>
-        {TABS.filter(t => !t.permiso || tienePermisoTabs(t.permiso)).map(t => {
+        {TABS.filter(t => !t.permiso || t.permiso.split('|').some(tienePermisoTabs)).map(t => {
           const Icon = t.icon
           return (
             <button
@@ -2115,6 +2265,7 @@ export default function Inventario() {
           {tab === 'movimientos' && <TabMovimientos />}
           {tab === 'conteo'      && <TabConteo />}
           {tab === 'compras'     && <TabCompras />}
+          {tab === 'intercambio' && <TabIntercambio categorias={categorias} proveedores={proveedores} />}
           {tab === 'promociones' && <TabPromociones />}
         </motion.div>
       </AnimatePresence>

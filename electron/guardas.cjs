@@ -27,6 +27,16 @@ module.exports = function crearGuardas({ dbm, seguridad }) {
     const filas = inv().getHistorialPrecios(id, opts)
     return seguridad.tiene('inventario.ver_costos') ? filas : filas.filter(x => x.campo === 'precio_venta')
   })
+  // Importar / exportar CSV (Fase 9). Los costos solo se exportan/leen con «ver costos».
+  const ic = () => dbm.intercambio
+  const costos = () => seguridad.tiene('inventario.ver_costos')
+  con('intercambio:plantilla', 'inventario.exportar', () => ({ ok: true, texto: ic().plantilla(), nombre_sugerido: 'plantilla-inventario.csv' }))
+  con('intercambio:exportarInventario', 'inventario.exportar', () => ({ ok: true, texto: ic().exportarInventario({ costos: costos() }), nombre_sugerido: 'inventario.csv' }))
+  con('intercambio:exportarKardex', 'inventario.exportar', f => ({ ok: true, texto: ic().exportarKardex({ ...(f || {}), costos: costos() }), nombre_sugerido: 'kardex.csv' }))
+  con('intercambio:previsualizar', 'inventario.importar', texto => ic().previsualizar(texto, { costos: costos() }))
+  con('intercambio:aplicar', 'inventario.importar', (texto, d) => ic().aplicar(texto, { archivo: d?.archivo, costos: costos(), ...seguridad.usuario() }))
+  con('intercambio:deshacer', 'inventario.importar', id => ic().deshacer(id, seguridad.usuario()))
+  con('intercambio:getImportaciones', 'inventario.importar', () => ic().getImportaciones())
   const cont = () => dbm.conteos
   con('conteos:abrir', 'inventario.conteo', d => cont().abrir(sello(d)))
   con('conteos:getAll', 'inventario.conteo', () => cont().getAll())
