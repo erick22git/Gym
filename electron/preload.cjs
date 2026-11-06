@@ -239,6 +239,17 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   // Inventario
+  compras: {
+    crear: (data) => ipcRenderer.invoke('compras:crear', data),
+    enviar: (id) => ipcRenderer.invoke('compras:enviar', id),
+    cancelar: (id, data) => ipcRenderer.invoke('compras:cancelar', id, data),
+    recibir: (id, data) => ipcRenderer.invoke('compras:recibir', id, data),
+    registrarSimple: (data) => ipcRenderer.invoke('compras:registrarSimple', data),
+    revertirRecepcion: (id) => ipcRenderer.invoke('compras:revertirRecepcion', id),
+    getAll: (f) => ipcRenderer.invoke('compras:getAll', f),
+    getById: (id) => ipcRenderer.invoke('compras:getById', id),
+    sugerirReposicion: () => ipcRenderer.invoke('compras:sugerirReposicion'),
+  },
   conteos: {
     abrir: (data) => ipcRenderer.invoke('conteos:abrir', data),
     getAll: () => ipcRenderer.invoke('conteos:getAll'),

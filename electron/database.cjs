@@ -276,6 +276,75 @@ MIGRACIONES.push({
     db.run("UPDATE productos SET unidad_medida = COALESCE(NULLIF(TRIM(unidad),''),'unidad') WHERE unidad_medida IS NULL")
   },
 })
+// ── v6 · Fase 5: compras y costo (promedio ponderado) ──
+TABLAS_NUEVAS.push('ordenes_compra', 'orden_compra_lineas', 'recepciones_compra', 'recepcion_lineas')
+MIGRACIONES.push({
+  version: 6, nombre: 'fase 5: compras, recepciones y costo promedio',
+  up() {
+    _addCol('productos', 'costo_promedio', 'REAL')
+    _addCol('productos', 'ultimo_costo', 'REAL')
+    _addCol('productos', 'punto_reorden', 'REAL')
+    _addCol('productos', 'cantidad_reorden', 'REAL')
+    _addCol('movimientos_stock', 'costo_unitario', 'REAL')
+    _addCol('detalle_ventas_productos', 'costo_unitario', 'REAL')   // NULL = «sin costo registrado»: nunca se inventa el costo de ventas viejas
+    // El costo inicial sale del precio de compra que ya tenía el producto; sin precio → costo desconocido (NULL).
+    db.run('UPDATE productos SET costo_promedio = precio_compra, ultimo_costo = precio_compra WHERE costo_promedio IS NULL AND COALESCE(precio_compra,0) > 0')
+    db.run(`CREATE TABLE IF NOT EXISTS ordenes_compra (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      proveedor_id INTEGER REFERENCES proveedores(id),
+      estado TEXT NOT NULL DEFAULT 'borrador',
+      tipo TEXT NOT NULL DEFAULT 'orden',
+      nota TEXT,
+      total REAL DEFAULT 0,
+      fecha TEXT DEFAULT (datetime('now','localtime')),
+      usuario_id INTEGER, usuario_nombre TEXT,
+      enviada_at TEXT, cancelada_at TEXT, motivo_cancelacion TEXT
+    )`)
+    db.run(`CREATE TABLE IF NOT EXISTS orden_compra_lineas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      orden_id INTEGER NOT NULL REFERENCES ordenes_compra(id),
+      producto_id INTEGER NOT NULL REFERENCES productos(id),
+      nombre_producto TEXT,
+      cantidad_pedida REAL NOT NULL,
+      cantidad_recibida REAL NOT NULL DEFAULT 0,
+      costo_unitario REAL NOT NULL
+    )`)
+    db.run(`CREATE TABLE IF NOT EXISTS recepciones_compra (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      orden_id INTEGER NOT NULL REFERENCES ordenes_compra(id),
+      fecha TEXT DEFAULT (datetime('now','localtime')),
+      usuario_id INTEGER, usuario_nombre TEXT,
+      revertida_at TEXT, revertida_por INTEGER, revertida_por_nombre TEXT
+    )`)
+    db.run(`CREATE TABLE IF NOT EXISTS recepcion_lineas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recepcion_id INTEGER NOT NULL REFERENCES recepciones_compra(id),
+      linea_id INTEGER,
+      producto_id INTEGER NOT NULL REFERENCES productos(id),
+      nombre_producto TEXT,
+      cantidad REAL NOT NULL,
+      costo_unitario REAL NOT NULL,
+      movimiento_id INTEGER,
+      costo_promedio_anterior REAL, ultimo_costo_anterior REAL,
+      stock_despues REAL
+    )`)
+    db.run('CREATE INDEX IF NOT EXISTS idx_oc_lineas_orden ON orden_compra_lineas(orden_id)')
+    db.run('CREATE INDEX IF NOT EXISTS idx_recep_lineas_rec ON recepcion_lineas(recepcion_id)')
+    for (const [codigo, nombre, desc] of [
+      ['inventario.compras', 'Gestionar compras', 'Crear órdenes de compra, registrar compras y recibir mercadería'],
+      ['inventario.ver_costos', 'Ver costos y márgenes', 'Ver costo promedio, valor del inventario y márgenes'],
+    ]) db.run("INSERT OR IGNORE INTO permisos (codigo, modulo, nombre, descripcion) VALUES (?, 'inventario', ?, ?)", [codigo, nombre, desc])
+    // Recibir mercadería equivale a lo que ya hacía quien ajusta stock; ver costos, a lo que ya veía quien ve inventario (el precio de compra).
+    const mapa = [['inventario.compras', 'inventario.ajustar_stock'], ['inventario.ver_costos', 'inventario.ver']]
+    for (const [nuevo, base] of mapa) {
+      const pn = queryOne('SELECT id FROM permisos WHERE codigo=?', [nuevo])
+      for (const r of queryAll('SELECT rp.rol_id FROM rol_permisos rp JOIN permisos p ON p.id=rp.permiso_id WHERE p.codigo=?', [base])) {
+        db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (?, ?)', [r.rol_id, pn.id])
+      }
+    }
+    for (const pp of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [pp.id])
+  },
+})
 // Redondeo decimal estable (evita 0.1+0.2 = 0.30000000000000004 y 1.005*100 = 100.49999…).
 function _redondear(x, d) {
   const f = 10 ** d
@@ -2648,6 +2717,12 @@ const inventario = {
        data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null, data.precio_venta || 0, id]
     )
     if (cfg) run('UPDATE productos SET permite_decimal=?, decimales=?, unidad_medida=? WHERE id=?', [cfg.pd, cfg.dec, cfg.um, id])
+    if (data.punto_reorden !== undefined || data.cantidad_reorden !== undefined) {
+      const num = v => (v === null || v === '' || v === undefined ? null : Number(v))
+      const pr = num(data.punto_reorden), cr = num(data.cantidad_reorden)
+      if ([pr, cr].some(v => v !== null && (!Number.isFinite(v) || v < 0))) return { ok: false, error: 'El punto y la cantidad de reorden deben ser números mayores o iguales a 0.' }
+      run('UPDATE productos SET punto_reorden=?, cantidad_reorden=? WHERE id=?', [pr, cr, id])
+    }
     return { ok: true }
   },
   delete(id) {
@@ -2823,7 +2898,7 @@ const inventario = {
       })
       const productos = new Map()
       for (const [pid, cant] of pedido) {
-        const p = queryOne(`SELECT id, nombre, stock, activo, eliminado, archivado, pendiente_completar, ${_CFG_DEC} FROM productos WHERE id=?`, [pid])
+        const p = queryOne(`SELECT id, nombre, stock, activo, eliminado, archivado, pendiente_completar, costo_promedio, ${_CFG_DEC} FROM productos WHERE id=?`, [pid])
         if (!p || p.eliminado || !p.activo) throw new Error('Uno de los productos ya no existe en el inventario.')
         if (p.archivado) throw new Error(`"${p.nombre}" está archivado y no se puede vender.`)
         if (p.pendiente_completar) throw new Error(`"${p.nombre}" está por completar: ponle un precio de venta en Inventario antes de venderlo.`)
@@ -2839,14 +2914,14 @@ const inventario = {
         [meta.cliente_id || null, meta.usuario_id || null, 'productos', subtotal, subtotal, meta.metodo_pago || 'efectivo', cliNombre, cli?.carnet || null])
       let aviso
       for (const item of items) {
-        db.run(`INSERT INTO detalle_ventas_productos (venta_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal) VALUES (?,?,?,?,?,?)`,
-          [ventaId, item.producto_id, item.nombre_producto || productos.get(item.producto_id).nombre, item.cantidad, item.precio_unitario, item._linea])
+        db.run(`INSERT INTO detalle_ventas_productos (venta_id, producto_id, nombre_producto, cantidad, precio_unitario, subtotal, costo_unitario) VALUES (?,?,?,?,?,?,?)`,
+          [ventaId, item.producto_id, item.nombre_producto || productos.get(item.producto_id).nombre, item.cantidad, item.precio_unitario, item._linea, productos.get(item.producto_id).costo_promedio ?? null])
         const actual = queryOne('SELECT stock FROM productos WHERE id=?', [item.producto_id]).stock
         const nuevo = _redondearStock(productos.get(item.producto_id), actual - item.cantidad)
         if (nuevo < 0) aviso = 'Algún producto quedó con stock negativo.'
         db.run('UPDATE productos SET stock=? WHERE id=?', [nuevo, item.producto_id])
-        db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
-          [item.producto_id, 'venta', item.cantidad, actual, nuevo, 'Venta', ventaId, meta.usuario_id || null, meta.usuario_nombre || null])
+        db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre, costo_unitario) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+          [item.producto_id, 'venta', item.cantidad, actual, nuevo, 'Venta', ventaId, meta.usuario_id || null, meta.usuario_nombre || null, productos.get(item.producto_id).costo_promedio ?? null])
       }
       if (meta.sesion_id) {
         db.run(`INSERT INTO caja_movimientos (sesion_id, tipo, concepto, monto, metodo_pago, referencia_id, referencia_tipo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -4222,6 +4297,184 @@ function mantenimiento() {
 // Exponer helpers para el módulo de facturación
 function getQueryHelpers() { return { queryAll, queryOne, run } }
 
+// ─── Compras y costo (Sprint 4B · Fase 5) ───────────────────────────────────
+// Costo = promedio móvil ponderado (`costo_promedio`) + último costo. Solo las RECEPCIONES de compra lo mueven;
+// la importación IA «sumar» sin costo no promedia. Cada recepción guarda el costo/stock previos para poder
+// revertirse con un movimiento INVERSO, y solo si el stock no cambió desde entonces.
+const compras = {
+  _auditar(u, accion, detalle, id) {
+    // db.run directo: se llama dentro de una transacción (auditoria.log guardaría a disco a mitad de camino).
+    db.run('INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)',
+      [u?.usuario_id || null, u?.usuario_nombre || 'Sistema', accion, 'inventario', typeof detalle === 'string' ? detalle : JSON.stringify(detalle), id, 'orden_compra'])
+  },
+  _normalizar(lineas) {
+    if (!Array.isArray(lineas) || lineas.length === 0) throw new Error('La compra no tiene productos.')
+    return lineas.map((l, i) => {
+      const p = queryOne(`SELECT id, nombre, activo, eliminado, archivado, ${_CFG_DEC} FROM productos WHERE id=?`, [l?.producto_id])
+      if (!p || p.eliminado || !p.activo) throw new Error(`La línea ${i + 1}: el producto no existe.`)
+      if (p.archivado) throw new Error(`"${p.nombre}" está archivado: reactívalo antes de comprarlo.`)
+      let cantidad
+      try { cantidad = _cantidadProducto(p, l.cantidad) } catch (e) { throw new Error(`Cantidad de "${p.nombre}": ${e.message}`) }
+      if (!(cantidad > 0)) throw new Error(`La cantidad de "${p.nombre}" debe ser mayor que 0.`)
+      if (typeof l.costo_unitario !== 'number' || !Number.isFinite(l.costo_unitario) || l.costo_unitario < 0) throw new Error(`El costo de "${p.nombre}" no es válido.`)
+      return { producto_id: p.id, nombre: p.nombre, cantidad, costo: l.costo_unitario }
+    })
+  },
+  _validarProveedor(id) {
+    if (id && !queryOne('SELECT id FROM proveedores WHERE id=?', [id])) throw new Error('El proveedor no existe.')
+  },
+  _crearOrden(d, estado, tipo) {
+    compras._validarProveedor(d.proveedor_id)
+    const norm = compras._normalizar(d.lineas)
+    const total = _redondear(norm.reduce((t, l) => t + l.cantidad * l.costo, 0), 2)
+    const oid = _ins('INSERT INTO ordenes_compra (proveedor_id, estado, tipo, nota, total, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?)',
+      [d.proveedor_id || null, estado, tipo, d.nota || null, total, d.usuario_id || null, d.usuario_nombre || null])
+    for (const l of norm) db.run('INSERT INTO orden_compra_lineas (orden_id, producto_id, nombre_producto, cantidad_pedida, costo_unitario) VALUES (?,?,?,?,?)', [oid, l.producto_id, l.nombre, l.cantidad, l.costo])
+    return oid
+  },
+  // Aplica una recepción: stock + kardex (con costo) + promedio ponderado. Dentro de una transacción ya abierta.
+  _recepcionar(ordenId, items, u) {
+    const rid = _ins('INSERT INTO recepciones_compra (orden_id, usuario_id, usuario_nombre) VALUES (?,?,?)', [ordenId, u.usuario_id || null, u.usuario_nombre || null])
+    for (const it of items) {
+      const p = queryOne(`SELECT id, nombre, stock, costo_promedio, ultimo_costo, ${_CFG_DEC} FROM productos WHERE id=?`, [it.producto_id])
+      const stockNuevo = _redondearStock(p, p.stock + it.cantidad)
+      const prom = (p.stock <= 0 || p.costo_promedio == null) ? it.costo : _redondear((p.stock * p.costo_promedio + it.cantidad * it.costo) / (p.stock + it.cantidad), 4)
+      db.run("UPDATE productos SET stock=?, costo_promedio=?, ultimo_costo=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, prom, it.costo, p.id])
+      db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre, costo_unitario) VALUES (?,?,?,?,?,?,?,?,?)`,
+        [p.id, 'entrada', it.cantidad, p.stock, stockNuevo, `Compra #${ordenId}`, u.usuario_id || null, u.usuario_nombre || null, it.costo])
+      const mid = queryOne('SELECT last_insert_rowid() AS id').id
+      db.run('INSERT INTO recepcion_lineas (recepcion_id, linea_id, producto_id, nombre_producto, cantidad, costo_unitario, movimiento_id, costo_promedio_anterior, ultimo_costo_anterior, stock_despues) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        [rid, it.linea_id || null, p.id, p.nombre, it.cantidad, it.costo, mid, p.costo_promedio ?? null, p.ultimo_costo ?? null, stockNuevo])
+      if (it.linea_id) db.run('UPDATE orden_compra_lineas SET cantidad_recibida = cantidad_recibida + ? WHERE id=?', [it.cantidad, it.linea_id])
+    }
+    compras._auditar(u, 'RECIBIR_COMPRA', { recepcion: rid, lineas: items.map(i => ({ producto_id: i.producto_id, cantidad: i.cantidad, costo: i.costo })) }, ordenId)
+    return rid
+  },
+  _estado(ordenId) {
+    const o = queryOne('SELECT estado, tipo FROM ordenes_compra WHERE id=?', [ordenId])
+    const ls = queryAll('SELECT cantidad_pedida, cantidad_recibida FROM orden_compra_lineas WHERE orden_id=?', [ordenId])
+    const rec = ls.reduce((t, l) => t + l.cantidad_recibida, 0)
+    const completa = ls.length > 0 && ls.every(l => l.cantidad_recibida + 1e-9 >= l.cantidad_pedida)
+    let nuevo
+    if (completa) nuevo = 'recibida'
+    else if (rec > 0) nuevo = 'recibida_parcial'
+    else nuevo = o.tipo === 'simple' ? 'cancelada' : (o.estado === 'borrador' ? 'borrador' : 'enviada')
+    db.run('UPDATE ordenes_compra SET estado=? WHERE id=?', [nuevo, ordenId])
+    return nuevo
+  },
+  crear(d = {}) {
+    return _tx(() => {
+      const oid = compras._crearOrden(d, 'borrador', 'orden')
+      compras._auditar(d, 'CREAR_ORDEN_COMPRA', { lineas: d.lineas.length }, oid)
+      return { ok: true, orden_id: oid }
+    })
+  },
+  enviar(id, u = {}) {
+    return _tx(() => {
+      const o = queryOne('SELECT estado FROM ordenes_compra WHERE id=?', [id])
+      if (!o) throw new Error('Orden no encontrada')
+      if (o.estado !== 'borrador') throw new Error(`La orden está «${o.estado}»: solo se envía una orden en borrador.`)
+      db.run("UPDATE ordenes_compra SET estado='enviada', enviada_at=datetime('now','localtime') WHERE id=?", [id])
+      compras._auditar(u, 'ENVIAR_ORDEN_COMPRA', '', id)
+      return { ok: true }
+    })
+  },
+  cancelar(id, d = {}) {
+    return _tx(() => {
+      const o = queryOne('SELECT estado FROM ordenes_compra WHERE id=?', [id])
+      if (!o) throw new Error('Orden no encontrada')
+      if (String(d.motivo ?? '').trim().length < 3) throw new Error('Escribe el motivo de la cancelación.')
+      if (o.estado === 'cancelada') throw new Error('La orden ya está cancelada.')
+      if (o.estado !== 'borrador' && o.estado !== 'enviada') throw new Error(`La orden está «${o.estado}»: ya se recibió mercadería; revierte primero las recepciones.`)
+      db.run("UPDATE ordenes_compra SET estado='cancelada', cancelada_at=datetime('now','localtime'), motivo_cancelacion=? WHERE id=?", [String(d.motivo).trim(), id])
+      compras._auditar(d, 'CANCELAR_ORDEN_COMPRA', { motivo: d.motivo }, id)
+      return { ok: true }
+    })
+  },
+  getAll(f = {}) {
+    let sql = `SELECT o.*, pv.nombre AS proveedor_nombre, (SELECT COUNT(*) FROM orden_compra_lineas WHERE orden_id=o.id) AS n_lineas
+      FROM ordenes_compra o LEFT JOIN proveedores pv ON pv.id=o.proveedor_id`
+    const params = []
+    if (f.estado) { sql += ' WHERE o.estado=?'; params.push(f.estado) }
+    return queryAll(sql + ' ORDER BY o.id DESC LIMIT 300', params)
+  },
+  getById(id) {
+    const o = queryOne('SELECT o.*, pv.nombre AS proveedor_nombre FROM ordenes_compra o LEFT JOIN proveedores pv ON pv.id=o.proveedor_id WHERE o.id=?', [id])
+    if (!o) return null
+    return { ...o,
+      lineas: queryAll('SELECT * FROM orden_compra_lineas WHERE orden_id=? ORDER BY id', [id]),
+      recepciones: queryAll('SELECT * FROM recepciones_compra WHERE orden_id=? ORDER BY id', [id]) }
+  },
+  recibir(id, d = {}, u = {}) {
+    return _tx(() => {
+      const o = queryOne('SELECT estado FROM ordenes_compra WHERE id=?', [id])
+      if (!o) throw new Error('Orden no encontrada')
+      if (o.estado !== 'enviada' && o.estado !== 'recibida_parcial') throw new Error(`La orden está «${o.estado}»: solo se recibe una orden enviada o parcial.`)
+      if (!Array.isArray(d.lineas) || !d.lineas.length) throw new Error('Indica qué se recibió.')
+      const items = d.lineas.map(l => {
+        const li = queryOne('SELECT * FROM orden_compra_lineas WHERE id=? AND orden_id=?', [l?.linea_id, id])
+        if (!li) throw new Error('Una línea no pertenece a esta orden.')
+        const p = queryOne(`SELECT id, nombre, archivado, eliminado, ${_CFG_DEC} FROM productos WHERE id=?`, [li.producto_id])
+        if (!p || p.eliminado) throw new Error(`"${li.nombre_producto}" ya no existe.`)
+        if (p.archivado) throw new Error(`"${p.nombre}" está archivado: reactívalo antes de recibirlo.`)
+        let cant
+        try { cant = _cantidadProducto(p, l.cantidad) } catch (e) { throw new Error(`Cantidad de "${p.nombre}": ${e.message}`) }
+        if (!(cant > 0)) throw new Error(`La cantidad recibida de "${p.nombre}" debe ser mayor que 0.`)
+        const pendiente = _redondear(li.cantidad_pedida - li.cantidad_recibida, 6)
+        if (cant > pendiente + 1e-9) throw new Error(`De "${p.nombre}" faltan ${pendiente} por recibir y indicas ${cant}.`)
+        const costo = l.costo_unitario === undefined ? li.costo_unitario : l.costo_unitario
+        if (typeof costo !== 'number' || !Number.isFinite(costo) || costo < 0) throw new Error(`El costo de "${p.nombre}" no es válido.`)
+        return { linea_id: li.id, producto_id: li.producto_id, cantidad: cant, costo }
+      })
+      const rid = compras._recepcionar(id, items, u)
+      return { ok: true, recepcion_id: rid, estado: compras._estado(id) }
+    })
+  },
+  // «Registrar compra»: una compra ya hecha, sin orden previa. Crea la orden en estado recibida y la recibe en el acto.
+  registrarSimple(d = {}, u) {
+    const usr = u || d
+    return _tx(() => {
+      const oid = compras._crearOrden({ ...d, usuario_id: usr.usuario_id, usuario_nombre: usr.usuario_nombre }, 'recibida', 'simple')
+      const lineas = queryAll('SELECT * FROM orden_compra_lineas WHERE orden_id=? ORDER BY id', [oid])
+      const rid = compras._recepcionar(oid, lineas.map(l => ({ linea_id: l.id, producto_id: l.producto_id, cantidad: l.cantidad_pedida, costo: l.costo_unitario })), usr)
+      return { ok: true, orden_id: oid, recepcion_id: rid }
+    })
+  },
+  revertirRecepcion(recId, u = {}) {
+    return _tx(() => {
+      const r = queryOne('SELECT * FROM recepciones_compra WHERE id=?', [recId])
+      if (!r) throw new Error('Recepción no encontrada')
+      if (r.revertida_at) throw new Error('Esta recepción ya fue revertida.')
+      const ls = queryAll('SELECT * FROM recepcion_lineas WHERE recepcion_id=? ORDER BY id DESC', [recId])
+      for (const l of ls) {
+        const p = queryOne(`SELECT id, nombre, stock, ${_CFG_DEC} FROM productos WHERE id=?`, [l.producto_id])
+        if (!p) throw new Error(`"${l.nombre_producto}" ya no existe.`)
+        if (Math.abs(p.stock - l.stock_despues) > 1e-6) throw new Error(`"${p.nombre}" cambió desde la compra (hoy tiene ${p.stock}; justo después de la compra tenía ${l.stock_despues}): no se puede revertir sin pisar ese cambio. No toqué nada; corrígelo con un ajuste.`)
+      }
+      for (const l of ls) {
+        const p = queryOne(`SELECT id, stock, ${_CFG_DEC} FROM productos WHERE id=?`, [l.producto_id])
+        const nuevo = _redondearStock(p, p.stock - l.cantidad)
+        db.run("UPDATE productos SET stock=?, costo_promedio=?, ultimo_costo=?, updated_at=datetime('now','localtime') WHERE id=?", [nuevo, l.costo_promedio_anterior, l.ultimo_costo_anterior, p.id])
+        db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre, costo_unitario) VALUES (?,?,?,?,?,?,?,?,?)`,
+          [p.id, 'salida', l.cantidad, p.stock, nuevo, `Reversión de la recepción #${recId} (compra #${r.orden_id})`, u.usuario_id || null, u.usuario_nombre || null, l.costo_unitario])
+        if (l.linea_id) db.run('UPDATE orden_compra_lineas SET cantidad_recibida = MAX(0, cantidad_recibida - ?) WHERE id=?', [l.cantidad, l.linea_id])
+      }
+      db.run("UPDATE recepciones_compra SET revertida_at=datetime('now','localtime'), revertida_por=?, revertida_por_nombre=? WHERE id=?", [u.usuario_id || null, u.usuario_nombre || null, recId])
+      const estado = compras._estado(r.orden_id)
+      compras._auditar(u, 'REVERTIR_RECEPCION', { recepcion: recId, lineas: ls.length }, r.orden_id)
+      return { ok: true, estado }
+    })
+  },
+  // Productos en o bajo su punto de reorden (los archivados y los sin punto configurado no se sugieren).
+  sugerirReposicion() {
+    return queryAll(`SELECT p.id AS producto_id, p.nombre, p.stock, p.punto_reorden, p.cantidad_reorden, p.proveedor_id, p.ultimo_costo, p.unidad_medida,
+        CASE WHEN COALESCE(p.cantidad_reorden,0) > 0 THEN p.cantidad_reorden ELSE MAX(p.punto_reorden - p.stock, 1) END AS sugerido
+      FROM productos p
+      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=0 AND COALESCE(p.punto_reorden,0) > 0 AND p.stock <= p.punto_reorden
+      ORDER BY p.nombre`)
+  },
+}
+
 module.exports = {
   initDB, saveDB, mantenimiento,
   VERSION_ESQUEMA, estadoMigracion, contarTablasClave, contarDesdeArchivo,
@@ -4229,7 +4482,7 @@ module.exports = {
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
   ventas, descuentos, configuracionPOS,
-  inventario, conteos, iaAuditoria, vozConfig, iaConfig, caja, papelera,
+  inventario, conteos, compras, iaAuditoria, vozConfig, iaConfig, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,

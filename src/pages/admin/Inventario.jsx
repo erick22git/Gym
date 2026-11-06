@@ -77,6 +77,7 @@ const TABS = [
   { id: 'proveedores', label: 'Proveedores', icon: Truck },
   { id: 'movimientos', label: 'Movimientos', icon: BarChart2 },
   { id: 'conteo',      label: 'Conteo físico', icon: Check, permiso: 'inventario.conteo' },
+  { id: 'compras',     label: 'Compras',     icon: Truck, permiso: 'inventario.compras' },
   { id: 'promociones', label: 'Promociones', icon: Percent },
 ]
 
@@ -164,6 +165,8 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
     unidad: producto?.unidad || 'unidad',
     permite_decimal: producto?.permite_decimal ? 1 : 0,
     decimales: producto?.decimales || 2,
+    punto_reorden: producto?.punto_reorden ?? '',
+    cantidad_reorden: producto?.cantidad_reorden ?? '',
     imagen: producto?.imagen || '',
   })
   const [cambiandoImg, setCambiandoImg] = useState(false)
@@ -216,6 +219,8 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
         permite_decimal: form.permite_decimal ? 1 : 0,
         decimales: form.permite_decimal ? Number(form.decimales) : 0,
         unidad_medida: form.unidad || 'unidad',
+        punto_reorden: form.punto_reorden === '' ? null : Number(form.punto_reorden),
+        cantidad_reorden: form.cantidad_reorden === '' ? null : Number(form.cantidad_reorden),
         categoria_id: form.categoria_id || null,
         proveedor_id: form.proveedor_id || null,
         imagen: form.imagen || null,
@@ -292,6 +297,8 @@ function ModalProducto({ producto, categorias: catsProp, proveedores: provsProp,
         {inp('Precio venta (Bs.) *', 'precio_venta', { type: 'number', min: 0, step: '0.01', placeholder: '0.00' })}
         {esNuevo && inp('Stock inicial', 'stock', { type: 'number', min: 0, step: form.permite_decimal ? 'any' : 1, placeholder: '0' })}
         {inp('Stock mínimo', 'stock_minimo', { type: 'number', min: 0, placeholder: '5' })}
+        {!esNuevo && inp('Punto de reorden (avisa cuándo reponer)', 'punto_reorden', { type: 'number', min: 0, step: 'any', placeholder: 'Sin definir' })}
+        {!esNuevo && inp('Cantidad a pedir al reponer', 'cantidad_reorden', { type: 'number', min: 0, step: 'any', placeholder: 'Automática' })}
         <div style={{ gridColumn: '1/-1' }}>
           <FormField label="Descripción">
             <textarea
@@ -1585,6 +1592,198 @@ function TabPromociones() {
 
 const ESTADO_CONTEO = { borrador: 'En conteo', contado: 'Contado (por aprobar)', aprobado: 'Aprobado', cancelado: 'Cancelado', revertido: 'Revertido' }
 
+// ─── Compras y costo (Fase 5) ────────────────────────────────────────────────
+
+const ESTADOS_COMPRA = { borrador: 'Borrador', enviada: 'Enviada', recibida_parcial: 'Recibida parcial', recibida: 'Recibida', cancelada: 'Cancelada' }
+
+function FormCompra({ simple, inicial, onClose, onHecho }) {
+  const [proveedores, setProveedores] = useState([])
+  const [productos, setProductos] = useState([])
+  const [proveedorId, setProveedorId] = useState('')
+  const [nota, setNota] = useState('')
+  const [lineas, setLineas] = useState(inicial?.length ? inicial : [{ producto_id: '', cantidad: '', costo_unitario: '' }])
+  const [error, setError] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+  useEffect(() => {
+    window.api.inventario.getProveedores().then(d => setProveedores(d || []))
+    window.api.inventario.getAll().then(d => setProductos(d || []))
+  }, [])
+  const setL = (i, k, v) => setLineas(ls => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)))
+  const total = lineas.reduce((t, l) => t + (Number(l.cantidad) || 0) * (Number(l.costo_unitario) || 0), 0)
+
+  async function guardar() {
+    setError('')
+    const ls = lineas.map(l => ({ producto_id: Number(l.producto_id), cantidad: Number(l.cantidad), costo_unitario: Number(l.costo_unitario) }))
+    if (ls.some(l => !l.producto_id)) { setError('Elige un producto en cada línea.'); return }
+    if (ls.some(l => !(l.cantidad > 0))) { setError('La cantidad de cada línea debe ser mayor que 0.'); return }
+    if (lineas.some(l => l.costo_unitario === '' || !(Number(l.costo_unitario) >= 0))) { setError('Escribe el costo unitario de cada línea (0 o más).'); return }
+    setOcupado(true)
+    const datos = { proveedor_id: proveedorId ? Number(proveedorId) : null, nota: nota || undefined, lineas: ls }
+    const r = simple ? await window.api.compras.registrarSimple(datos) : await window.api.compras.crear(datos)
+    setOcupado(false)
+    if (r && r.ok === false) { setError(r.error || 'No se pudo guardar'); return }
+    toast.success(simple ? 'Compra registrada: stock y costo actualizados' : 'Orden creada en borrador')
+    onHecho()
+  }
+
+  return (
+    <Modal title={simple ? 'Registrar compra (ya recibida)' : 'Nueva orden de compra'} onClose={onClose}>
+      <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 10 }}>
+        {simple ? 'Suma el stock ahora y actualiza el costo promedio de cada producto.' : 'Queda en borrador: no cambia el stock hasta que la envíes y recibas la mercadería.'}
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <FormField label="Proveedor (opcional)">
+          <select className="gym-input" aria-label="Proveedor" value={proveedorId} onChange={e => setProveedorId(e.target.value)}>
+            <option value="">Sin proveedor</option>
+            {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Nota (opcional)">
+          <input className="gym-input" aria-label="Nota de la compra" value={nota} onChange={e => setNota(e.target.value)} />
+        </FormField>
+      </div>
+      {lineas.map((l, i) => (
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 8, marginBottom: 6, alignItems: 'end' }}>
+          <select className="gym-input" aria-label={`Producto de la línea ${i + 1}`} value={l.producto_id} onChange={e => setL(i, 'producto_id', e.target.value)}>
+            <option value="">Elige un producto…</option>
+            {productos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </select>
+          <input className="gym-input" type="number" min="0" step="any" aria-label={`Cantidad de la línea ${i + 1}`} placeholder="Cantidad" value={l.cantidad} onChange={e => setL(i, 'cantidad', e.target.value)} />
+          <input className="gym-input" type="number" min="0" step="0.01" aria-label={`Costo unitario de la línea ${i + 1}`} placeholder="Costo (Bs.)" value={l.costo_unitario} onChange={e => setL(i, 'costo_unitario', e.target.value)} />
+          <button type="button" aria-label={`Quitar la línea ${i + 1}`} onClick={() => setLineas(ls => (ls.length > 1 ? ls.filter((_, j) => j !== i) : ls))} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content"><X size={14} /></span></button>
+        </div>
+      ))}
+      <button type="button" onClick={() => setLineas(ls => [...ls, { producto_id: '', cantidad: '', costo_unitario: '' }])} className="clientes-glass-btn btn-secondary" style={{ marginTop: 4 }}>
+        <div className="clientes-glass-bg" /><span className="clientes-glass-content"><Plus size={14} /> Agregar línea</span>
+      </button>
+      <p style={{ fontSize: 13, color: 'var(--ink)', marginTop: 10 }}>Total: <strong>Bs. {total.toFixed(2)}</strong></p>
+      {error && <p role="alert" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13, marginTop: 8 }}>Error: {error}</p>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+        <button onClick={onClose} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Cancelar</span></button>
+        <button onClick={guardar} disabled={ocupado} className="clientes-glass-btn btn-primary"><div className="clientes-glass-bg" /><span className="clientes-glass-content"><Check size={15} /> {simple ? 'Registrar compra' : 'Crear orden'}</span></button>
+      </div>
+    </Modal>
+  )
+}
+
+function DetalleCompra({ id, onClose, onCambio }) {
+  const [o, setO] = useState(null)
+  const [recibir, setRecibir] = useState({})
+  const [motivo, setMotivo] = useState('')
+  const [cancelando, setCancelando] = useState(false)
+  const [error, setError] = useState('')
+  async function cargar() {
+    const d = await window.api.compras.getById(id)
+    if (d && d.ok === false) { setError(d.error); return }
+    setO(d)
+    setRecibir(Object.fromEntries((d?.lineas || []).map(l => [l.id, String(Math.max(0, +(l.cantidad_pedida - l.cantidad_recibida).toFixed(6)))])))
+  }
+  useEffect(() => { cargar() }, [id])
+  async function accion(fn, ok) {
+    setError('')
+    const r = await fn()
+    if (r && r.ok === false) { setError(r.error || 'No se pudo completar'); return }
+    if (ok) toast.success(ok)
+    await cargar(); onCambio()
+  }
+  if (!o) return <Modal title="Orden de compra" onClose={onClose}>{error ? <p role="alert">Error: {error}</p> : 'Cargando…'}</Modal>
+  const puedeRecibir = o.estado === 'enviada' || o.estado === 'recibida_parcial'
+  return (
+    <Modal title={`Compra #${o.id} · ${ESTADOS_COMPRA[o.estado] || o.estado}`} onClose={onClose}>
+      <p style={{ fontSize: 13, color: 'var(--dim)' }}>{o.proveedor_nombre || 'Sin proveedor'} · {o.fecha} · Total Bs. {Number(o.total).toFixed(2)}{o.nota ? ` · ${o.nota}` : ''}</p>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, color: 'var(--ink)', margin: '10px 0' }}>
+        <thead><tr style={{ textAlign: 'left', color: 'var(--dim)' }}><th scope="col">Producto</th><th scope="col">Pedido</th><th scope="col">Recibido</th><th scope="col">Costo</th>{puedeRecibir && <th scope="col">Recibir ahora</th>}</tr></thead>
+        <tbody>
+          {o.lineas.map(l => (
+            <tr key={l.id} style={{ borderTop: '1px solid var(--line)' }}>
+              <td>{l.nombre_producto}</td><td>{l.cantidad_pedida}</td><td>{l.cantidad_recibida}</td><td>Bs. {Number(l.costo_unitario).toFixed(2)}</td>
+              {puedeRecibir && <td><input type="number" min="0" step="any" className="gym-input" aria-label={`Cantidad a recibir de ${l.nombre_producto}`} value={recibir[l.id] ?? ''} onChange={e => setRecibir(v => ({ ...v, [l.id]: e.target.value }))} style={{ width: 90, padding: '4px 6px' }} /></td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {o.recepciones.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <strong style={{ fontSize: 13, color: 'var(--ink)' }}>Recepciones</strong>
+          {o.recepciones.map(r => (
+            <div key={r.id} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, color: 'var(--ink)', padding: '4px 0' }}>
+              <span style={{ flex: 1 }}>Recepción #{r.id} · {r.fecha} · {r.usuario_nombre}{r.revertida_at ? ' · REVERTIDA' : ''}</span>
+              {!r.revertida_at && <button onClick={() => accion(() => window.api.compras.revertirRecepcion(r.id), 'Recepción revertida con movimiento inverso')} aria-label={`Revertir la recepción ${r.id}`} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Revertir</span></button>}
+            </div>
+          ))}
+        </div>
+      )}
+      {cancelando && (
+        <FormField label="Motivo de la cancelación (obligatorio)">
+          <input className="gym-input" aria-label="Motivo de la cancelación" value={motivo} onChange={e => setMotivo(e.target.value)} />
+        </FormField>
+      )}
+      {error && <p role="alert" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13, marginTop: 8 }}>Error: {error}</p>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+        {(o.estado === 'borrador' || o.estado === 'enviada') && !cancelando && <button onClick={() => setCancelando(true)} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Cancelar orden</span></button>}
+        {cancelando && <button onClick={() => accion(() => window.api.compras.cancelar(o.id, { motivo }), 'Orden cancelada')} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Confirmar cancelación</span></button>}
+        {o.estado === 'borrador' && <button onClick={() => accion(() => window.api.compras.enviar(o.id), 'Orden enviada')} className="clientes-glass-btn btn-primary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Marcar como enviada</span></button>}
+        {puedeRecibir && <button onClick={() => accion(() => window.api.compras.recibir(o.id, { lineas: Object.entries(recibir).filter(([, v]) => Number(v) > 0).map(([lid, v]) => ({ linea_id: Number(lid), cantidad: Number(v) })) }), 'Mercadería recibida: stock y costo actualizados')} className="clientes-glass-btn btn-primary"><div className="clientes-glass-bg" /><span className="clientes-glass-content"><Check size={15} /> Recibir mercadería</span></button>}
+      </div>
+    </Modal>
+  )
+}
+
+function TabCompras() {
+  const [lista, setLista] = useState([])
+  const [sugeridos, setSugeridos] = useState(null)
+  const [form, setForm] = useState(null)       // { simple, inicial }
+  const [detalle, setDetalle] = useState(null)
+  const [error, setError] = useState('')
+  async function cargar() {
+    const r = await window.api.compras.getAll()
+    if (r && r.ok === false) { setError(r.error || 'No se pudieron cargar las compras'); return }
+    setLista(r || [])
+  }
+  useEffect(() => { cargar() }, [])
+  async function verSugerencias() {
+    const r = await window.api.compras.sugerirReposicion()
+    if (r && r.ok === false) { setError(r.error); return }
+    setSugeridos(r || [])
+  }
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <button onClick={() => setForm({ simple: true })} className="clientes-glass-btn btn-primary"><div className="clientes-glass-bg" /><span className="clientes-glass-content"><Plus size={15} /> Registrar compra</span></button>
+        <button onClick={() => setForm({ simple: false })} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content"><Plus size={15} /> Nueva orden de compra</span></button>
+        <button onClick={verSugerencias} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Qué conviene reponer</span></button>
+      </div>
+      {error && <p role="alert" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13 }}>Error: {error}</p>}
+      {sugeridos && (
+        <section aria-label="Reposición sugerida" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+          <strong style={{ fontSize: 14, color: 'var(--ink)' }}>Reposición sugerida</strong>
+          {sugeridos.length === 0 ? <p role="status" style={{ fontSize: 13, color: 'var(--dim)' }}>Ningún producto está en su punto de reorden. Define el punto de reorden de cada producto al editarlo.</p> : (
+            <>
+              {sugeridos.map(s => <div key={s.producto_id} style={{ fontSize: 13, color: 'var(--ink)', padding: '3px 0' }}>{s.nombre}: hay {s.stock}, punto de reorden {s.punto_reorden} → sugerido <strong>{s.sugerido}</strong></div>)}
+              <button onClick={() => setForm({ simple: false, inicial: sugeridos.map(s => ({ producto_id: String(s.producto_id), cantidad: String(s.sugerido), costo_unitario: s.ultimo_costo != null ? String(s.ultimo_costo) : '' })) })} className="clientes-glass-btn btn-primary" style={{ marginTop: 8 }}><div className="clientes-glass-bg" /><span className="clientes-glass-content">Crear orden con estos productos</span></button>
+            </>
+          )}
+        </section>
+      )}
+      {lista.length === 0 ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--dim)' }}>Todavía no hay compras registradas</div> : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, color: 'var(--ink)' }}>
+          <thead><tr style={{ textAlign: 'left', color: 'var(--dim)' }}><th scope="col">N°</th><th scope="col">Fecha</th><th scope="col">Proveedor</th><th scope="col">Estado</th><th scope="col">Total (Bs.)</th><th scope="col">Acciones</th></tr></thead>
+          <tbody>
+            {lista.map(o => (
+              <tr key={o.id} style={{ borderTop: '1px solid var(--line)' }}>
+                <td>#{o.id}</td><td>{o.fecha}</td><td>{o.proveedor_nombre || '—'}</td><td>{ESTADOS_COMPRA[o.estado] || o.estado}{o.tipo === 'simple' ? ' (compra directa)' : ''}</td><td>{Number(o.total).toFixed(2)}</td>
+                <td><button onClick={() => setDetalle(o.id)} aria-label={`Ver la compra ${o.id}`} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Ver</span></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {form && <FormCompra simple={form.simple} inicial={form.inicial} onClose={() => setForm(null)} onHecho={() => { setForm(null); cargar() }} />}
+      {detalle && <DetalleCompra id={detalle} onClose={() => setDetalle(null)} onCambio={cargar} />}
+    </div>
+  )
+}
+
 function TabConteo() {
   const { tienePermiso } = useAuth()
   const puedeAprobar = tienePermiso('inventario.aprobar_ajustes')
@@ -1788,6 +1987,7 @@ export default function Inventario() {
           {tab === 'proveedores' && <TabProveedores proveedores={proveedores} onRefresh={refresh} />}
           {tab === 'movimientos' && <TabMovimientos />}
           {tab === 'conteo'      && <TabConteo />}
+          {tab === 'compras'     && <TabCompras />}
           {tab === 'promociones' && <TabPromociones />}
         </motion.div>
       </AnimatePresence>
