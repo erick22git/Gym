@@ -239,6 +239,18 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   // Inventario
+  conteos: {
+    abrir: (data) => ipcRenderer.invoke('conteos:abrir', data),
+    getAll: () => ipcRenderer.invoke('conteos:getAll'),
+    getById: (id) => ipcRenderer.invoke('conteos:getById', id),
+    registrar: (id, items) => ipcRenderer.invoke('conteos:registrar', id, items),
+    cerrar: (id) => ipcRenderer.invoke('conteos:cerrar', id),
+    cancelar: (id) => ipcRenderer.invoke('conteos:cancelar', id),
+    aprobar: (id) => ipcRenderer.invoke('conteos:aprobar', id),
+    revertir: (id) => ipcRenderer.invoke('conteos:revertir', id),
+    desdeImportacion: (data) => ipcRenderer.invoke('conteos:desdeImportacion', data),
+  },
+
   inventario: {
     getCategorias: () => ipcRenderer.invoke('inventario:getCategorias'),
     createCategoria: (data) => ipcRenderer.invoke('inventario:createCategoria', data),

@@ -38,3 +38,13 @@ Rama `feat/sprint4b-inventario-impl` (desde `feat/sprint4-inventario`). Sin merg
 - Pruebas: `test:inv` fase2 36/36 (migración, pendiente de punta a punta, detección de las 3 discrepancias sembradas, reparación con/sin permiso, auditoría, cadena sana después); `test:e2e-ia` Todo correcto (importar 8/8 con el nuevo caso por IPC real); `test:ui` completo 0 fallos (vidrio-intacto 7/7) en la corrida limpia.
 - No verificado: la etiqueta «POR COMPLETAR» y el panel de conciliación no se vieron en la ventana real (compilan y `test:ui` no rompe; no hay prueba visual específica).
 - Decisión propia: productos en la papelera se incluyen en el reporte (marcados «papelera») porque la discrepancia se generó ahí.
+
+## Fase 3 — Inventario físico guiado (conteo ciego) ✅ (con una parte de UI pendiente)
+- **Migración v4**: tablas `conteos` y `conteo_lineas` (en `TABLAS_NUEVAS`), permisos `inventario.conteo` (roles con `inventario.ver` + Admin) e `inventario.aprobar_ajustes` (solo Admin).
+- **Módulo `conteos`** (abrir/registrar/cerrar/cancelar/aprobar/revertir/desdeImportacion): conteo ciego (quien cuenta no ve el stock esperado; solo quien aprueba ve diferencias). Stock final = contado + Σ delta de movimientos posteriores a la apertura (las ventas durante el conteo no se pierden). Revertir = movimientos inversos; se rechaza si dejaría stock negativo (salvo política que lo permita). Todo con auditoría y usuario de la sesión.
+- **Canales protegidos** en `guardas.cjs`; namespace `conteos` en preload.
+- **UI**: pestaña «Conteo físico» en Inventario (`TabConteo`), filtrada por permiso.
+- Pruebas: `test:inv` fase3 43/43 (total 157 comprobaciones fases 0–3); `test:e2e-ia` Todo correcto; `test:ui`: ver resultado abajo.
+- **No hecho**: opción «enviar a conteo» dentro de `ImportarIA.jsx` (el modo «reemplazar» directo sigue igual). La API `conteos.desdeImportacion` existe y está probada, pero no está conectada a la tarjeta de importación (cambio invasivo en un archivo de 2.400+ líneas; se deja por seguridad).
+- **No verificado**: la pestaña «Conteo físico» no se ejercitó con clics en la ventana real.
+- `test:ui` fase 3: corrida 1 → 1 fallo (menú, rueda al 200 %); corrida 2 → menú 15/15, 1 fallo (FPS Inventario 150 %: Claro 8 fps). Ninguno se repite y ambos son sensibles a carga (llama-server de `eval-externa` al 100 % CPU); no toqué menú ni estilos. vidrio-intacto 7/7 en ambas. **Reserva: FPS/rueda no verificados con la máquina libre.**

@@ -76,6 +76,7 @@ const TABS = [
   { id: 'categorias',  label: 'Categorías',  icon: Tag },
   { id: 'proveedores', label: 'Proveedores', icon: Truck },
   { id: 'movimientos', label: 'Movimientos', icon: BarChart2 },
+  { id: 'conteo',      label: 'Conteo físico', icon: Check, permiso: 'inventario.conteo' },
   { id: 'promociones', label: 'Promociones', icon: Percent },
 ]
 
@@ -1560,8 +1561,153 @@ function TabPromociones() {
   )
 }
 
+// ─── Conteo físico guiado (Fase 3) ────────────────────────────────────────────
+
+const ESTADO_CONTEO = { borrador: 'En conteo', contado: 'Contado (por aprobar)', aprobado: 'Aprobado', cancelado: 'Cancelado', revertido: 'Revertido' }
+
+function TabConteo() {
+  const { tienePermiso } = useAuth()
+  const puedeAprobar = tienePermiso('inventario.aprobar_ajustes')
+  const confirmar = useConfirm()
+  const [lista, setLista] = useState([])
+  const [abierto, setAbierto] = useState(null)
+  const [valores, setValores] = useState({})
+  const [categorias, setCategorias] = useState([])
+  const [categoria, setCategoria] = useState('')
+  const [nota, setNota] = useState('')
+  const [error, setError] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+
+  async function cargarLista() { setLista((await window.api.conteos.getAll()) || []) }
+  async function abrirConteo(id) {
+    setError('')
+    const c = await window.api.conteos.getById(id)
+    if (c && c.ok === false) { setError(c.error || 'No se pudo abrir el conteo'); return }
+    setAbierto(c)
+    setValores(Object.fromEntries((c.lineas || []).map(l => [l.producto_id, l.contado === null || l.contado === undefined ? '' : String(l.contado)])))
+  }
+  useEffect(() => { cargarLista(); window.api.inventario.getCategorias().then(d => setCategorias(d || [])) }, [])
+
+  async function ejecutar(fn, mensajeOk, recargarId) {
+    setError(''); setOcupado(true)
+    const r = await fn()
+    setOcupado(false)
+    if (r && r.ok === false) { setError(r.error || 'No se pudo completar la acción'); return false }
+    if (mensajeOk) toast.success(mensajeOk)
+    await cargarLista()
+    if (recargarId) await abrirConteo(recargarId); else setAbierto(null)
+    return true
+  }
+  async function nuevo() {
+    setError(''); setOcupado(true)
+    const r = await window.api.conteos.abrir({ categoria_id: categoria ? Number(categoria) : undefined, nota: nota || undefined })
+    setOcupado(false)
+    if (r && r.ok === false) { setError(r.error || 'No se pudo abrir el conteo'); return }
+    setNota(''); await cargarLista(); await abrirConteo(r.conteo_id)
+  }
+  function itemsGuardar() {
+    return Object.entries(valores).filter(([, v]) => v !== '').map(([pid, v]) => ({ producto_id: Number(pid), contado: Number(v) }))
+  }
+  async function guardar() {
+    const items = itemsGuardar()
+    if (!items.length) { setError('Escribe al menos una cantidad contada.'); return false }
+    return ejecutar(() => window.api.conteos.registrar(abierto.id, items), 'Conteo guardado', abierto.id)
+  }
+  async function cerrarConteo() {
+    const items = itemsGuardar()
+    if (items.length) { const r = await window.api.conteos.registrar(abierto.id, items); if (r && r.ok === false) { setError(r.error); return } }
+    ejecutar(() => window.api.conteos.cerrar(abierto.id), 'Conteo cerrado', abierto.id)
+  }
+  async function aprobar() {
+    const ok = await confirmar({ titulo: '¿Aprobar el conteo?', mensaje: 'Se ajustará el stock de los productos con diferencia y quedará registrado como «Inventario físico».', tipo: 'advertencia', textoConfirmar: 'Aprobar y ajustar' })
+    if (ok) ejecutar(() => window.api.conteos.aprobar(abierto.id), 'Conteo aprobado: stock ajustado', abierto.id)
+  }
+  async function cancelar() {
+    const ok = await confirmar({ titulo: '¿Cancelar el conteo?', mensaje: 'No se cambia ningún stock.', tipo: 'advertencia', textoConfirmar: 'Cancelar conteo' })
+    if (ok) ejecutar(() => window.api.conteos.cancelar(abierto.id), 'Conteo cancelado')
+  }
+  async function revertir() {
+    const ok = await confirmar({ titulo: '¿Revertir el conteo?', mensaje: 'Se registrarán movimientos inversos que deshacen los ajustes (el historial no se borra).', tipo: 'advertencia', textoConfirmar: 'Revertir' })
+    if (ok) ejecutar(() => window.api.conteos.revertir(abierto.id), 'Conteo revertido', abierto.id)
+  }
+  const Boton = ({ onClick, children, primario, ...rest }) => (
+    <button onClick={onClick} disabled={ocupado} className={`clientes-glass-btn ${primario ? 'btn-primary' : 'btn-secondary'}`} {...rest}>
+      <div className="clientes-glass-bg" /><span className="clientes-glass-content">{children}</span>
+    </button>
+  )
+
+  return (
+    <div>
+      <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 12 }}>
+        Cuenta lo que hay en el estante sin ver lo que dice el sistema. Al aprobar, el stock queda en <strong>lo contado más los movimientos posteriores a la apertura del conteo</strong> (por ejemplo, ventas hechas mientras se contaba).
+      </p>
+      {error && <p role="alert" data-testid="conteo-error" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13, marginBottom: 10 }}>Error: {error}</p>}
+      {!abierto && (<>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14 }}>
+          <label style={{ fontSize: 12, color: 'var(--dim)' }}>Categoría (opcional)
+            <select className="gym-input" aria-label="Categoría a contar" value={categoria} onChange={e => setCategoria(e.target.value)} style={{ display: 'block', minWidth: 180 }}>
+              <option value="">Todos los productos</option>
+              {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </label>
+          <label style={{ fontSize: 12, color: 'var(--dim)' }}>Nota (opcional)
+            <input className="gym-input" aria-label="Nota del conteo" value={nota} onChange={e => setNota(e.target.value)} style={{ display: 'block', minWidth: 220 }} />
+          </label>
+          <Boton primario onClick={nuevo} data-testid="nuevo-conteo"><Plus size={14} /> Nuevo conteo</Boton>
+        </div>
+        {lista.length === 0 ? <p style={{ color: 'var(--dim)' }}>Todavía no hay conteos.</p> : lista.map(c => (
+          <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 0', borderTop: '1px solid var(--line)', fontSize: 13, color: 'var(--ink)' }}>
+            <span style={{ flex: 1 }}>Conteo #{c.id} · {fmtDate(c.fecha_apertura)}{c.nota ? ` · ${c.nota}` : ''}<br /><span style={{ color: 'var(--dim)', fontSize: 12 }}>{ESTADO_CONTEO[c.estado] || c.estado} · {c.contadas}/{c.total_lineas} contados · {c.usuario_nombre || '—'}</span></span>
+            <Boton onClick={() => abrirConteo(c.id)} aria-label={`Abrir el conteo ${c.id}`}>Abrir</Boton>
+          </div>
+        ))}
+      </>)}
+      {abierto && (
+        <div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+            <strong style={{ color: 'var(--ink)' }}>Conteo #{abierto.id} — {ESTADO_CONTEO[abierto.estado] || abierto.estado}</strong>
+            <Boton onClick={() => { setAbierto(null); cargarLista() }} style={{ marginLeft: 'auto' }}>Volver a la lista</Boton>
+          </div>
+          {abierto.estado === 'borrador' && <p style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 8 }}>Conteo a ciegas: no se muestra el stock del sistema. Deja en blanco lo que no cuentes.</p>}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, color: 'var(--ink)' }}>
+            <thead><tr style={{ textAlign: 'left', color: 'var(--dim)' }}>
+              <th scope="col">Producto</th><th scope="col">Contado</th>
+              {abierto.lineas[0] && 'diferencia' in abierto.lineas[0] && (<><th scope="col">Al abrir</th><th scope="col">Diferencia</th><th scope="col">Stock final</th></>)}
+            </tr></thead>
+            <tbody>
+              {abierto.lineas.map(l => (
+                <tr key={l.producto_id} style={{ borderTop: '1px solid var(--line)' }}>
+                  <td>{l.nombre_producto}</td>
+                  <td>{abierto.estado === 'borrador'
+                    ? <input type="number" min="0" step="1" className="gym-input" aria-label={`Cantidad contada de ${l.nombre_producto}`} value={valores[l.producto_id] ?? ''} onChange={e => setValores(v => ({ ...v, [l.producto_id]: e.target.value }))} style={{ width: 90, padding: '4px 6px' }} />
+                    : (l.contado === null ? 'No contado' : l.contado)}</td>
+                  {'diferencia' in l && (<>
+                    <td>{l.stock_sistema_congelado}</td>
+                    <td>{l.diferencia === null ? '—' : <strong>{l.diferencia > 0 ? `+${l.diferencia} (sobra)` : l.diferencia < 0 ? `${l.diferencia} (falta)` : '0 (cuadra)'}</strong>}</td>
+                    <td>{l.stock_final_previsto === null ? '—' : l.stock_final_previsto}</td>
+                  </>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {abierto.estado === 'contado' && !('diferencia' in (abierto.lineas[0] || {})) && <p style={{ fontSize: 13, color: 'var(--dim)', marginTop: 8 }}>Conteo cerrado. Las diferencias las revisa quien tiene permiso para aprobar.</p>}
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            {abierto.estado === 'borrador' && (<>
+              <Boton onClick={guardar} data-testid="guardar-conteo">Guardar lo contado</Boton>
+              <Boton primario onClick={cerrarConteo} data-testid="cerrar-conteo"><Check size={14} /> Cerrar conteo</Boton>
+            </>)}
+            {(abierto.estado === 'borrador' || abierto.estado === 'contado') && <Boton onClick={cancelar}>Cancelar conteo</Boton>}
+            {abierto.estado === 'contado' && puedeAprobar && <Boton primario onClick={aprobar} data-testid="aprobar-conteo"><Check size={14} /> Aprobar y ajustar stock</Boton>}
+            {abierto.estado === 'aprobado' && puedeAprobar && <Boton onClick={revertir}>Revertir conteo</Boton>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Inventario() {
-  const { usuario } = useAuth()
+  const { usuario, tienePermiso: tienePermisoTabs } = useAuth()
   const [tab, setTab] = useState('productos')
   const [categorias, setCategorias] = useState([])
   const [proveedores, setProveedores] = useState([])
@@ -1592,7 +1738,7 @@ export default function Inventario() {
         borderRadius: 10, padding: 4,
         boxShadow: 'inset 0 1px 0 oklch(1 0 0 / .09), 0 0 12px 2px oklch(1 0 0 / .06), 0 10px 26px oklch(0 0 0 / .35)',
       }}>
-        {TABS.map(t => {
+        {TABS.filter(t => !t.permiso || tienePermisoTabs(t.permiso)).map(t => {
           const Icon = t.icon
           return (
             <button
@@ -1621,6 +1767,7 @@ export default function Inventario() {
           {tab === 'categorias'  && <TabCategorias categorias={categorias} onRefresh={refresh} />}
           {tab === 'proveedores' && <TabProveedores proveedores={proveedores} onRefresh={refresh} />}
           {tab === 'movimientos' && <TabMovimientos />}
+          {tab === 'conteo'      && <TabConteo />}
           {tab === 'promociones' && <TabPromociones />}
         </motion.div>
       </AnimatePresence>

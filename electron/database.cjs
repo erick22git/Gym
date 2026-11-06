@@ -226,6 +226,46 @@ MIGRACIONES.push({
     for (const p of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [p.id])
   },
 })
+// ── v4 · Fase 3: inventario físico guiado ──
+TABLAS_NUEVAS.push('conteos', 'conteo_lineas')
+MIGRACIONES.push({
+  version: 4, nombre: 'fase 3: conteos de inventario físico',
+  up() {
+    db.run(`CREATE TABLE IF NOT EXISTS conteos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fecha_apertura TEXT DEFAULT (datetime('now','localtime')),
+      estado TEXT NOT NULL DEFAULT 'borrador',
+      origen TEXT DEFAULT 'manual',
+      nota TEXT,
+      usuario_id INTEGER, usuario_nombre TEXT,
+      ultimo_mov_id_apertura INTEGER DEFAULT 0,
+      fecha_cierre TEXT,
+      aprobado_por INTEGER, aprobado_por_nombre TEXT, fecha_aprobacion TEXT,
+      revertido_por INTEGER, revertido_por_nombre TEXT, fecha_reversion TEXT
+    )`)
+    db.run(`CREATE TABLE IF NOT EXISTS conteo_lineas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conteo_id INTEGER NOT NULL REFERENCES conteos(id),
+      producto_id INTEGER NOT NULL REFERENCES productos(id),
+      nombre_producto TEXT,
+      stock_sistema_congelado REAL NOT NULL,
+      contado REAL,
+      UNIQUE (conteo_id, producto_id)
+    )`)
+    _addCol('movimientos_stock', 'conteo_id', 'INTEGER')
+    db.run('CREATE INDEX IF NOT EXISTS idx_conteo_lineas_conteo ON conteo_lineas(conteo_id)')
+    for (const [codigo, nombre, desc] of [
+      ['inventario.conteo', 'Contar inventario', 'Abrir conteos de inventario físico y registrar lo contado'],
+      ['inventario.aprobar_ajustes', 'Aprobar ajustes de inventario', 'Aprobar o revertir conteos físicos y otros ajustes pendientes'],
+    ]) db.run("INSERT OR IGNORE INTO permisos (codigo, modulo, nombre, descripcion) VALUES (?, 'inventario', ?, ?)", [codigo, nombre, desc])
+    // Contar equivale a lo que ya hacía quien ajusta stock (inventario.ajustar_stock); aprobar solo lo tiene Admin.
+    const conteo = queryOne("SELECT id FROM permisos WHERE codigo='inventario.conteo'")
+    for (const r of queryAll("SELECT rp.rol_id FROM rol_permisos rp JOIN permisos p ON p.id=rp.permiso_id WHERE p.codigo='inventario.ajustar_stock'")) {
+      db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (?, ?)', [r.rol_id, conteo.id])
+    }
+    for (const p of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [p.id])
+  },
+})
 const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version
 let _SQL = null
 let _estadoMigracion = { migrada: false, ok: true, version: null }
@@ -2952,6 +2992,154 @@ const inventario = {
   },
 }
 
+// ─── Inventario físico guiado (Fase 3) ───────────────────────────────────────
+// Flujo: abrir (borrador, lista de qué contar) → contar A CIEGAS (no se ve el stock esperado) → cerrar (contado) →
+// el aprobador ve las diferencias → aprobar (ajustes «Inventario físico #N», auditados) | cancelar | revertir.
+// REGLA ante ventas durante el conteo: se asume que lo contado refleja el estante al ABRIR el conteo, así que al
+// aprobar: stock final = contado + suma de los deltas de los movimientos posteriores a la apertura.
+//   diferencia (lo que se muestra) = contado − stock del sistema al abrir.
+const conteos = {
+  _lineas(conteoId, verDiferencias, estado) {
+    const c = queryOne('SELECT ultimo_mov_id_apertura u FROM conteos WHERE id=?', [conteoId])
+    const rows = queryAll(`SELECT l.*, p.stock AS stock_actual FROM conteo_lineas l LEFT JOIN productos p ON p.id=l.producto_id WHERE l.conteo_id=? ORDER BY l.nombre_producto, l.id`, [conteoId])
+    return rows.map(l => {
+      const base = { id: l.id, producto_id: l.producto_id, nombre_producto: l.nombre_producto, contado: l.contado }
+      if (estado === 'borrador' || !verDiferencias) return base      // ciego: nunca el esperado ni la diferencia
+      const post = queryOne('SELECT COALESCE(SUM(delta),0) d FROM movimientos_stock WHERE producto_id=? AND id>? AND (conteo_id IS NULL OR conteo_id<>?)', [l.producto_id, c.u, conteoId]).d
+      const contado = l.contado
+      return {
+        ...base, stock_sistema_congelado: l.stock_sistema_congelado, stock_actual: l.stock_actual,
+        esperado_actual: l.stock_sistema_congelado + post,
+        diferencia: contado === null ? null : contado - l.stock_sistema_congelado,
+        stock_final_previsto: contado === null ? null : contado + post,
+        ajuste_previsto: contado === null ? null : (contado + post) - l.stock_actual,
+      }
+    })
+  },
+  getAll() {
+    return queryAll(`SELECT c.*, (SELECT COUNT(*) FROM conteo_lineas WHERE conteo_id=c.id) AS total_lineas,
+      (SELECT COUNT(*) FROM conteo_lineas WHERE conteo_id=c.id AND contado IS NOT NULL) AS contadas FROM conteos c ORDER BY c.id DESC LIMIT 200`)
+  },
+  getById(id, opts = {}) {
+    const c = queryOne('SELECT * FROM conteos WHERE id=?', [id])
+    if (!c) return { ok: false, error: 'Conteo no encontrado' }
+    return { ...c, lineas: conteos._lineas(id, !!opts.ver_diferencias, c.estado) }
+  },
+  // data: { categoria_id?, producto_ids?, nota?, usuario_id, usuario_nombre }
+  abrir(data = {}) {
+    return _tx(() => {
+      let sql = "SELECT id, nombre, stock FROM productos WHERE activo=1 AND eliminado=0 AND COALESCE(archivado,0)=0"
+      const params = []
+      if (data.categoria_id) { sql += ' AND categoria_id=?'; params.push(data.categoria_id) }
+      if (Array.isArray(data.producto_ids) && data.producto_ids.length) { sql += ` AND id IN (${data.producto_ids.map(() => '?').join(',')})`; params.push(...data.producto_ids) }
+      const prods = queryAll(sql + ' ORDER BY nombre', params)
+      if (!prods.length) throw new Error('No hay productos para contar con ese filtro.')
+      const ultimo = queryOne('SELECT COALESCE(MAX(id),0) m FROM movimientos_stock').m
+      const id = _ins('INSERT INTO conteos (estado, origen, nota, usuario_id, usuario_nombre, ultimo_mov_id_apertura) VALUES (?,?,?,?,?,?)',
+        ['borrador', data.origen || 'manual', data.nota || null, data.usuario_id || null, data.usuario_nombre || null, ultimo])
+      for (const p of prods) db.run('INSERT INTO conteo_lineas (conteo_id, producto_id, nombre_producto, stock_sistema_congelado) VALUES (?,?,?,?)', [id, p.id, p.nombre, p.stock])
+      return { ok: true, conteo_id: id, lineas: prods.length }
+    })
+  },
+  // items: [{ producto_id, contado }]  (contado null = borrar lo contado de esa línea)
+  registrar(id, items, u = {}) {
+    return _tx(() => {
+      const c = queryOne('SELECT estado FROM conteos WHERE id=?', [id])
+      if (!c) throw new Error('Conteo no encontrado')
+      if (c.estado !== 'borrador') throw new Error('El conteo ya está cerrado: no admite cambios.')
+      if (!Array.isArray(items) || !items.length) throw new Error('No hay nada que registrar.')
+      for (const it of items) {
+        if (!queryOne('SELECT id FROM conteo_lineas WHERE conteo_id=? AND producto_id=?', [id, it.producto_id])) throw new Error('Un producto no pertenece a este conteo.')
+        if (it.contado !== null && (typeof it.contado !== 'number' || !Number.isFinite(it.contado) || it.contado < 0)) throw new Error('Lo contado debe ser un número mayor o igual a 0.')
+        if (it.contado !== null && !Number.isInteger(it.contado)) throw new Error('Lo contado debe ser un número entero.')
+        db.run('UPDATE conteo_lineas SET contado=? WHERE conteo_id=? AND producto_id=?', [it.contado, id, it.producto_id])
+      }
+      return { ok: true }
+    })
+  },
+  cerrar(id) {
+    return _tx(() => {
+      const c = queryOne('SELECT estado FROM conteos WHERE id=?', [id])
+      if (!c) throw new Error('Conteo no encontrado')
+      if (c.estado !== 'borrador') throw new Error('El conteo ya está cerrado.')
+      const n = queryOne('SELECT COUNT(*) n FROM conteo_lineas WHERE conteo_id=? AND contado IS NOT NULL', [id]).n
+      if (n === 0) throw new Error('Registra al menos un producto contado antes de cerrar el conteo.')
+      db.run("UPDATE conteos SET estado='contado', fecha_cierre=datetime('now','localtime') WHERE id=?", [id])
+      return { ok: true, contadas: n }
+    })
+  },
+  cancelar(id) {
+    return _tx(() => {
+      const c = queryOne('SELECT estado FROM conteos WHERE id=?', [id])
+      if (!c) throw new Error('Conteo no encontrado')
+      if (c.estado !== 'borrador' && c.estado !== 'contado') throw new Error('Solo se puede cancelar un conteo que aún no fue aprobado.')
+      db.run("UPDATE conteos SET estado='cancelado' WHERE id=?", [id])
+      return { ok: true }
+    })
+  },
+  aprobar(id, u = {}) {
+    return _tx(() => {
+      const c = queryOne('SELECT * FROM conteos WHERE id=?', [id])
+      if (!c) throw new Error('Conteo no encontrado')
+      if (c.estado !== 'contado') throw new Error(c.estado === 'borrador' ? 'Cierra el conteo antes de aprobarlo.' : `El conteo está «${c.estado}»: no se puede aprobar.`)
+      const permitirNeg = inventario.getPoliticaStock() === 'permitir_con_aviso'
+      let ajustes = 0
+      for (const l of conteos._lineas(id, true, 'contado')) {
+        if (l.contado === null) continue
+        const final = l.stock_final_previsto
+        if (final < 0 && !permitirNeg) throw new Error(`"${l.nombre_producto}": las ventas posteriores a la apertura (${l.esperado_actual - l.stock_sistema_congelado}) superan lo contado; revisa el conteo.`)
+        const actual = l.stock_actual
+        if (Math.abs(final - actual) < 1e-9) continue
+        db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [final, l.producto_id])
+        db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre, conteo_id) VALUES (?,?,?,?,?,?,?,?,?)`,
+          [l.producto_id, 'ajuste', final, actual, final, `Inventario físico #${id}`, u.usuario_id || null, u.usuario_nombre || null, id])
+        ajustes++
+      }
+      db.run("UPDATE conteos SET estado='aprobado', aprobado_por=?, aprobado_por_nombre=?, fecha_aprobacion=datetime('now','localtime') WHERE id=?", [u.usuario_id || null, u.usuario_nombre || null, id])
+      db.run("INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)",
+        [u.usuario_id || null, u.usuario_nombre || 'Sistema', 'APROBAR_CONTEO', 'inventario', JSON.stringify({ ajustes }), id, 'conteo'])
+      return { ok: true, ajustes }
+    })
+  },
+  // Revertir = movimientos INVERSOS (aplica −delta de cada ajuste del conteo); no borra nada.
+  revertir(id, u = {}) {
+    return _tx(() => {
+      const c = queryOne('SELECT estado FROM conteos WHERE id=?', [id])
+      if (!c) throw new Error('Conteo no encontrado')
+      if (c.estado !== 'aprobado') throw new Error(c.estado === 'revertido' ? 'Este conteo ya fue revertido.' : 'Solo se puede revertir un conteo aprobado.')
+      const permitirNeg = inventario.getPoliticaStock() === 'permitir_con_aviso'
+      const ms = queryAll("SELECT producto_id, delta FROM movimientos_stock WHERE conteo_id=? AND tipo='ajuste' ORDER BY id DESC", [id])
+      let revertidos = 0
+      for (const m of ms) {
+        const p = queryOne('SELECT id, nombre, stock FROM productos WHERE id=?', [m.producto_id])
+        if (!p) continue
+        const nuevo = p.stock - m.delta
+        if (nuevo < 0 && !permitirNeg) throw new Error(`No se puede revertir: "${p.nombre}" quedaría con stock negativo (${nuevo}). No toqué nada.`)
+        db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [nuevo, p.id])
+        db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
+          [p.id, 'ajuste', nuevo, p.stock, nuevo, `Reversión inventario físico #${id}`, u.usuario_id || null, u.usuario_nombre || null])
+        revertidos++
+      }
+      db.run("UPDATE conteos SET estado='revertido', revertido_por=?, revertido_por_nombre=?, fecha_reversion=datetime('now','localtime') WHERE id=?", [u.usuario_id || null, u.usuario_nombre || null, id])
+      db.run("INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)",
+        [u.usuario_id || null, u.usuario_nombre || 'Sistema', 'REVERTIR_CONTEO', 'inventario', JSON.stringify({ revertidos }), id, 'conteo'])
+      return { ok: true, revertidos }
+    })
+  },
+  // Un archivo importado por IA alimenta un conteo en BORRADOR (no toca el stock). Los productos nuevos se ignoran.
+  desdeImportacion(data = {}) {
+    const items = (Array.isArray(data.items) ? data.items : []).filter(i => i.accion === 'actualizar' && i.producto_id)
+    const ignorados = (Array.isArray(data.items) ? data.items.length : 0) - items.length
+    if (!items.length) return { ok: false, error: 'El archivo no tiene productos existentes para contar.' }
+    for (const it of items) if (!Number.isInteger(it.cantidad) || it.cantidad < 0) return { ok: false, error: `La cantidad de "${it.nombre}" no es un número entero válido.` }
+    const r = conteos.abrir({ producto_ids: items.map(i => i.producto_id), nota: data.nota || 'Importado desde archivo', origen: 'importacion', usuario_id: data.usuario_id, usuario_nombre: data.usuario_nombre })
+    if (!r.ok) return r
+    const g = conteos.registrar(r.conteo_id, items.map(i => ({ producto_id: i.producto_id, contado: i.cantidad })))
+    if (!g.ok) return g
+    return { ok: true, conteo_id: r.conteo_id, lineas: r.lineas, ignorados }
+  },
+}
+
 // ─── Auditoría de importaciones por IA ───────────────────────────────────────
 // Una fila por importación (fotos/Excel/Word/PDF). Nace al EMPEZAR a procesar
 // (así también quedan registrados los errores y los "Detener") y se va
@@ -3974,7 +4162,7 @@ module.exports = {
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
   ventas, descuentos, configuracionPOS,
-  inventario, iaAuditoria, vozConfig, iaConfig, caja, papelera,
+  inventario, conteos, iaAuditoria, vozConfig, iaConfig, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,
