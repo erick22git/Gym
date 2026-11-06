@@ -126,6 +126,41 @@ async function principal() {
       const ru = await api('inventario.importarLote', { ...U, modo: 'sumar', items: [{ accion: 'actualizar', producto_id: D, nombre: 'E2E Dup Uno', cantidad: d.opciones.dejar_uno }] })
       registrar('duplicados', `opción «dejar uno» (${d.opciones.dejar_uno}) suma solo una cantidad`, ru.ok && (await stock(D)) === 2 + d.opciones.dejar_uno)
     }
+
+    // ── Sprint 4 · C.1: ventas que descuentan stock y ajuste manual (sin cambiar esquema ni lógica) ──
+    // Lo que sigue prueba el comportamiento ACTUAL. Los «hallazgo» registran un límite conocido (no fallan): están en INVENTARIO_PROPUESTA.md.
+    const hallazgo = (detalle, ok, nota) => registrar('hallazgos', detalle, true, `${ok ? 'CONFIRMADO' : 'NO se reproduce'}: ${nota}`)
+    const movsDe = async id => await api('inventario.getMovimientos', id)
+    const V1 = (await api('inventario.create', { nombre: 'E2E Venta Agua', stock: 20, precio_venta: 5 })).id
+    const V2 = (await api('inventario.create', { nombre: 'E2E Venta Barra', stock: 6, precio_venta: 15 })).id
+    const v = await api('inventario.venderProductos', [
+      { producto_id: V1, nombre_producto: 'E2E Venta Agua', cantidad: 3, precio_unitario: 5 },
+      { producto_id: V2, nombre_producto: 'E2E Venta Barra', cantidad: 2, precio_unitario: 15 }], { ...U, metodo_pago: 'efectivo' })
+    registrar('ventas', 'la venta se registra con el total correcto (3×5 + 2×15 = 45)', v.ok === true && v.total === 45, JSON.stringify(v))
+    registrar('ventas', 'la venta descuenta el stock de cada producto (20→17 y 6→4)', (await stock(V1)) === 17 && (await stock(V2)) === 4)
+    const mv = (await movsDe(V1)).find(m => m.tipo === 'venta')
+    registrar('ventas', 'queda un movimiento «venta» con anterior/nuevo, venta_id y usuario', !!mv && mv.stock_anterior === 20 && mv.stock_nuevo === 17 && mv.venta_id === v.venta_id && mv.usuario_nombre === 'QA E2E', JSON.stringify(mv || {}))
+    // Ajuste manual
+    const a1 = await api('inventario.ajustarStock', { producto_id: V1, tipo: 'entrada', cantidad: 10, motivo: 'compra al proveedor', ...U })
+    registrar('ajuste', 'entrada: 17 → 27', a1.ok && a1.stock_anterior === 17 && a1.stock_nuevo === 27 && (await stock(V1)) === 27)
+    const a2 = await api('inventario.ajustarStock', { producto_id: V1, tipo: 'salida', cantidad: 4, motivo: 'merma: botellas rotas', ...U })
+    registrar('ajuste', 'salida: 27 → 23', a2.ok && a2.stock_nuevo === 23 && (await stock(V1)) === 23)
+    const a3 = await api('inventario.ajustarStock', { producto_id: V1, tipo: 'ajuste', cantidad: 21, motivo: 'conteo físico', ...U })
+    registrar('ajuste', 'ajuste (conteo): el stock pasa a 21 exacto', a3.ok && a3.stock_nuevo === 21 && (await stock(V1)) === 21)
+    const m3 = await movsDe(V1)
+    registrar('ajuste', 'cada ajuste queda en el kardex con motivo y usuario', ['compra al proveedor', 'merma: botellas rotas', 'conteo físico'].every(t => m3.some(m => m.motivo === t && m.usuario_nombre === 'QA E2E')))
+    registrar('ajuste', 'producto inexistente se rechaza sin tocar nada', (await api('inventario.ajustarStock', { producto_id: 999999, tipo: 'entrada', cantidad: 1, ...U })).ok === false)
+    // Hallazgos (límites del comportamiento actual)
+    const H = (await api('inventario.create', { nombre: 'E2E Hallazgo', stock: 2, precio_venta: 10 })).id
+    const vs = await api('inventario.venderProductos', [{ producto_id: H, nombre_producto: 'E2E Hallazgo', cantidad: 5, precio_unitario: 10 }], { ...U, metodo_pago: 'efectivo' })
+    const mh = (await movsDe(H)).find(m => m.tipo === 'venta')
+    hallazgo('vender más que el stock: la venta se acepta y el stock se corta en 0', vs.ok === true && (await stock(H)) === 0, `se vendieron 5 con stock 2; el kardex dice cantidad=${mh?.cantidad} pero ${mh?.stock_anterior}→${mh?.stock_nuevo} (no cuadra)`)
+    const H2 = (await api('inventario.create', { nombre: 'E2E Hallazgo anular', stock: 8, precio_venta: 10 })).id
+    const vh = await api('inventario.venderProductos', [{ producto_id: H2, nombre_producto: 'E2E Hallazgo anular', cantidad: 3, precio_unitario: 10 }], { ...U, metodo_pago: 'efectivo' })
+    const an = await api('ventas.anular', vh.venta_id)
+    hallazgo('anular una venta de productos NO devuelve el stock', an.ok === true && (await stock(H2)) === 5, `anulada ok=${an.ok}; stock queda ${await stock(H2)} (debería volver a 8)`)
+    const as = await api('inventario.ajustarStock', { producto_id: H2, tipo: 'salida', cantidad: 50, ...U })
+    hallazgo('salida mayor que el stock se corta en 0 sin avisar', as.ok === true && (await stock(H2)) === 0, `salida de 50 con stock 5 → stock ${await stock(H2)}, ok=${as.ok}`)
   } finally {
     try { await browser?.close() } catch {}
     try { app.kill() } catch {}
@@ -143,5 +178,6 @@ for (const r of resultados) { porArea[r.area] ||= [0, 0]; porArea[r.area][r.ok ?
 console.log('=== npm run test:e2e-ia — resumen ===')
 console.log('| área | correctas | fallos |' + NL + '|---|---|---|')
 for (const [a, [ok, ko]] of Object.entries(porArea)) console.log(`| ${a} | ${ok} | ${ko} |`)
+for (const h of resultados.filter(r => r.area === 'hallazgos')) console.log(`• hallazgo: ${h.detalle} → ${h.nota}`)
 if (fallos.length) { console.log(`--- ${fallos.length} fallo(s) ---`); for (const f of fallos) console.log(`✗ [${f.area}] ${f.detalle}${f.nota ? ' → ' + f.nota : ''}`) } else console.log('Todo correcto')
 process.exit(fallos.length ? 1 : 0)

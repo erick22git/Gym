@@ -1086,6 +1086,18 @@ function TarjetaResumen({ resultado, revision, resuelto, imagenesOriginales, mod
                   }}>
                     {p.estado === 'nuevo' ? 'NUEVO' : 'YA EXISTE'}
                   </span>
+                  {p.estado === 'nuevo' && (
+                    <span
+                      data-testid="falta-precio"
+                      title="Se creará con precio $0: complétalo en Inventario antes de venderlo."
+                      style={{
+                        display: 'inline-block', marginLeft: 6, fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+                        background: 'oklch(0.66 0.22 25 / .18)', color: 'oklch(0.82 0.16 25)', border: '1px solid oklch(0.66 0.22 25 / .45)',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                      }}>
+                      FALTA PRECIO
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
