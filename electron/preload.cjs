@@ -160,6 +160,8 @@ contextBridge.exposeInMainWorld('api', {
     getById: (id) => ipcRenderer.invoke('ventas:getById', id),
     getKPIs: (filtros) => ipcRenderer.invoke('ventas:getKPIs', filtros),
     anular: (id, opts) => ipcRenderer.invoke('ventas:anular', id, opts),
+    devolver: (id, data) => ipcRenderer.invoke('ventas:devolver', id, data),
+    devolucionesPendientesFactura: () => ipcRenderer.invoke('ventas:devolucionesPendientesFactura'),
     setCliente: (id, nombre, carnet) => ipcRenderer.invoke('ventas:setCliente', id, nombre, carnet),
     getBySesion: (sesionId) => ipcRenderer.invoke('ventas:getBySesion', sesionId),
   },

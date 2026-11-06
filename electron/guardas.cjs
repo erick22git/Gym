@@ -53,6 +53,8 @@ module.exports = function crearGuardas({ dbm, seguridad }) {
   con('inventario:updateProveedor', 'inventario.gestionar_proveedores', (id, d) => inv().updateProveedor(id, d))
   con('inventario:deleteProveedor', 'inventario.gestionar_proveedores', id => inv().deleteProveedor(id))
   con('ventas:anular', 'ventas.anular', (id, opts) => dbm.ventas.anular(id, sello(opts)))
+  con('ventas:devolver', 'ventas.devolver', (id, d) => dbm.ventas.devolver(id, sello(d)))
+  con('ventas:devolucionesPendientesFactura', 'ventas.devolver', () => dbm.ventas.devolucionesPendientesFactura())
   con('papelera:restaurarProducto', 'papelera.restaurar', id => dbm.papelera.restaurarProducto(id))
   con('papelera:eliminarPermanenteProducto', 'papelera.eliminar_permanente', id => dbm.papelera.eliminarPermanenteProducto(id))
   return G

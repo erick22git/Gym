@@ -345,6 +345,46 @@ MIGRACIONES.push({
     for (const pp of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [pp.id])
   },
 })
+// ── v7 · Fase 6: devolución parcial de venta ──
+TABLAS_NUEVAS.push('devoluciones', 'devolucion_lineas')
+MIGRACIONES.push({
+  version: 7, nombre: 'fase 6: devoluciones parciales',
+  up() {
+    db.run(`CREATE TABLE IF NOT EXISTS devoluciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      venta_id INTEGER NOT NULL REFERENCES ventas(id),
+      fecha TEXT DEFAULT (datetime('now','localtime')),
+      motivo TEXT,
+      total_devuelto REAL NOT NULL DEFAULT 0,
+      reintegro_caja REAL NOT NULL DEFAULT 0,
+      metodo_pago TEXT,
+      factura_pendiente INTEGER NOT NULL DEFAULT 0,
+      usuario_id INTEGER, usuario_nombre TEXT
+    )`)
+    db.run(`CREATE TABLE IF NOT EXISTS devolucion_lineas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      devolucion_id INTEGER NOT NULL REFERENCES devoluciones(id),
+      detalle_id INTEGER NOT NULL,
+      producto_id INTEGER,
+      nombre_producto TEXT,
+      cantidad REAL NOT NULL,
+      precio_unitario REAL,
+      monto REAL NOT NULL,
+      vuelve_a_stock INTEGER NOT NULL DEFAULT 1,
+      motivo_merma TEXT,
+      costo_unitario REAL
+    )`)
+    db.run('CREATE INDEX IF NOT EXISTS idx_devoluciones_venta ON devoluciones(venta_id)')
+    db.run('CREATE INDEX IF NOT EXISTS idx_devol_lineas_detalle ON devolucion_lineas(detalle_id)')
+    db.run("INSERT OR IGNORE INTO permisos (codigo, modulo, nombre, descripcion) VALUES ('ventas.devolver', 'ventas', 'Devolver productos de una venta', 'Registrar devoluciones parciales de una venta (con o sin vuelta al stock)')")
+    // Devolver equivale a lo que ya podía hacer quien anula ventas: nadie gana ni pierde acceso.
+    const pn = queryOne("SELECT id FROM permisos WHERE codigo='ventas.devolver'")
+    for (const r of queryAll("SELECT rp.rol_id FROM rol_permisos rp JOIN permisos p ON p.id=rp.permiso_id WHERE p.codigo='ventas.anular'")) {
+      db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (?, ?)', [r.rol_id, pn.id])
+    }
+    for (const pp of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [pp.id])
+  },
+})
 // Redondeo decimal estable (evita 0.1+0.2 = 0.30000000000000004 y 1.005*100 = 100.49999…).
 function _redondear(x, d) {
   const f = 10 ** d
@@ -2339,7 +2379,9 @@ const ventas = {
       SELECT v.*,
         COALESCE(v.cliente_nombre, c.nombre||' '||c.apellido) as cliente_nombre,
         COALESCE(v.cliente_carnet, c.carnet) as cliente_carnet,
-        u.nombre_completo as usuario_nombre
+        u.nombre_completo as usuario_nombre,
+        COALESCE((SELECT SUM(total_devuelto) FROM devoluciones WHERE venta_id=v.id),0) AS devuelto,
+        v.total - COALESCE((SELECT SUM(total_devuelto) FROM devoluciones WHERE venta_id=v.id),0) AS total_neto
       FROM ventas v
       LEFT JOIN clientes c ON v.cliente_id=c.id
       LEFT JOIN usuarios u ON v.usuario_id=u.id
@@ -2360,8 +2402,11 @@ const ventas = {
       WHERE v.id=?
     `, [id])
     if (!venta) return null
-    const detalle = queryAll('SELECT * FROM detalle_ventas_productos WHERE venta_id=?', [id])
-    return { ...venta, detalle }
+    const detalle = queryAll(`SELECT d.*, COALESCE((SELECT SUM(dl.cantidad) FROM devolucion_lineas dl WHERE dl.detalle_id=d.id),0) AS devuelto
+      FROM detalle_ventas_productos d WHERE d.venta_id=?`, [id])
+    const devoluciones = queryAll('SELECT * FROM devoluciones WHERE venta_id=? ORDER BY id', [id])
+    const devuelto = devoluciones.reduce((t, x) => t + x.total_devuelto, 0)
+    return { ...venta, detalle, devoluciones, devuelto, total_neto: venta.total - devuelto }
   },
 
   getKPIs(filtros = {}) {
@@ -2378,7 +2423,11 @@ const ventas = {
         if (r.tipo === 'productos') ventasProductos += r.cnt
       }
     }
-    return { totalVentas, totalIngresos, ventasMembresia, ventasProductos }
+    // Devoluciones parciales de ventas completadas del mes: bajan el ingreso neto.
+    const dev = queryOne(`SELECT COALESCE(SUM(dv.total_devuelto),0) AS t FROM devoluciones dv JOIN ventas v ON v.id=dv.venta_id
+      WHERE v.estado='completada' AND strftime('%Y-%m',v.fecha)=?`, [mes]).t
+    totalIngresos -= dev
+    return { totalVentas, totalIngresos, ventasMembresia, ventasProductos, devoluciones: dev }
   },
 
   // Anular una venta (todo o nada). Exige motivo. En ventas de productos se decide POR LÍNEA si vuelve al stock
@@ -2395,8 +2444,12 @@ const ventas = {
       const detalle = queryAll('SELECT * FROM detalle_ventas_productos WHERE venta_id=?', [id])
       const lineas = Array.isArray(opts.lineas) ? opts.lineas : []
       const porId = new Map(lineas.map(l => [l.detalle_id, l]))
+      // Lo que ya se devolvió en parte NO se vuelve a devolver ni a reintegrar: solo se anula lo que seguía vendido.
+      const yaDev = new Map(queryAll('SELECT dl.detalle_id, SUM(dl.cantidad) c FROM devolucion_lineas dl JOIN devoluciones dv ON dv.id=dl.devolucion_id WHERE dv.venta_id=? GROUP BY dl.detalle_id', [id]).map(x => [x.detalle_id, x.c]))
+      const resto = d => _redondear(d.cantidad - (yaDev.get(d.id) || 0), 6)
       if (detalle.length) {
         for (const d of detalle) {
+          if (resto(d) <= 1e-9) continue
           const l = porId.get(d.id)
           if (!l || typeof l.vuelve_a_stock !== 'boolean') throw new Error(`Indica si "${d.nombre_producto}" vuelve al stock.`)
           if (!l.vuelve_a_stock && String(l.motivo_merma ?? '').trim().length < 3) throw new Error(`Escribe el motivo de la merma de "${d.nombre_producto}".`)
@@ -2406,17 +2459,19 @@ const ventas = {
       const uid = opts.usuario_id || null, unombre = opts.usuario_nombre || null
       db.run("UPDATE ventas SET estado='anulada', anulada_at=datetime('now','localtime'), anulada_por=?, anulada_por_nombre=?, motivo_anulacion=? WHERE id=?", [uid, unombre, motivo, id])
       for (const d of detalle) {
+        const rest = resto(d)
+        if (rest <= 1e-9) continue
         const l = porId.get(d.id)
         const p = queryOne(`SELECT id, stock, ${_CFG_DEC} FROM productos WHERE id=?`, [d.producto_id])
         if (!p) { if (l.vuelve_a_stock) throw new Error(`"${d.nombre_producto}" ya no existe: no puede volver al stock.`); continue }
         if (l.vuelve_a_stock) {
-          const nuevo = _redondearStock(p, p.stock + d.cantidad)
+          const nuevo = _redondearStock(p, p.stock + rest)
           db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [nuevo, p.id])
           db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
-            [p.id, 'entrada', d.cantidad, p.stock, nuevo, `Anulación venta #${id}: ${motivo}`, id, uid, unombre])
+            [p.id, 'entrada', rest, p.stock, nuevo, `Anulación venta #${id}: ${motivo}`, id, uid, unombre])
         } else {
           db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
-            [p.id, 'merma', d.cantidad, p.stock, p.stock, `Merma por anulación venta #${id}: ${String(l.motivo_merma).trim()}`, id, uid, unombre])
+            [p.id, 'merma', rest, p.stock, p.stock, `Merma por anulación venta #${id}: ${String(l.motivo_merma).trim()}`, id, uid, unombre])
         }
       }
       const avisos = []
@@ -2425,10 +2480,16 @@ const ventas = {
       if (ingresos.length) {
         const ses = queryOne("SELECT id FROM caja_sesiones WHERE estado='abierta' ORDER BY id DESC LIMIT 1")
         if (ses) {
+          // Lo que ya se reintegró por devoluciones parciales no se devuelve dos veces.
+          let yaReintegrado = queryOne("SELECT COALESCE(SUM(monto),0) t FROM caja_movimientos WHERE tipo='egreso' AND referencia_tipo='devolucion_venta' AND referencia_id=?", [id]).t
           for (const m of ingresos) {
+            const tomar = Math.min(m.monto, yaReintegrado)
+            yaReintegrado -= tomar
+            const monto = _redondear(m.monto - tomar, 2)
+            if (monto <= 0) continue
             db.run(`INSERT INTO caja_movimientos (sesion_id, tipo, concepto, monto, metodo_pago, referencia_id, referencia_tipo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
-              [ses.id, 'egreso', `Anulación venta #${id}`, m.monto, m.metodo_pago || 'efectivo', id, 'anulacion_venta', uid, unombre])
-            reintegrado += m.monto
+              [ses.id, 'egreso', `Anulación venta #${id}`, monto, m.metodo_pago || 'efectivo', id, 'anulacion_venta', uid, unombre])
+            reintegrado += monto
           }
         } else avisos.push('No hay caja abierta: el reintegro del dinero no se registró en caja. Regístralo como egreso al abrir la caja.')
       }
@@ -2437,6 +2498,89 @@ const ventas = {
         [uid, unombre || 'Sistema', 'ANULAR_VENTA', 'ventas', JSON.stringify({ motivo, lineas: lineas.map(l => ({ detalle_id: l.detalle_id, vuelve: l.vuelve_a_stock, merma: l.motivo_merma || null })), reintegrado_caja: reintegrado }), id, 'venta'])
       return { ok: true, reintegrado_caja: reintegrado, ...(avisos.length ? { avisos } : {}) }
     })
+  },
+
+  // Devolución PARCIAL de una venta de productos (todo o nada). Por línea: cantidad (≤ lo que sigue vendido) y si vuelve al
+  // stock (entrada «Devolución venta #N», con el costo congelado de la venta) o es merma (sin cambio de stock, con motivo).
+  // El importe devuelto es el precio cobrado (prorrateado si hubo descuento a nivel de venta) y sale como egreso de la caja
+  // ABIERTA con el método de pago original. La venta sigue «completada»: su total NO se toca, se informa el neto. Si la venta
+  // tiene factura NO se modifica nada de facturación: la devolución queda marcada «factura pendiente» (a confirmar con el contador).
+  //   d: { motivo, lineas:[{detalle_id, cantidad, vuelve_a_stock, motivo_merma}], usuario_id, usuario_nombre }
+  devolver(id, d = {}) {
+    return _tx(() => {
+      const v = queryOne('SELECT id, estado, total, subtotal, factura_id, metodo_pago FROM ventas WHERE id=?', [id])
+      if (!v) throw new Error('Venta no encontrada')
+      if (v.estado !== 'completada') throw new Error(v.estado === 'anulada' ? 'La venta está anulada: no admite devoluciones.' : `La venta está «${v.estado}»: no admite devoluciones.`)
+      const motivo = String(d.motivo ?? '').trim()
+      if (motivo.length < 3) throw new Error('Escribe el motivo de la devolución.')
+      const lineas = Array.isArray(d.lineas) ? d.lineas : []
+      if (!lineas.length) throw new Error('Indica qué productos se devuelven.')
+      const detalle = queryAll('SELECT * FROM detalle_ventas_productos WHERE venta_id=?', [id])
+      if (!detalle.length) throw new Error('Esta venta no tiene productos: la devolución parcial es solo para ventas de productos.')
+      const ratio = v.subtotal > 0 && v.total > 0 && v.total <= v.subtotal ? v.total / v.subtotal : 1
+      const ya = queryOne('SELECT COALESCE(SUM(total_devuelto),0) t FROM devoluciones WHERE venta_id=?', [id]).t
+      const vistos = new Set()
+      const items = lineas.map((l, i) => {
+        const dt = detalle.find(x => x.id === l?.detalle_id)
+        if (!dt) throw new Error(`La línea ${i + 1} no pertenece a esta venta.`)
+        if (vistos.has(dt.id)) throw new Error(`"${dt.nombre_producto}" aparece dos veces: junta las cantidades en una sola línea.`)
+        vistos.add(dt.id)
+        const p = queryOne(`SELECT id, nombre, stock, ${_CFG_DEC} FROM productos WHERE id=?`, [dt.producto_id])
+        let cant
+        try { cant = _cantidadProducto(p || { permite_decimal: 0 }, l.cantidad) } catch (e) { throw new Error(`Cantidad de "${dt.nombre_producto}": ${e.message}`) }
+        if (!(cant > 0)) throw new Error(`La cantidad de "${dt.nombre_producto}" debe ser mayor que 0.`)
+        const devuelto = queryOne('SELECT COALESCE(SUM(cantidad),0) c FROM devolucion_lineas WHERE detalle_id=?', [dt.id]).c
+        const restante = _redondear(dt.cantidad - devuelto, 6)
+        if (cant > restante + 1e-9) throw new Error(`De "${dt.nombre_producto}" solo quedan ${restante} por devolver (vendidas ${dt.cantidad}, ya devueltas ${devuelto}) y pides ${cant}.`)
+        if (typeof l.vuelve_a_stock !== 'boolean') throw new Error(`Indica si "${dt.nombre_producto}" vuelve al stock.`)
+        if (!l.vuelve_a_stock && String(l.motivo_merma ?? '').trim().length < 3) throw new Error(`Escribe el motivo de la merma de "${dt.nombre_producto}".`)
+        if (l.vuelve_a_stock && !p) throw new Error(`"${dt.nombre_producto}" ya no existe: no puede volver al stock.`)
+        return { dt, p, cant, vuelve: l.vuelve_a_stock, merma: String(l.motivo_merma ?? '').trim(), monto: _redondear(cant * dt.precio_unitario * ratio, 2) }
+      })
+      let total = _redondear(items.reduce((t, x) => t + x.monto, 0), 2)
+      if (ya + total > v.total + 1e-9) {             // por redondeo, lo devuelto nunca puede superar lo cobrado
+        const sobra = _redondear(ya + total - v.total, 2)
+        if (sobra > 0.05 * items.length) throw new Error('Lo devuelto superaría el total cobrado de la venta.')
+        items[items.length - 1].monto = _redondear(items[items.length - 1].monto - sobra, 2)
+        total = _redondear(total - sobra, 2)
+      }
+      const uid = d.usuario_id || null, unombre = d.usuario_nombre || null
+      const avisos = []
+      const did = _ins('INSERT INTO devoluciones (venta_id, motivo, total_devuelto, metodo_pago, factura_pendiente, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?)',
+        [id, motivo, total, v.metodo_pago || null, v.factura_id ? 1 : 0, uid, unombre])
+      for (const x of items) {
+        db.run('INSERT INTO devolucion_lineas (devolucion_id, detalle_id, producto_id, nombre_producto, cantidad, precio_unitario, monto, vuelve_a_stock, motivo_merma, costo_unitario) VALUES (?,?,?,?,?,?,?,?,?,?)',
+          [did, x.dt.id, x.dt.producto_id, x.dt.nombre_producto, x.cant, x.dt.precio_unitario, x.monto, x.vuelve ? 1 : 0, x.vuelve ? null : x.merma, x.dt.costo_unitario ?? null])
+        if (x.vuelve) {
+          const nuevo = _redondearStock(x.p, x.p.stock + x.cant)
+          db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [nuevo, x.p.id])
+          db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre, costo_unitario) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+            [x.p.id, 'entrada', x.cant, x.p.stock, nuevo, `Devolución venta #${id}: ${motivo}`, id, uid, unombre, x.dt.costo_unitario ?? null])
+        } else if (x.p) {
+          db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, venta_id, usuario_id, usuario_nombre, costo_unitario) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+            [x.p.id, 'merma', x.cant, x.p.stock, x.p.stock, `Merma por devolución venta #${id}: ${x.merma}`, id, uid, unombre, x.dt.costo_unitario ?? null])
+        }
+      }
+      let reintegro = 0
+      const ing = queryAll("SELECT metodo_pago FROM caja_movimientos WHERE referencia_tipo='venta' AND referencia_id=? AND tipo='ingreso' ORDER BY id", [id])
+      if (!ing.length) avisos.push('La venta no tiene cobro registrado en caja: el reintegro del dinero no se anotó en caja.')
+      else {
+        const ses = queryOne("SELECT id FROM caja_sesiones WHERE estado='abierta' ORDER BY id DESC LIMIT 1")
+        if (ses) {
+          db.run(`INSERT INTO caja_movimientos (sesion_id, tipo, concepto, monto, metodo_pago, referencia_id, referencia_tipo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?,?)`,
+            [ses.id, 'egreso', `Devolución venta #${id}`, total, ing[0].metodo_pago || 'efectivo', id, 'devolucion_venta', uid, unombre])
+          reintegro = total
+        } else avisos.push('No hay caja abierta: el reintegro del dinero no se registró en caja. Regístralo como egreso al abrir la caja.')
+      }
+      db.run('UPDATE devoluciones SET reintegro_caja=? WHERE id=?', [reintegro, did])
+      if (v.factura_id) avisos.push('La venta tiene factura: la devolución quedó como «factura pendiente de tratar» (a confirmar con el contador). No se modificó ninguna factura.')
+      db.run('INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)',
+        [uid, unombre || 'Sistema', 'DEVOLUCION_VENTA', 'ventas', JSON.stringify({ motivo, total, reintegro_caja: reintegro, factura_pendiente: !!v.factura_id, lineas: items.map(x => ({ detalle_id: x.dt.id, cantidad: x.cant, vuelve: x.vuelve })) }), id, 'venta'])
+      return { ok: true, devolucion_id: did, total_devuelto: total, reintegro_caja: reintegro, ...(avisos.length ? { avisos } : {}) }
+    })
+  },
+  devolucionesPendientesFactura() {
+    return queryAll(`SELECT dv.*, v.factura_id FROM devoluciones dv JOIN ventas v ON v.id=dv.venta_id WHERE dv.factura_pendiente=1 ORDER BY dv.id DESC`)
   },
 
   setCliente(id, nombre, carnet) {

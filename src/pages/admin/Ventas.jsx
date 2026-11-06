@@ -87,7 +87,7 @@ function KPICard({ label, value, icon: Icon, color }) {
 
 // ─── Modal Detalle Venta ──────────────────────────────────────────────────────
 
-function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
+function ModalDetalle({ venta, onClose, onAnular, puedeAnular, onDevolver, puedeDevolver }) {
   const [detalle, setDetalle] = useState(null)
   const [anulando, setAnulando] = useState(false)
   const [confirmarAnular, setConfirmarAnular] = useState(false)
@@ -106,6 +106,30 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
   const [decisiones, setDecisiones] = useState({}) // detalle_id → { vuelve: true|false|undefined, merma: '' }
   const [errorAnular, setErrorAnular] = useState('')
   const [avisosAnular, setAvisosAnular] = useState([])
+  // Devolución parcial (Fase 6)
+  const [devolviendo, setDevolviendo] = useState(false)
+  const [devMotivo, setDevMotivo] = useState('')
+  const [devLineas, setDevLineas] = useState({})   // detalle_id → { cantidad, vuelve, merma }
+  const [errorDev, setErrorDev] = useState('')
+  const [avisosDev, setAvisosDev] = useState([])
+  const [okDev, setOkDev] = useState('')
+  const [enviandoDev, setEnviandoDev] = useState(false)
+
+  async function handleDevolver() {
+    setErrorDev(''); setOkDev('')
+    const lineas = (detalle?.detalle || [])
+      .filter(d => Number(devLineas[d.id]?.cantidad) > 0)
+      .map(d => ({ detalle_id: d.id, cantidad: Number(devLineas[d.id].cantidad), vuelve_a_stock: devLineas[d.id].vuelve, motivo_merma: devLineas[d.id].merma || '' }))
+    if (!lineas.length) { setErrorDev('Escribe la cantidad que se devuelve en al menos un producto.'); return }
+    setEnviandoDev(true)
+    const r = await onDevolver(venta.id, { motivo: devMotivo, lineas })
+    setEnviandoDev(false)
+    if (!r || r.ok === false) { setErrorDev(r?.error || 'No se pudo registrar la devolución.'); return }
+    setAvisosDev(r.avisos || [])
+    setOkDev(`Devolución registrada: ${fmtMoney(r.total_devuelto)}${r.reintegro_caja ? ` (salió de caja ${fmtMoney(r.reintegro_caja)})` : ''}.`)
+    setDevLineas({}); setDevMotivo(''); setDevolviendo(false)
+    window.api.ventas.getById(venta.id).then(v => setDetalle(v))
+  }
 
   async function handleAnular() {
     setErrorAnular('')
@@ -158,6 +182,7 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
                 ['Subtotal', fmtMoney(detalle.subtotal)],
                 ['Descuento', fmtMoney(detalle.descuento_valor || 0)],
                 ['Total', fmtMoney(detalle.total)],
+                ...(detalle.devuelto > 0 ? [['Devuelto', fmtMoney(detalle.devuelto)], ['Total neto', fmtMoney(detalle.total_neto)]] : []),
                 ['Monto recibido', fmtMoney(detalle.monto_recibido)],
                 ['Vuelto', fmtMoney(detalle.vuelto || 0)],
                 ['Registrado por', detalle.usuario_nombre || '—'],
@@ -177,7 +202,7 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: i < detalle.detalle.length - 1 ? '1px solid oklch(1 0 0 / .06)' : 'none' }}>
                       <div>
                         <div style={{ fontSize: 14, color: 'var(--ink)' }}>{d.nombre_producto}</div>
-                        <div style={{ fontSize: 12, color: 'var(--dim)' }}>x{d.cantidad} × {fmtMoney(d.precio_unitario)}</div>
+                        <div style={{ fontSize: 12, color: 'var(--dim)' }}>x{d.cantidad} × {fmtMoney(d.precio_unitario)}{d.devuelto > 0 ? ` · devueltos: ${d.devuelto}` : ''}</div>
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{fmtMoney(d.subtotal)}</div>
                     </div>
@@ -209,6 +234,61 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
               )
             })()}
 
+            {okDev && <p role="status" style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 8 }}>{okDev}</p>}
+            {avisosDev.map((a, i) => <p key={i} role="status" style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 8 }}>Aviso: {a}</p>)}
+            {puedeDevolver && detalle.estado === 'completada' && (detalle.detalle || []).some(d => d.cantidad - (d.devuelto || 0) > 0) && (
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16, marginBottom: 16 }}>
+                {!devolviendo ? (
+                  <button onClick={() => setDevolviendo(true)} data-testid="abrir-devolucion" className="clientes-glass-btn btn-secondary" style={{ width: '100%' }}>
+                    <div className="clientes-glass-bg" /><span className="clientes-glass-content">Devolver productos (parcial)</span>
+                  </button>
+                ) : (
+                  <div>
+                    <p style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 10 }}>Indica cuánto se devuelve de cada producto y si vuelve al stock. El dinero sale de la caja abierta.</p>
+                    <label htmlFor="devolver-motivo" style={{ fontSize: 12, color: 'var(--dim)' }}>Motivo de la devolución</label>
+                    <input id="devolver-motivo" data-testid="devolver-motivo" className="gym-input" aria-label="Motivo de la devolución" value={devMotivo}
+                      onChange={e => setDevMotivo(e.target.value)} placeholder="Ej.: producto equivocado" style={{ width: '100%', marginBottom: 10 }} />
+                    {(detalle.detalle || []).map(d => {
+                      const restante = Math.round((d.cantidad - (d.devuelto || 0)) * 1e6) / 1e6
+                      if (restante <= 0) return null
+                      const dl = devLineas[d.id] || {}
+                      const set = patch => setDevLineas(x => ({ ...x, [d.id]: { ...(x[d.id] || {}), ...patch } }))
+                      return (
+                        <fieldset key={d.id} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+                          <legend style={{ fontSize: 13, color: 'var(--ink)', padding: '0 4px' }}>{d.nombre_producto} (se pueden devolver hasta {restante})</legend>
+                          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--ink)' }}>
+                            Cantidad a devolver
+                            <input type="number" min="0" max={restante} step="any" className="gym-input" aria-label={`Cantidad a devolver de ${d.nombre_producto}`} value={dl.cantidad ?? ''} onChange={e => set({ cantidad: e.target.value })} style={{ width: 90, padding: '4px 6px' }} />
+                          </label>
+                          {Number(dl.cantidad) > 0 && (
+                            <>
+                              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--ink)', marginTop: 4 }}>
+                                <input type="radio" name={`dvuelve-${d.id}`} checked={dl.vuelve === true} onChange={() => set({ vuelve: true })} aria-label={`${d.nombre_producto}: vuelve al stock`} /> Vuelve al stock
+                              </label>
+                              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--ink)' }}>
+                                <input type="radio" name={`dvuelve-${d.id}`} checked={dl.vuelve === false} onChange={() => set({ vuelve: false })} aria-label={`${d.nombre_producto}: no vuelve, es merma`} /> No vuelve (merma)
+                              </label>
+                              {dl.vuelve === false && (
+                                <input className="gym-input" aria-label={`Motivo de la merma de ${d.nombre_producto}`} placeholder="Motivo de la merma (ej.: llegó dañado)"
+                                  value={dl.merma || ''} onChange={e => set({ merma: e.target.value })} style={{ width: '100%', marginTop: 6 }} />
+                              )}
+                            </>
+                          )}
+                        </fieldset>
+                      )
+                    })}
+                    {errorDev && <p role="alert" data-testid="devolver-error" style={{ fontSize: 13, color: 'oklch(0.75 0.18 25)', marginBottom: 8 }}>Error: {errorDev}</p>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setDevolviendo(false)} className="clientes-glass-btn btn-secondary" style={{ flex: 1 }}><div className="clientes-glass-bg" /><span className="clientes-glass-content">Cancelar</span></button>
+                      <button onClick={handleDevolver} disabled={enviandoDev} data-testid="confirmar-devolucion" className="clientes-glass-btn btn-primary" style={{ flex: 1 }}>
+                        <div className="clientes-glass-bg" /><span className="clientes-glass-content">{enviandoDev ? 'Registrando...' : 'Confirmar devolución'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {puedeAnular && detalle.estado === 'completada' && (
               <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
                 {!confirmarAnular ? (
@@ -224,11 +304,12 @@ function ModalDetalle({ venta, onClose, onAnular, puedeAnular }) {
                     <input id="anular-motivo" data-testid="anular-motivo" className="gym-input" aria-label="Motivo de la anulación" value={motivo}
                       onChange={e => setMotivo(e.target.value)} placeholder="Ej.: error de cobro" style={{ width: '100%', marginBottom: 10 }} />
                     {(detalle.detalle || []).map(d => {
+                      if (d.cantidad - (d.devuelto || 0) <= 1e-9) return null   // ya devuelto por completo
                       const dec = decisiones[d.id] || {}
                       const set = patch => setDecisiones(x => ({ ...x, [d.id]: { ...(x[d.id] || {}), ...patch } }))
                       return (
                         <fieldset key={d.id} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
-                          <legend style={{ fontSize: 13, color: 'var(--ink)', padding: '0 4px' }}>{d.nombre_producto} (x{d.cantidad})</legend>
+                          <legend style={{ fontSize: 13, color: 'var(--ink)', padding: '0 4px' }}>{d.nombre_producto} (x{Math.round((d.cantidad - (d.devuelto || 0)) * 1e6) / 1e6})</legend>
                           <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--ink)' }}>
                             <input type="radio" name={`vuelve-${d.id}`} checked={dec.vuelve === true} onChange={() => set({ vuelve: true })} aria-label={`${d.nombre_producto}: vuelve al stock`} /> Vuelve al stock
                           </label>
@@ -788,6 +869,7 @@ export default function Ventas() {
   const debounceRef = useRef(null)
 
   const puedeAnular = tienePermiso('ventas.anular')
+  const puedeDevolver = tienePermiso('ventas.devolver')
 
   async function cargar(p, ps, b, f, mes, sesId) {
     setCargando(true)
@@ -839,6 +921,12 @@ export default function Ventas() {
     setSesionFiltro(null)
     setPage(1)
     cargar(1, pageSize, busqueda, f, mesKPI, null)
+  }
+
+  async function handleDevolver(id, opts) {
+    const r = await window.api.ventas.devolver(id, opts)
+    if (r.ok) await cargar(page, pageSize, busqueda, filtros, mesKPI, sesionFiltro)
+    return r
   }
 
   async function handleAnular(id, opts) {
@@ -1030,7 +1118,7 @@ export default function Ventas() {
           {/* Modal detalle venta */}
           <AnimatePresence>
             {ventaDetalle && (
-              <ModalDetalle venta={ventaDetalle} onClose={() => setVentaDetalle(null)} onAnular={handleAnular} puedeAnular={puedeAnular} />
+              <ModalDetalle venta={ventaDetalle} onClose={() => setVentaDetalle(null)} onAnular={handleAnular} puedeAnular={puedeAnular} onDevolver={handleDevolver} puedeDevolver={puedeDevolver} />
             )}
           </AnimatePresence>
         </div>
