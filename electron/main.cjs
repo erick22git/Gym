@@ -105,6 +105,15 @@ app.whenReady().then(async () => {
   // Initialize DB before window (async because sql.js loads WASM)
   const dbModule = require('./database.cjs')
   await dbModule.initDB()
+  // Fase 0 (Sprint 4B): si la migración de esquema falló, la app arranca con los datos de antes y se avisa.
+  ipcMain.handle('sistema:estadoMigracion', () => dbModule.estadoMigracion())
+  const _mig = dbModule.estadoMigracion()
+  if (_mig && _mig.ok === false && !process.env.GYM_SIN_DIALOGOS) {
+    dialog.showMessageBox({ type: 'warning', title: 'Actualización de datos no aplicada',
+      message: 'No se pudo actualizar la estructura de los datos. Tus datos están intactos.',
+      detail: `Se guardó una copia de seguridad previa. Motivo técnico: ${_mig.error}
+Copia: ${_mig.respaldo || 'n/d'}` }).catch(() => {})
+  }
   // Inicializar módulo de facturación con acceso a la BD
   initFacturacion(dbModule.getQueryHelpers())
   registrarHandlersFacturacion(null)

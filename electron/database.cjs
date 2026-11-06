@@ -155,6 +155,80 @@ function run(sql, params = []) {
   return { lastInsertRowid: lid }
 }
 
+// ─── Migraciones versionadas (Sprint 4B · Fase 0) ───────────────────────────
+// `PRAGMA user_version` guarda la versión del esquema. Cada versión nueva se agrega al final de
+// MIGRACIONES y SOLO puede: agregar columnas con valor por defecto, crear tablas/índices o rellenar
+// datos derivados. Nada se borra ni se renombra. Antes de aplicar una pendiente se copia el archivo
+// cifrado a `respaldos-migracion/`; se migra en una transacción y se verifican los conteos de filas
+// (productos, movimientos_stock, ventas, detalle_ventas_productos) y la suma de stock. Si algo no
+// cuadra se revierte, se avisa (auditoría + estadoMigracion) y la app arranca con los datos de antes.
+// LIMITACIÓN: un respaldo hecho con una versión NUEVA y restaurado en una app VIEJA puede fallar sin
+// avisar (restaurarDesdeDatos ignora errores); restaurar siempre con la misma versión o una posterior.
+const MIGRACIONES = [
+  { version: 1, nombre: 'línea base versionada', up() { db.run("INSERT OR IGNORE INTO config (key, value) VALUES ('esquema_linea_base', '1')") } },
+]
+const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version
+let _SQL = null
+let _estadoMigracion = { migrada: false, ok: true, version: null }
+
+function leerUserVersion() { return queryOne('PRAGMA user_version').user_version }
+
+const _TABLAS_CLAVE = ['productos', 'movimientos_stock', 'ventas', 'detalle_ventas_productos']
+function _contarCon(consulta) {
+  const r = {}
+  for (const t of _TABLAS_CLAVE) { try { r[t] = consulta(`SELECT COUNT(*) AS n FROM ${t}`) } catch (_) { r[t] = 0 } }
+  try { r.suma_stock = consulta('SELECT COALESCE(SUM(stock),0) AS n FROM productos') } catch (_) { r.suma_stock = 0 }
+  return r
+}
+function contarTablasClave() { return _contarCon(sql => queryOne(sql).n) }
+function contarDesdeArchivo(ruta) {
+  const tmp = new _SQL.Database(_desencriptarDB(fs.readFileSync(ruta)))
+  try { return _contarCon(sql => tmp.exec(sql)[0].values[0][0]) } finally { tmp.close() }
+}
+function estadoMigracion() { return { ..._estadoMigracion } }
+
+function _crearRespaldoMigracion(fileBuf, desde) {
+  const dir = path.join(path.dirname(DB_PATH), 'respaldos-migracion')
+  fs.mkdirSync(dir, { recursive: true })
+  const sello = new Date().toISOString().replace(/[:.]/g, '-')
+  const ruta = path.join(dir, `urbanfitness.pre-v${desde}-a-v${VERSION_ESQUEMA}.${sello}.db`)
+  fs.writeFileSync(ruta, fileBuf)
+  return ruta
+}
+
+function _aplicarMigraciones(rutaRespaldo) {
+  const desde = leerUserVersion()
+  if (desde >= VERSION_ESQUEMA) { _estadoMigracion = { migrada: false, ok: true, version: desde }; return }
+  const antes = contarTablasClave()
+  let enTx = false
+  try {
+    db.run('BEGIN'); enTx = true
+    for (const m of MIGRACIONES.filter(x => x.version > desde)) m.up()
+    if (process.env.GYM_MIGRACION_FALLA && !app.isPackaged) throw new Error('Fallo simulado de migración (prueba)')
+    const despues = contarTablasClave()
+    if (JSON.stringify(despues) !== JSON.stringify(antes)) {
+      throw new Error(`Los conteos no coinciden tras migrar (antes ${JSON.stringify(antes)}, después ${JSON.stringify(despues)})`)
+    }
+    db.run(`PRAGMA user_version = ${VERSION_ESQUEMA}`)
+    db.run('COMMIT'); enTx = false
+    _estadoMigracion = { migrada: true, ok: true, desde, version: VERSION_ESQUEMA, respaldo: rutaRespaldo, conteos: despues }
+  } catch (e) {
+    if (enTx) { try { db.run('ROLLBACK') } catch (_) { /* ya no había transacción */ } }
+    let restaurada = false
+    try {
+      if (JSON.stringify(contarTablasClave()) !== JSON.stringify(antes) && rutaRespaldo) {
+        db = new _SQL.Database(_desencriptarDB(fs.readFileSync(rutaRespaldo))); restaurada = true
+      }
+    } catch (_) {}
+    _estadoMigracion = { migrada: false, ok: false, error: e.message, desde, respaldo: rutaRespaldo, restaurada_desde_respaldo: restaurada }
+    console.error('[DB] MIGRACIÓN FALLIDA — se mantienen los datos anteriores:', e.message)
+    try {
+      db.run("INSERT INTO auditoria (usuario_nombre, accion, modulo, detalle) VALUES ('SISTEMA','MIGRACION_FALLIDA','sistema',?)",
+        [`No se aplicó la migración de esquema v${desde}→v${VERSION_ESQUEMA}: ${e.message}. Respaldo previo: ${rutaRespaldo || 'n/d'}`])
+    } catch (_) {}
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function initDB() {
@@ -162,8 +236,10 @@ async function initDB() {
   const SQL = await initSqlJs({
     locateFile: () => path.join(__dirname, '../node_modules/sql.js/dist/sql-wasm.wasm')
   })
+  _SQL = SQL
 
   let _integridad_sospechosa = false
+  let _rutaRespaldoMigracion = null
 
   if (fs.existsSync(DB_PATH)) {
     const checkHash = _verificarHashDB()
@@ -175,6 +251,8 @@ async function initDB() {
     const esMigracion = fileBuf.length < 36 || !fileBuf.subarray(0, 4).equals(_MAGIC)
     const plainBuf = _desencriptarDB(fileBuf)
     db = new SQL.Database(plainBuf)
+    // Respaldo previo a una migración de esquema pendiente (copia exacta del archivo tal como estaba)
+    if (leerUserVersion() < VERSION_ESQUEMA) _rutaRespaldoMigracion = _crearRespaldoMigracion(fileBuf, leerUserVersion())
     // Migración: BD sin cifrar → re-guardar cifrada inmediatamente
     if (esMigracion) saveDB()
   } else {
@@ -996,6 +1074,8 @@ async function initDB() {
   try { db.run('CREATE INDEX IF NOT EXISTS idx_detalle_ventas_venta ON detalle_ventas_productos(venta_id)') } catch (_) {}
   try { db.run('CREATE INDEX IF NOT EXISTS idx_promo_productos_promo ON promocion_productos(promocion_id)') } catch (_) {}
   // ─────────────────────────────────────────────────────────────────────────────
+
+  _aplicarMigraciones(_rutaRespaldoMigracion)
 
   if (_integridad_sospechosa) {
     try {
@@ -3647,6 +3727,7 @@ function getQueryHelpers() { return { queryAll, queryOne, run } }
 
 module.exports = {
   initDB, saveDB, mantenimiento,
+  VERSION_ESQUEMA, estadoMigracion, contarTablasClave, contarDesdeArchivo,
   clientes, planes, membresias, asistencias, pagos, dashboard,
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
