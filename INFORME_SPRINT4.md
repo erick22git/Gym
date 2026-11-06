@@ -68,7 +68,8 @@ Cada producto nuevo muestra una etiqueta **«FALTA PRECIO»** (`data-testid="fal
 
 ## 3. Cierre
 - `npm run test:e2e-ia`: todo correcto (arriba).
-- `npm run test:ui`: ver §4.
+- `npm run test:ui` completo: «Todo correcto» (incluye vidrio-intacto).
+- Ampliación posterior: `INVENTARIO_PROPUESTA_v2.md` (16 puntos adicionales, fases reordenadas, cuestionario); solo documento.
 
 ## 4. Lo que NO se pudo verificar
 - La etiqueta «FALTA PRECIO» **no se vio en la ventana real**: la tarjeta de revisión requiere una importación completa con el servicio de análisis y modelo, que no se ejecutó en este sprint; está compilada por `test:ui` pero no verificada visualmente en las tres apariencias.
