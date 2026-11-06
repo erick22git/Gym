@@ -110,6 +110,7 @@ app.whenReady().then(async () => {
   // Fase 1 (Sprint 4B): canales sensibles con permiso verificado en el proceso principal y usuario tomado de la sesión
   const _guardas = require('./guardas.cjs')({ dbm: dbModule, seguridad })
   for (const [canal, fn] of Object.entries(_guardas)) ipcMain.handle(canal, (_e, ...args) => fn(...args))
+  ipcMain.handle('inventario:contarPendientes', () => dbModule.inventario.contarPendientes())
   ipcMain.handle('inventario:getPoliticaStock', () => dbModule.inventario.getPoliticaStock())
   ipcMain.handle('sistema:estadoMigracion', () => dbModule.estadoMigracion())
   const _mig = dbModule.estadoMigracion()

@@ -511,6 +511,8 @@ function TabProductos({ categorias, proveedores, usuario }) {
   const puedeEliminar = tienePermiso('inventario.eliminar_producto'), puedeAjustar = tienePermiso('inventario.ajustar_stock')
   const puedeConfigurar = tienePermiso('configuracion.editar_gym')
   const [verArchivados, setVerArchivados] = useState(false)
+  const [soloPendientes, setSoloPendientes] = useState(false)
+  const [nPendientes, setNPendientes] = useState(0)
   const [politica, setPolitica] = useState('no_permitir')
   useEffect(() => { window.api.inventario.getPoliticaStock().then(v => setPolitica(v || 'no_permitir')).catch(() => {}) }, [])
   const [productos, setProductos] = useState([])
@@ -525,10 +527,11 @@ function TabProductos({ categorias, proveedores, usuario }) {
   const confirmar = useConfirm()
   const debounceRef = useRef(null)
 
-  async function cargar(p = page, ps = pageSize, b = busqueda, cat = filtroCategoria, arch = verArchivados) {
+  async function cargar(p = page, ps = pageSize, b = busqueda, cat = filtroCategoria, arch = verArchivados, pend = soloPendientes) {
     setCargando(true)
     try {
-      const result = await window.api.inventario.getPaginated({ page: p, pageSize: ps, busqueda: b || undefined, categoria_id: cat || undefined, archivados: arch || undefined })
+      window.api.inventario.contarPendientes().then(n => setNPendientes(n || 0)).catch(() => {})
+      const result = await window.api.inventario.getPaginated({ page: p, pageSize: ps, busqueda: b || undefined, categoria_id: cat || undefined, archivados: arch || undefined, pendientes: pend || undefined })
       setProductos(result?.data || [])
       setTotal(result?.total || 0)
     } finally {
@@ -654,6 +657,12 @@ function TabProductos({ categorias, proveedores, usuario }) {
           <input type="checkbox" checked={verArchivados} onChange={e => { setVerArchivados(e.target.checked); setPage(1); cargar(1, pageSize, busqueda, filtroCategoria, e.target.checked) }} aria-label="Ver productos archivados" />
           Ver archivados
         </label>
+        {nPendientes > 0 && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+            <input type="checkbox" data-testid="filtro-por-completar" checked={soloPendientes} onChange={e => { setSoloPendientes(e.target.checked); setPage(1); cargar(1, pageSize, busqueda, filtroCategoria, verArchivados, e.target.checked) }} aria-label={`Ver solo los ${nPendientes} productos por completar`} />
+            <strong data-testid="contador-por-completar">{nPendientes} por completar</strong>
+          </label>
+        )}
         {puedeConfigurar && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
             Si no hay stock:
@@ -742,6 +751,7 @@ function TabProductos({ categorias, proveedores, usuario }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
                       <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{p.nombre}</span>
                       {p.codigo && <span style={{ fontSize: 11, color: 'oklch(0.88 0.01 250 / .85)', background: 'var(--glass-2)', padding: '1px 6px', borderRadius: 4, border: '1px solid var(--line)' }}>{p.codigo}</span>}
+                      {p.pendiente_completar === 1 && <span data-testid="fila-por-completar" title="Sin precio de venta: no se puede vender hasta completarlo" style={{ fontSize: 10, fontWeight: 700, color: 'oklch(0.85 0.12 75)', background: 'oklch(0.82 0.14 75 / .15)', padding: '2px 7px', borderRadius: 10, border: '1px solid oklch(0.82 0.14 75 / .35)', letterSpacing: '.08em' }}>POR COMPLETAR</span>}
                       {agotado && <span style={{ fontSize: 10, fontWeight: 700, color: 'oklch(0.75 0.18 25)', background: 'oklch(0.66 0.22 25 / .15)', padding: '2px 7px', borderRadius: 10, border: '1px solid oklch(0.66 0.22 25 / .3)', letterSpacing: '.08em' }}>AGOTADO</span>}
                     </div>
                     <div style={{ fontSize: 13, color: 'oklch(0.88 0.01 250 / .85)' }}>
@@ -1078,6 +1088,80 @@ function TabProveedores({ proveedores, onRefresh }) {
 
 // ─── Tab Movimientos ──────────────────────────────────────────────────────────
 
+// ─── Conciliación del kardex (Fase 2) ────────────────────────────────────────
+
+function PanelConciliacion() {
+  const { tienePermiso, usuario } = useAuth()
+  const [resultado, setResultado] = useState(null)
+  const [cargando, setCargando] = useState(false)
+  const [reparando, setReparando] = useState(null)
+  const [motivo, setMotivo] = useState('')
+  const [error, setError] = useState('')
+  if (!tienePermiso('inventario.conciliar')) return null
+
+  async function revisar() {
+    setCargando(true); setError('')
+    const r = await window.api.inventario.conciliacion()
+    setCargando(false)
+    if (r && r.ok === false) { setError(r.error || 'No se pudo revisar el kardex'); return }
+    setResultado(r)
+  }
+  async function reparar() {
+    setError('')
+    const r = await window.api.inventario.repararConciliacion({ producto_id: reparando.producto_id, motivo })
+    if (r && r.ok === false) { setError(r.error || 'No se pudo conciliar'); return }
+    toast.success('Kardex conciliado: se registró el ajuste')
+    setReparando(null); setMotivo('')
+    revisar()
+  }
+  const TIPOS = { stock_distinto: 'El stock no coincide con el kardex', cadena_rota: 'Falta un movimiento en medio', sin_saldo_inicial: 'No hay saldo inicial registrado', stock_sin_movimientos: 'Hay stock pero ningún movimiento' }
+
+  return (
+    <section aria-label="Conciliación del kardex" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <strong style={{ color: 'var(--ink)', fontSize: 14 }}>Conciliación del kardex</strong>
+        <span style={{ fontSize: 12, color: 'var(--dim)' }}>Compara el stock de cada producto con la suma de sus movimientos. Solo lectura hasta que decidas reparar.</span>
+        <button onClick={revisar} disabled={cargando} className="clientes-glass-btn btn-secondary" style={{ marginLeft: 'auto' }}>
+          <div className="clientes-glass-bg" /><span className="clientes-glass-content">{cargando ? 'Revisando…' : 'Revisar kardex'}</span>
+        </button>
+      </div>
+      {error && <p role="alert" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13, marginTop: 8 }}>Error: {error}</p>}
+      {resultado && (
+        <div style={{ marginTop: 10 }}>
+          <p role="status" style={{ fontSize: 13, color: 'var(--ink)' }}>
+            {resultado.con_diferencias === 0 ? 'Todo cuadra: el kardex coincide con el stock de todos los productos.'
+              : `${resultado.con_diferencias} de ${resultado.total_productos} productos con diferencias (${resultado.en_papelera} están en la papelera).`}
+          </p>
+          {resultado.diferencias.slice(0, 50).map(d => (
+            <div key={d.producto_id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderTop: '1px solid var(--line)', fontSize: 13, color: 'var(--ink)' }}>
+              <span style={{ flex: 1 }}>{d.nombre}{d.eliminado ? ' (papelera)' : ''}<br /><span style={{ color: 'var(--dim)', fontSize: 12 }}>{d.tipos.map(t => TIPOS[t] || t).join(' · ')}</span></span>
+              <span>Stock real: <strong>{d.stock_real}</strong> · Kardex: <strong>{d.stock_kardex}</strong> · Diferencia: <strong>{d.diferencia > 0 ? '+' : ''}{d.diferencia}</strong></span>
+              <button onClick={() => { setReparando(d); setMotivo(''); setError('') }} aria-label={`Conciliar ${d.nombre}`} className="clientes-glass-btn btn-secondary">
+                <div className="clientes-glass-bg" /><span className="clientes-glass-content">Conciliar</span>
+              </button>
+            </div>
+          ))}
+          {resultado.diferencias.length > 50 && <p style={{ fontSize: 12, color: 'var(--dim)' }}>Se muestran 50 de {resultado.diferencias.length}.</p>}
+        </div>
+      )}
+      {reparando && (
+        <Modal title={`Conciliar «${reparando.nombre}»`} onClose={() => setReparando(null)}>
+          <p style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 10 }}>
+            Se registrará un ajuste «Conciliación» que lleva el kardex de {reparando.stock_kardex} a {reparando.stock_real}. El stock del producto no cambia y el historial no se borra. Quedará auditado a nombre de {usuario?.nombre_completo}.
+          </p>
+          <label htmlFor="conc-motivo" style={{ fontSize: 12, color: 'var(--dim)' }}>Motivo (obligatorio)</label>
+          <input id="conc-motivo" className="gym-input" aria-label="Motivo de la conciliación" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej.: conteo físico del 05/11" style={{ width: '100%' }} />
+          {error && <p role="alert" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13, marginTop: 8 }}>Error: {error}</p>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+            <button onClick={() => setReparando(null)} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Cancelar</span></button>
+            <button onClick={reparar} className="clientes-glass-btn btn-primary"><div className="clientes-glass-bg" /><span className="clientes-glass-content"><Check size={15} /> Registrar ajuste</span></button>
+          </div>
+        </Modal>
+      )}
+    </section>
+  )
+}
+
 function TabMovimientos() {
   const [movimientos, setMovimientos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -1090,6 +1174,7 @@ function TabMovimientos() {
 
   return (
     <div>
+      <PanelConciliacion />
       {movimientos.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--dim)' }}>No hay movimientos registrados</div>
       ) : (

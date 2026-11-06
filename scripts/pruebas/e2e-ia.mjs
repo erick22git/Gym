@@ -89,6 +89,9 @@ async function principal() {
     const rA = r1.resultados?.find(x => x.producto_id === A), rN = r1.resultados?.find(x => x.accion === 'crear')
     registrar('importar', 'sumar: antes 10 → después 14 (igual a la vista previa)', rA?.stock_anterior === 10 && rA?.stock_nuevo === prevA && (await stock(A)) === prevA)
     registrar('importar', 'producto nuevo creado con stock 7', !!rN && (await stock(rN.producto_id)) === 7)
+    // Sprint 4B · Fase 2: lo creado por la importación queda «por completar» (no se vende hasta tener precio)
+    registrar('importar', 'el producto nuevo queda «por completar» y no aparece en el punto de venta', (await api('inventario.getById', rN.producto_id))?.pendiente_completar === 1 && (await api('inventario.buscarPOS', 'E2E Nuevo')).length === 0)
+    registrar('importar', 'el contador «por completar» lo incluye', (await api('inventario.contarPendientes')) >= 1)
     // 2) REEMPLAZAR
     const r2 = await api('inventario.importarLote', { ...U, modo: 'reemplazar', items: [{ accion: 'actualizar', producto_id: B, nombre: 'E2E Aceite', cantidad: 3 }] })
     const rB = r2.resultados?.[0]

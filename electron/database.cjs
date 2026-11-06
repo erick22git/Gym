@@ -208,6 +208,24 @@ MIGRACIONES.push({
     for (const p of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [p.id])
   },
 })
+// Tablas creadas por las migraciones del Sprint 4B: se incluyen al exportar/restaurar respaldos.
+const TABLAS_NUEVAS = []
+// ── v3 · Fase 2: producto «pendiente de completar» + base de la conciliación del kardex ──
+MIGRACIONES.push({
+  version: 3, nombre: 'fase 2: pendiente_completar, delta del kardex, conciliación',
+  up() {
+    _addCol('productos', 'pendiente_completar', 'INTEGER DEFAULT 0')
+    _addCol('movimientos_stock', 'delta', 'REAL')
+    _addCol('movimientos_stock', 'es_conciliacion', 'INTEGER DEFAULT 0')
+    db.run('UPDATE movimientos_stock SET delta = stock_nuevo - stock_anterior WHERE delta IS NULL AND stock_anterior IS NOT NULL AND stock_nuevo IS NOT NULL')
+    // Todo movimiento nuevo (venga de donde venga) queda con delta = stock_nuevo − stock_anterior.
+    db.run(`CREATE TRIGGER IF NOT EXISTS trg_mov_delta AFTER INSERT ON movimientos_stock
+      WHEN NEW.delta IS NULL AND NEW.stock_anterior IS NOT NULL AND NEW.stock_nuevo IS NOT NULL
+      BEGIN UPDATE movimientos_stock SET delta = NEW.stock_nuevo - NEW.stock_anterior WHERE id = NEW.id; END`)
+    db.run("INSERT OR IGNORE INTO permisos (codigo, modulo, nombre, descripcion) VALUES ('inventario.conciliar', 'inventario', 'Conciliar kardex', 'Ver diferencias del kardex y repararlas con un ajuste auditado')")
+    for (const p of queryAll('SELECT id FROM permisos')) db.run('INSERT OR IGNORE INTO rol_permisos (rol_id, permiso_id) VALUES (1, ?)', [p.id])
+  },
+})
 const VERSION_ESQUEMA = MIGRACIONES[MIGRACIONES.length - 1].version
 let _SQL = null
 let _estadoMigracion = { migrada: false, ok: true, version: null }
@@ -2540,11 +2558,12 @@ const inventario = {
     run(
       `UPDATE productos SET nombre=?, codigo=?, descripcion=?, categoria_id=?, proveedor_id=?,
        precio_compra=?, precio_venta=?, stock_minimo=?, unidad=?, imagen=?,
+       pendiente_completar = CASE WHEN ? > 0 THEN 0 ELSE COALESCE(pendiente_completar,0) END,
        updated_at=datetime('now','localtime') WHERE id=?`,
       [data.nombre, data.codigo || null, data.descripcion || null,
        data.categoria_id || null, data.proveedor_id || null,
        data.precio_compra || 0, data.precio_venta || 0,
-       data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null, id]
+       data.stock_minimo ?? 5, data.unidad || 'unidad', data.imagen || null, data.precio_venta || 0, id]
     )
     return { ok: true }
   },
@@ -2569,6 +2588,66 @@ const inventario = {
     try { auditoria.log({ usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre, accion: 'REACTIVAR_PRODUCTO', modulo: 'inventario', detalle: p.nombre, registro_afectado_id: id, registro_afectado_tipo: 'producto' }) } catch (_) {}
     return { ok: true }
   },
+  contarPendientes() {
+    return queryOne('SELECT COUNT(*) n FROM productos WHERE activo=1 AND eliminado=0 AND COALESCE(archivado,0)=0 AND pendiente_completar=1').n
+  },
+
+  // ─── Conciliación del kardex (solo lectura) ────────────────────────────────
+  // Regla por producto (desde su ÚLTIMA conciliación, que re-ancla la cadena):
+  //   a) el primer movimiento parte de stock 0; b) cada stock_anterior = stock_nuevo del movimiento anterior;
+  //   c) el último stock_nuevo = productos.stock; d) sin movimientos, el stock debe ser 0.
+  // Nunca modifica nada. Devuelve una fila por producto con diferencias.
+  conciliacion() {
+    const prods = queryAll('SELECT id, nombre, stock, eliminado, archivado FROM productos ORDER BY id')
+    const movs = queryAll('SELECT id, producto_id, tipo, stock_anterior, stock_nuevo, es_conciliacion, created_at FROM movimientos_stock ORDER BY producto_id, id')
+    const porProd = new Map()
+    for (const m of movs) { if (!porProd.has(m.producto_id)) porProd.set(m.producto_id, []); porProd.get(m.producto_id).push(m) }
+    const diferencias = []
+    const eq = (a, b) => Math.abs((a ?? 0) - (b ?? 0)) < 1e-9
+    for (const p of prods) {
+      const todos = porProd.get(p.id) || []
+      let desde = 0
+      for (let i = todos.length - 1; i >= 0; i--) if (todos[i].es_conciliacion) { desde = i; break }
+      const ms = todos.slice(desde)
+      const tipos = []
+      let roto = null
+      if (ms.length === 0) {
+        if (!eq(p.stock, 0)) tipos.push('stock_sin_movimientos')
+      } else {
+        if (!ms[0].es_conciliacion && !eq(ms[0].stock_anterior, 0)) { tipos.push('sin_saldo_inicial'); roto = roto || ms[0] }
+        for (let i = 1; i < ms.length; i++) {
+          if (!eq(ms[i].stock_anterior, ms[i - 1].stock_nuevo)) { if (!tipos.includes('cadena_rota')) tipos.push('cadena_rota'); roto = roto || ms[i] }
+        }
+        if (!eq(ms[ms.length - 1].stock_nuevo, p.stock)) tipos.push('stock_distinto')
+      }
+      if (tipos.length) {
+        const stockKardex = ms.length ? ms[ms.length - 1].stock_nuevo : 0
+        diferencias.push({
+          producto_id: p.id, nombre: p.nombre, stock_real: p.stock, stock_kardex: stockKardex, diferencia: p.stock - stockKardex,
+          tipos, primer_movimiento_roto: roto ? { id: roto.id, tipo: roto.tipo, fecha: roto.created_at, stock_anterior: roto.stock_anterior } : null,
+          eliminado: p.eliminado, archivado: p.archivado || 0,
+        })
+      }
+    }
+    return { ok: true, total_productos: prods.length, con_diferencias: diferencias.length, en_papelera: diferencias.filter(d => d.eliminado).length, diferencias }
+  },
+  // Reparación guiada: un movimiento de ajuste «Conciliación» que lleva el kardex hasta el stock real. No toca el stock
+  // del producto ni borra historia. Exige motivo; queda auditado.
+  repararConciliacion(data = {}) {
+    const motivo = String(data.motivo ?? '').trim()
+    if (motivo.length < 3) return { ok: false, error: 'Escribe el motivo de la conciliación (por ejemplo, «conteo físico del …»).' }
+    const d = inventario.conciliacion().diferencias.find(x => x.producto_id === data.producto_id)
+    if (!d) return { ok: false, error: 'Este producto no tiene diferencias en el kardex.' }
+    return _tx(() => {
+      db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre, es_conciliacion) VALUES (?,?,?,?,?,?,?,?,1)`,
+        [d.producto_id, 'ajuste', d.stock_real, d.stock_kardex, d.stock_real, `Conciliación del kardex: ${motivo}`, data.usuario_id || null, data.usuario_nombre || null])
+      db.run("INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)",
+        [data.usuario_id || null, data.usuario_nombre || 'Sistema', 'CONCILIAR_KARDEX', 'inventario',
+          JSON.stringify({ motivo, stock_real: d.stock_real, stock_kardex: d.stock_kardex, diferencia: d.diferencia, tipos: d.tipos }), d.producto_id, 'producto'])
+      return { ok: true, stock_kardex_antes: d.stock_kardex, stock_real: d.stock_real, diferencia: d.diferencia }
+    })
+  },
+
   // Política por negocio: 'no_permitir' (defecto) | 'permitir_con_aviso'
   getPoliticaStock() {
     const r = queryOne("SELECT value FROM config WHERE key='stock_negativo'")
@@ -2596,7 +2675,7 @@ const inventario = {
       SELECT p.id, p.nombre, p.codigo, p.precio_venta, p.stock, p.stock_minimo, p.unidad, p.imagen, c.nombre as categoria_nombre
       FROM productos p
       LEFT JOIN categorias_productos c ON p.categoria_id=c.id
-      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=0
+      WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=0 AND COALESCE(p.pendiente_completar,0)=0
         AND (p.nombre LIKE ? OR p.codigo LIKE ? OR c.nombre LIKE ?)
       ORDER BY p.stock DESC, p.nombre LIMIT 20
     `, [q, q, q])
@@ -2653,9 +2732,10 @@ const inventario = {
       }
       const productos = new Map()
       for (const [pid, cant] of pedido) {
-        const p = queryOne('SELECT id, nombre, stock, activo, eliminado, archivado FROM productos WHERE id=?', [pid])
+        const p = queryOne('SELECT id, nombre, stock, activo, eliminado, archivado, pendiente_completar FROM productos WHERE id=?', [pid])
         if (!p || p.eliminado || !p.activo) throw new Error('Uno de los productos ya no existe en el inventario.')
         if (p.archivado) throw new Error(`"${p.nombre}" está archivado y no se puede vender.`)
+        if (p.pendiente_completar) throw new Error(`"${p.nombre}" está por completar: ponle un precio de venta en Inventario antes de venderlo.`)
         if (p.stock < cant && !permitirNeg) throw new Error(`Stock insuficiente de "${p.nombre}": pides ${cant} y hay ${p.stock}.`)
         productos.set(pid, p)
       }
@@ -2729,7 +2809,7 @@ const inventario = {
         const nombre = String(it.nombre).trim()
         if (it.accion === 'crear') {
           db.run(
-            `INSERT INTO productos (nombre, precio_compra, precio_venta, stock, stock_minimo, unidad) VALUES (?,?,?,?,?,?)`,
+            `INSERT INTO productos (nombre, precio_compra, precio_venta, stock, stock_minimo, unidad, pendiente_completar) VALUES (?,?,?,?,?,?,1)`,
             [nombre, 0, 0, it.cantidad, 5, 'unidad']
           )
           const lid = db.exec('SELECT last_insert_rowid()')[0].values[0][0]
@@ -2797,7 +2877,7 @@ const inventario = {
           throw new Error(`"${prod.nombre}" cambió desde la importación (ahora tiene ${prod.stock}, se importó ${it.stock_nuevo}). No toqué nada; corrígelo a mano en Inventario.`)
         }
         if (it.accion === 'crear') {
-          db.run("UPDATE productos SET eliminado=1, eliminado_at=datetime('now','localtime'), activo=0, archivado=0, archivado_at=NULL WHERE id=?", [prod.id])
+          db.run("UPDATE productos SET eliminado=1, eliminado_at=datetime('now','localtime'), activo=0, archivado=0, archivado_at=NULL, stock=0 WHERE id=?", [prod.id])  // stock=0: coincide con el movimiento «salida → 0» (antes quedaba el stock viejo y el kardex no cuadraba)
           db.run(
             `INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
             [prod.id, 'salida', prod.stock, prod.stock, 0, motivo + ' (producto eliminado)', uid, unombre]
@@ -2845,7 +2925,9 @@ const inventario = {
       sql += ' AND (p.nombre LIKE ? OR p.codigo LIKE ?)'
       params.push(q, q)
     }
+    if (filtros.pendientes) sql += ' AND p.pendiente_completar=1'
     const countSql = `SELECT COUNT(*) as n FROM productos p WHERE p.activo=1 AND p.eliminado=0 AND COALESCE(p.archivado,0)=${filtros.archivados ? 1 : 0}` +
+      (filtros.pendientes ? ' AND p.pendiente_completar=1' : '') +
       (filtros.categoria_id ? ' AND p.categoria_id=?' : '') +
       (filtros.busqueda ? ' AND (p.nombre LIKE ? OR p.codigo LIKE ?)' : '')
     const countParams = []
@@ -3156,6 +3238,7 @@ const respaldosDB = {
       'ventas', 'detalle_ventas_productos', 'recibos',
       'config_recibos', 'promociones', 'promocion_productos',
       'config', 'certificado_digital', 'configuracion_correo', 'credenciales_sfe',
+      ...TABLAS_NUEVAS,
     ]
     const data = { version: 2, fecha: new Date().toISOString(), tablas: {} }
     for (const tabla of tablas) {
@@ -3176,6 +3259,7 @@ const respaldosDB = {
       'ventas', 'detalle_ventas_productos', 'recibos',
       'config_recibos', 'promociones', 'promocion_productos',
       'config', 'certificado_digital', 'configuracion_correo', 'credenciales_sfe',
+      ...TABLAS_NUEVAS,
     ]
     for (const tabla of orden) {
       const filas = data.tablas[tabla]
