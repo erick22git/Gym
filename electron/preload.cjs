@@ -241,6 +241,12 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   // Inventario
+  aprobaciones: {
+    getAll: (f) => ipcRenderer.invoke('aprobaciones:getAll', f),
+    contarPendientes: () => ipcRenderer.invoke('aprobaciones:contarPendientes'),
+    aprobar: (id) => ipcRenderer.invoke('aprobaciones:aprobar', id),
+    rechazar: (id, data) => ipcRenderer.invoke('aprobaciones:rechazar', id, data),
+  },
   compras: {
     crear: (data) => ipcRenderer.invoke('compras:crear', data),
     enviar: (id) => ipcRenderer.invoke('compras:enviar', id),
@@ -285,6 +291,9 @@ contextBridge.exposeInMainWorld('api', {
     getHistorialPrecios: (id, opts) => ipcRenderer.invoke('inventario:getHistorialPrecios', id, opts),
     buscarPOS: (query) => ipcRenderer.invoke('inventario:buscarPOS', query),
     ajustarStock: (data) => ipcRenderer.invoke('inventario:ajustarStock', data),
+    getMotivos: () => ipcRenderer.invoke('inventario:getMotivos'),
+    getUmbralAprobacion: () => ipcRenderer.invoke('inventario:getUmbralAprobacion'),
+    setUmbralAprobacion: (v) => ipcRenderer.invoke('inventario:setUmbralAprobacion', v),
     getMovimientos: (productoId) => ipcRenderer.invoke('inventario:getMovimientos', productoId),
     getAllMovimientos: () => ipcRenderer.invoke('inventario:getAllMovimientos'),
     venderProductos: (items, meta) => ipcRenderer.invoke('inventario:venderProductos', items, meta),

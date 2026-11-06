@@ -393,11 +393,19 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
   const [tipo, setTipo] = useState('entrada')
   const [cantidad, setCantidad] = useState('')
   const [motivo, setMotivo] = useState('')
+  const [motivoCodigo, setMotivoCodigo] = useState('')
+  const [motivos, setMotivos] = useState(null)
+  const [errorAjuste, setErrorAjuste] = useState('')
   const [guardando, setGuardando] = useState(false)
+  useEffect(() => { window.api.inventario.getMotivos().then(m => setMotivos(m && m.ok !== false ? m : null)).catch(() => {}) }, [])
+  useEffect(() => { setMotivoCodigo('') }, [tipo])
 
   async function guardar() {
+    setErrorAjuste('')
     const cant = producto.permite_decimal ? parseFloat(cantidad) : parseInt(cantidad)
     if (!cant || cant <= 0) return toast.error('La cantidad debe ser mayor a 0')
+    if (tipo !== 'entrada' && !motivoCodigo) { setErrorAjuste('Elige el motivo de la lista (es obligatorio en salidas y ajustes).'); return }
+    if (motivoCodigo === 'otro' && motivo.trim().length < 3) { setErrorAjuste('Con el motivo «Otro» escribe el detalle.'); return }
     setGuardando(true)
     try {
       const r = await window.api.inventario.ajustarStock({
@@ -405,15 +413,20 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
         tipo,
         cantidad: cant,
         motivo: motivo || null,
+        motivo_codigo: motivoCodigo || undefined,
         usuario_id: usuario?.id,
         usuario_nombre: usuario?.nombre_completo,
       })
-      if (r.ok) {
+      if (r.ok && r.pendiente_aprobacion) {
+        toast.success('Enviado a aprobación: el stock no cambia hasta que lo apruebe un administrador')
+        onSaved()
+        onClose()
+      } else if (r.ok) {
         toast.success(`Stock ajustado: ${r.stock_anterior} → ${r.stock_nuevo}`)
         onSaved()
         onClose()
       } else {
-        toast.error(r.error || 'Error')
+        setErrorAjuste(r.error || 'No se pudo ajustar el stock')
       }
     } finally {
       setGuardando(false)
@@ -455,9 +468,18 @@ function ModalAjusteStock({ producto, onClose, onSaved, usuario }) {
             autoFocus
           />
         </FormField>
-        <FormField label="Motivo (opcional)">
-          <input className="gym-input" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Motivo del ajuste..." />
+        {motivos && motivos[tipo] && (
+          <FormField label={tipo === 'entrada' ? 'Motivo (opcional)' : 'Motivo (obligatorio)'}>
+            <select className="gym-input" data-testid="motivo-codigo" aria-label="Motivo del movimiento" value={motivoCodigo} onChange={e => setMotivoCodigo(e.target.value)}>
+              <option value="">{tipo === 'entrada' ? 'Sin especificar' : 'Elige un motivo…'}</option>
+              {motivos[tipo].map(m => <option key={m.codigo} value={m.codigo}>{m.etiqueta}</option>)}
+            </select>
+          </FormField>
+        )}
+        <FormField label={motivoCodigo === 'otro' ? 'Detalle (obligatorio)' : 'Detalle (opcional)'}>
+          <input className="gym-input" aria-label="Detalle del motivo" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Escribe el detalle…" />
         </FormField>
+        {errorAjuste && <p role="alert" data-testid="ajuste-error" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13 }}>Error: {errorAjuste}</p>}
         <div style={{
           padding: '10px 14px', borderRadius: 8,
           background: 'oklch(0.13 0.02 250 / .34)', backdropFilter: 'url(#historial-glass)', WebkitBackdropFilter: 'url(#historial-glass)',
@@ -572,6 +594,13 @@ function TabProductos({ categorias, proveedores, usuario }) {
   const [nPendientes, setNPendientes] = useState(0)
   const [alertas, setAlertas] = useState(null)
   const [politica, setPolitica] = useState('no_permitir')
+  const [umbral, setUmbral] = useState('0')
+  useEffect(() => { window.api.inventario.getUmbralAprobacion().then(v => setUmbral(String(v ?? 0))).catch(() => {}) }, [])
+  async function guardarUmbral() {
+    const r = await window.api.inventario.setUmbralAprobacion(umbral === '' ? 0 : Number(umbral))
+    if (r && r.ok === false) { toast.error(r.error || 'No se pudo guardar'); return }
+    toast.success(Number(umbral) > 0 ? `Los ajustes de ${umbral} unidades o más pedirán aprobación` : 'Aprobación de ajustes desactivada')
+  }
   useEffect(() => { window.api.inventario.getPoliticaStock().then(v => setPolitica(v || 'no_permitir')).catch(() => {}) }, [])
   const [productos, setProductos] = useState([])
   const [total, setTotal] = useState(0)
@@ -739,6 +768,12 @@ function TabProductos({ categorias, proveedores, usuario }) {
               <option value="no_permitir">No permitir vender</option>
               <option value="permitir_con_aviso">Permitir con aviso</option>
             </select>
+          </label>
+        )}
+        {puedeConfigurar && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+            Pedir aprobación desde (unidades; 0 = no):
+            <input type="number" min="0" step="any" className="gym-input" data-testid="umbral-aprobacion" aria-label="Umbral de aprobación de ajustes, en unidades. 0 desactiva" value={umbral} onChange={e => setUmbral(e.target.value)} onBlur={guardarUmbral} style={{ width: 80, padding: '6px 8px', fontSize: 13 }} />
           </label>
         )}
         {puedeCrear && (
@@ -1231,6 +1266,56 @@ function PanelConciliacion() {
   )
 }
 
+// ─── Aprobaciones de ajustes (Fase 8) ────────────────────────────────────────
+
+function PanelAprobaciones() {
+  const { tienePermiso } = useAuth()
+  const puedeAprobar = tienePermiso('inventario.aprobar_ajustes')
+  const [lista, setLista] = useState([])
+  const [error, setError] = useState('')
+  const [rechazando, setRechazando] = useState(null)
+  const [nota, setNota] = useState('')
+  async function cargar() {
+    const r = await window.api.aprobaciones.getAll({ estado: 'pendiente' })
+    if (r && r.ok === false) { setError(r.error || 'No se pudieron cargar las solicitudes'); return }
+    setLista(Array.isArray(r) ? r : [])
+  }
+  useEffect(() => { cargar() }, [])
+  async function resolver(fn, ok) {
+    setError('')
+    const r = await fn()
+    if (r && r.ok === false) { setError(r.error || 'No se pudo completar'); return }
+    toast.success(ok); setRechazando(null); setNota(''); cargar()
+  }
+  if (lista.length === 0 && !error) return null
+  return (
+    <section aria-label="Ajustes pendientes de aprobación" data-testid="panel-aprobaciones" style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+      <strong style={{ color: 'var(--ink)', fontSize: 14 }}>Ajustes pendientes de aprobación ({lista.length})</strong>
+      {error && <p role="alert" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13, marginTop: 8 }}>Error: {error}</p>}
+      {lista.map(a => (
+        <div key={a.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderTop: '1px solid var(--line)', fontSize: 13, color: 'var(--ink)', flexWrap: 'wrap' }}>
+          <span style={{ flex: 1, minWidth: 220 }}>
+            {a.producto_nombre}: {a.tipo_movimiento} de {a.cantidad} (cambio de {a.diferencia > 0 ? '+' : ''}{a.diferencia})<br />
+            <span style={{ color: 'var(--dim)', fontSize: 12 }}>Pidió {a.solicitado_por_nombre} · {a.fecha}{a.motivo ? ` · ${a.motivo}` : ''}</span>
+          </span>
+          {puedeAprobar ? (
+            <>
+              <button onClick={() => resolver(() => window.api.aprobaciones.aprobar(a.id), 'Ajuste aprobado y aplicado')} aria-label={`Aprobar el ajuste de ${a.producto_nombre}`} className="clientes-glass-btn btn-primary"><div className="clientes-glass-bg" /><span className="clientes-glass-content"><Check size={14} /> Aprobar</span></button>
+              <button onClick={() => { setRechazando(a.id); setNota('') }} aria-label={`Rechazar el ajuste de ${a.producto_nombre}`} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Rechazar</span></button>
+            </>
+          ) : <span style={{ color: 'var(--dim)' }}>Esperando aprobación</span>}
+          {rechazando === a.id && (
+            <div style={{ flexBasis: '100%', display: 'flex', gap: 8 }}>
+              <input className="gym-input" aria-label="Motivo del rechazo" placeholder="Motivo del rechazo (obligatorio)" value={nota} onChange={e => setNota(e.target.value)} style={{ flex: 1 }} />
+              <button onClick={() => resolver(() => window.api.aprobaciones.rechazar(a.id, { nota }), 'Ajuste rechazado')} className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Confirmar rechazo</span></button>
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
+  )
+}
+
 function TabMovimientos() {
   const [movimientos, setMovimientos] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -1243,6 +1328,7 @@ function TabMovimientos() {
 
   return (
     <div>
+      <PanelAprobaciones />
       <PanelConciliacion />
       {movimientos.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--dim)' }}>No hay movimientos registrados</div>

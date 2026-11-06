@@ -411,6 +411,43 @@ function _histPrecio(exec, productoId, campo, anterior, nuevo, u, origen) {
     [productoId, campo, a, n, u?.usuario_id || null, u?.usuario_nombre || null, origen || 'Edición manual'])
   return true
 }
+// ── v9 · Fase 8: aprobación por umbral y motivos de lista fija ──
+TABLAS_NUEVAS.push('aprobaciones')
+MIGRACIONES.push({
+  version: 9, nombre: 'fase 8: aprobaciones de ajustes y código de motivo',
+  up() {
+    _addCol('movimientos_stock', 'motivo_codigo', 'TEXT')
+    db.run(`CREATE TABLE IF NOT EXISTS aprobaciones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL DEFAULT 'ajuste_stock',
+      estado TEXT NOT NULL DEFAULT 'pendiente',
+      producto_id INTEGER REFERENCES productos(id),
+      producto_nombre TEXT,
+      payload TEXT NOT NULL,
+      diferencia REAL,
+      fecha TEXT DEFAULT (datetime('now','localtime')),
+      solicitado_por INTEGER, solicitado_por_nombre TEXT,
+      resuelto_por INTEGER, resuelto_por_nombre TEXT, fecha_resolucion TEXT, nota_resolucion TEXT
+    )`)
+    db.run('CREATE INDEX IF NOT EXISTS idx_aprobaciones_estado ON aprobaciones(estado)')
+    // El umbral NO se crea: sin fila en `config` la aprobación está desactivada (comportamiento actual).
+  },
+})
+// Lista fija de motivos (código estable + etiqueta). «otro» exige texto libre. El texto libre se conserva siempre.
+const MOTIVOS_STOCK = {
+  entrada: [
+    { codigo: 'compra', etiqueta: 'Compra a proveedor' }, { codigo: 'devolucion_cliente', etiqueta: 'Devolución de un cliente' },
+    { codigo: 'regalo_donacion', etiqueta: 'Regalo o donación recibida' }, { codigo: 'correccion_error', etiqueta: 'Corrección de un error' }, { codigo: 'otro', etiqueta: 'Otro (explícalo)' },
+  ],
+  salida: [
+    { codigo: 'merma', etiqueta: 'Merma (se echó a perder o se rompió)' }, { codigo: 'vencimiento', etiqueta: 'Vencimiento' }, { codigo: 'dano', etiqueta: 'Producto dañado' },
+    { codigo: 'robo_perdida', etiqueta: 'Robo o pérdida' }, { codigo: 'consumo_interno', etiqueta: 'Consumo interno' }, { codigo: 'muestra_regalo', etiqueta: 'Muestra o regalo' }, { codigo: 'otro', etiqueta: 'Otro (explícalo)' },
+  ],
+  ajuste: [
+    { codigo: 'conteo_fisico', etiqueta: 'Conteo físico' }, { codigo: 'correccion_error', etiqueta: 'Corrección de un error' }, { codigo: 'merma', etiqueta: 'Merma' },
+    { codigo: 'vencimiento', etiqueta: 'Vencimiento' }, { codigo: 'dano', etiqueta: 'Producto dañado' }, { codigo: 'robo_perdida', etiqueta: 'Robo o pérdida' }, { codigo: 'otro', etiqueta: 'Otro (explícalo)' },
+  ],
+}
 // Redondeo decimal estable (evita 0.1+0.2 = 0.30000000000000004 y 1.005*100 = 100.49999…).
 function _redondear(x, d) {
   const f = 10 ** d
@@ -3034,28 +3071,65 @@ const inventario = {
   // Entrada / salida / ajuste (conteo). Todo o nada. Nunca recorta en silencio: una salida mayor al stock o un
   // ajuste negativo se RECHAZA (salvo la política «permitir_con_aviso», que deja el stock negativo y lo avisa).
   // Cuando es válido, `cantidad` del kardex cumple: entrada = nuevo−anterior · salida = anterior−nuevo · ajuste = objetivo.
+  getMotivos() { return MOTIVOS_STOCK },
+  // Umbral de aprobación (en unidades de diferencia). 0 / sin configurar = DESACTIVADO.
+  getUmbralAprobacion() {
+    const r = queryOne("SELECT value FROM config WHERE key='umbral_ajuste_aprobacion'")
+    const n = r ? Number(r.value) : 0
+    return Number.isFinite(n) && n > 0 ? n : 0
+  },
+  setUmbralAprobacion(valor, u = {}) {
+    const n = Number(valor)
+    if (valor === '' || valor === null || valor === undefined || !Number.isFinite(n) || n < 0) return { ok: false, error: 'El umbral debe ser un número mayor o igual a 0 (0 = desactivado).' }
+    const antes = inventario.getUmbralAprobacion()
+    if (antes === n) return { ok: true, umbral: n }       // sin cambio: no se escribe ni se audita
+    run("INSERT OR REPLACE INTO config (key, value) VALUES ('umbral_ajuste_aprobacion', ?)", [String(n)])
+    try { auditoria.log({ usuario_id: u.usuario_id, usuario_nombre: u.usuario_nombre, accion: 'UMBRAL_APROBACION', modulo: 'inventario', detalle: `${antes} → ${n}` }) } catch (_) {}
+    return { ok: true, umbral: n }
+  },
+  // Núcleo del ajuste (SIN transacción propia: lo usan ajustarStock y aprobaciones.aprobar). Lanza Error si algo no es válido.
+  // Banderas que solo pone el canal protegido (guardas.cjs): `desde_pantalla` (motivo de lista obligatorio + regla de aprobación),
+  // `omitir_aprobacion` (el usuario puede aprobar). `_aprobada` solo la usa aprobaciones.aprobar.
+  _ajusteCore(data) {
+    const prod = queryOne(`SELECT stock, nombre, archivado, eliminado, ${_CFG_DEC} FROM productos WHERE id=?`, [data.producto_id])
+    if (!prod || prod.eliminado) throw new Error('Producto no encontrado')
+    const tipo = data.tipo
+    if (!['entrada', 'salida', 'ajuste'].includes(tipo)) throw new Error('Tipo de movimiento no válido (entrada, salida o ajuste).')
+    const cant = _cantidadProducto(prod, data.cantidad)
+    if (tipo !== 'ajuste' && cant <= 0) throw new Error('La cantidad debe ser mayor que 0.')
+    if (tipo === 'ajuste' && cant < 0) throw new Error('El stock contado no puede ser negativo.')
+    const codigo = data.motivo_codigo ?? null
+    if (data.desde_pantalla && tipo !== 'entrada' && !codigo) throw new Error('Elige el motivo de la lista (es obligatorio en salidas y ajustes).')
+    if (codigo !== null) {
+      if (!MOTIVOS_STOCK[tipo].some(m => m.codigo === codigo)) throw new Error('El motivo elegido no está en la lista.')
+      if (codigo === 'otro' && String(data.motivo ?? '').trim().length < 3) throw new Error('Con el motivo «Otro» escribe el detalle.')
+    }
+    const permitirNeg = inventario.getPoliticaStock() === 'permitir_con_aviso'
+    const stockAnterior = prod.stock
+    const stockNuevo = _redondearStock(prod, tipo === 'ajuste' ? cant : tipo === 'entrada' ? stockAnterior + cant : stockAnterior - cant)
+    let aviso
+    if (stockNuevo < 0) {
+      if (!permitirNeg) throw new Error(`No se puede sacar ${cant}: solo hay ${stockAnterior} en stock.`)
+      aviso = `El stock quedó negativo (${stockNuevo}).`
+    }
+    const umbral = inventario.getUmbralAprobacion()
+    if (data.desde_pantalla && !data.omitir_aprobacion && !data._aprobada && tipo !== 'entrada' && umbral > 0 && Math.abs(stockNuevo - stockAnterior) >= umbral - 1e-9) {
+      const aid = _ins('INSERT INTO aprobaciones (tipo, producto_id, producto_nombre, payload, diferencia, solicitado_por, solicitado_por_nombre) VALUES (?,?,?,?,?,?,?)',
+        ['ajuste_stock', data.producto_id, prod.nombre, JSON.stringify({ tipo, cantidad: cant, motivo: data.motivo || null, motivo_codigo: codigo }), _redondear(stockNuevo - stockAnterior, 6), data.usuario_id || null, data.usuario_nombre || null])
+      db.run('INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)',
+        [data.usuario_id || null, data.usuario_nombre || 'Sistema', 'SOLICITAR_APROBACION_AJUSTE', 'inventario', JSON.stringify({ producto: prod.nombre, tipo, cantidad: cant, diferencia: stockNuevo - stockAnterior, motivo_codigo: codigo }), aid, 'aprobacion'])
+      return { ok: true, pendiente_aprobacion: true, aprobacion_id: aid, mensaje: `El cambio de ${Math.abs(stockNuevo - stockAnterior)} unidades supera el umbral de ${umbral}: quedó pendiente de aprobación y el stock NO cambió.` }
+    }
+    db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, data.producto_id])
+    db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre, motivo_codigo) VALUES (?,?,?,?,?,?,?,?,?)`,
+      [data.producto_id, tipo, cant, stockAnterior, stockNuevo, data.motivo || null, data.usuario_id || null, data.usuario_nombre || null, codigo])
+    return { ok: true, stock_anterior: stockAnterior, stock_nuevo: stockNuevo, ...(aviso ? { aviso } : {}) }
+  },
+  // Entrada / salida / ajuste (conteo). Todo o nada. Nunca recorta en silencio: una salida mayor al stock o un
+  // ajuste negativo se RECHAZA (salvo la política «permitir_con_aviso», que deja el stock negativo y lo avisa).
+  // Cuando es válido, `cantidad` del kardex cumple: entrada = nuevo−anterior · salida = anterior−nuevo · ajuste = objetivo.
   ajustarStock(data) {
-    return _tx(() => {
-      const prod = queryOne(`SELECT stock, archivado, eliminado, ${_CFG_DEC} FROM productos WHERE id=?`, [data.producto_id])
-      if (!prod || prod.eliminado) throw new Error('Producto no encontrado')
-      const tipo = data.tipo
-      if (!['entrada', 'salida', 'ajuste'].includes(tipo)) throw new Error('Tipo de movimiento no válido (entrada, salida o ajuste).')
-      const cant = _cantidadProducto(prod, data.cantidad)
-      if (tipo !== 'ajuste' && cant <= 0) throw new Error('La cantidad debe ser mayor que 0.')
-      if (tipo === 'ajuste' && cant < 0) throw new Error('El stock contado no puede ser negativo.')
-      const permitirNeg = inventario.getPoliticaStock() === 'permitir_con_aviso'
-      const stockAnterior = prod.stock
-      const stockNuevo = _redondearStock(prod, tipo === 'ajuste' ? cant : tipo === 'entrada' ? stockAnterior + cant : stockAnterior - cant)
-      let aviso
-      if (stockNuevo < 0) {
-        if (!permitirNeg) throw new Error(`No se puede sacar ${cant}: solo hay ${stockAnterior} en stock.`)
-        aviso = `El stock quedó negativo (${stockNuevo}).`
-      }
-      db.run("UPDATE productos SET stock=?, updated_at=datetime('now','localtime') WHERE id=?", [stockNuevo, data.producto_id])
-      db.run(`INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario_id, usuario_nombre) VALUES (?,?,?,?,?,?,?,?)`,
-        [data.producto_id, tipo, cant, stockAnterior, stockNuevo, data.motivo || null, data.usuario_id || null, data.usuario_nombre || null])
-      return { ok: true, stock_anterior: stockAnterior, stock_nuevo: stockNuevo, ...(aviso ? { aviso } : {}) }
-    })
+    return _tx(() => inventario._ajusteCore(data))
   },
   getMovimientos(productoId) {
     return queryAll('SELECT * FROM movimientos_stock WHERE producto_id=? ORDER BY created_at DESC LIMIT 100', [productoId])
@@ -4490,6 +4564,53 @@ function mantenimiento() {
 // Exponer helpers para el módulo de facturación
 function getQueryHelpers() { return { queryAll, queryOne, run } }
 
+// ─── Aprobaciones de ajustes (Sprint 4B · Fase 8) ────────────────────────────
+const aprobaciones = {
+  _fila(a) {
+    let pl = {}
+    try { pl = JSON.parse(a.payload) } catch (_) {}
+    return { ...a, tipo_movimiento: pl.tipo, cantidad: pl.cantidad, motivo: pl.motivo, motivo_codigo: pl.motivo_codigo }
+  },
+  getAll(f = {}) {
+    const w = [], p = []
+    if (f.estado) { w.push('estado=?'); p.push(f.estado) }
+    if (f.solicitante_id) { w.push('solicitado_por=?'); p.push(f.solicitante_id) }
+    return queryAll(`SELECT * FROM aprobaciones ${w.length ? 'WHERE ' + w.join(' AND ') : ''} ORDER BY id DESC LIMIT 300`, p).map(aprobaciones._fila)
+  },
+  contarPendientes() { return queryOne("SELECT COUNT(*) n FROM aprobaciones WHERE estado='pendiente'").n },
+  aprobar(id, u = {}) {
+    return _tx(() => {
+      const a = queryOne('SELECT * FROM aprobaciones WHERE id=?', [id])
+      if (!a) throw new Error('Solicitud no encontrada')
+      if (a.estado !== 'pendiente') throw new Error(`La solicitud ya está «${a.estado}».`)
+      const pl = JSON.parse(a.payload)
+      // Se vuelve a validar contra el stock de AHORA: si ya no alcanza, falla y no se aplica nada.
+      const r = inventario._ajusteCore({
+        producto_id: a.producto_id, tipo: pl.tipo, cantidad: pl.cantidad, motivo_codigo: pl.motivo_codigo,
+        motivo: `${pl.motivo ? pl.motivo + ' · ' : ''}Aprobado por ${u.usuario_nombre || 'un administrador'}`,
+        usuario_id: a.solicitado_por, usuario_nombre: a.solicitado_por_nombre, _aprobada: true,
+      })
+      db.run("UPDATE aprobaciones SET estado='aprobada', resuelto_por=?, resuelto_por_nombre=?, fecha_resolucion=datetime('now','localtime') WHERE id=?", [u.usuario_id || null, u.usuario_nombre || null, id])
+      db.run('INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)',
+        [u.usuario_id || null, u.usuario_nombre || 'Sistema', 'APROBAR_AJUSTE', 'inventario', JSON.stringify({ producto: a.producto_nombre, solicitado_por: a.solicitado_por_nombre, ...pl, stock_nuevo: r.stock_nuevo }), id, 'aprobacion'])
+      return { ok: true, stock_anterior: r.stock_anterior, stock_nuevo: r.stock_nuevo }
+    })
+  },
+  rechazar(id, d = {}, u = {}) {
+    return _tx(() => {
+      const a = queryOne('SELECT * FROM aprobaciones WHERE id=?', [id])
+      if (!a) throw new Error('Solicitud no encontrada')
+      if (a.estado !== 'pendiente') throw new Error(`La solicitud ya está «${a.estado}».`)
+      const nota = String(d.nota ?? '').trim()
+      if (nota.length < 3) throw new Error('Escribe el motivo del rechazo.')
+      db.run("UPDATE aprobaciones SET estado='rechazada', resuelto_por=?, resuelto_por_nombre=?, fecha_resolucion=datetime('now','localtime'), nota_resolucion=? WHERE id=?", [u.usuario_id || null, u.usuario_nombre || null, nota, id])
+      db.run('INSERT INTO auditoria (usuario_id, usuario_nombre, accion, modulo, detalle, registro_afectado_id, registro_afectado_tipo) VALUES (?,?,?,?,?,?,?)',
+        [u.usuario_id || null, u.usuario_nombre || 'Sistema', 'RECHAZAR_AJUSTE', 'inventario', JSON.stringify({ producto: a.producto_nombre, solicitado_por: a.solicitado_por_nombre, nota }), id, 'aprobacion'])
+      return { ok: true }
+    })
+  },
+}
+
 // ─── Compras y costo (Sprint 4B · Fase 5) ───────────────────────────────────
 // Costo = promedio móvil ponderado (`costo_promedio`) + último costo. Solo las RECEPCIONES de compra lo mueven;
 // la importación IA «sumar» sin costo no promedia. Cada recepción guarda el costo/stock previos para poder
@@ -4677,7 +4798,7 @@ module.exports = {
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
   ventas, descuentos, configuracionPOS,
-  inventario, conteos, compras, iaAuditoria, vozConfig, iaConfig, caja, papelera,
+  inventario, conteos, compras, aprobaciones, iaAuditoria, vozConfig, iaConfig, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,

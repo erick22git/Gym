@@ -47,7 +47,16 @@ module.exports = function crearGuardas({ dbm, seguridad }) {
   con('compras:sugerirReposicion', 'inventario.compras', () => comp().sugerirReposicion())
   con('conteos:aprobar', 'inventario.aprobar_ajustes', id => cont().aprobar(id, seguridad.usuario()))
   con('conteos:revertir', 'inventario.aprobar_ajustes', id => cont().revertir(id, seguridad.usuario()))
-  con('inventario:ajustarStock', 'inventario.ajustar_stock', d => inv().ajustarStock(sello(d)))
+  // desde_pantalla / omitir_aprobacion / _aprobada los fija SOLO este canal: lo que mande la pantalla se pisa.
+  con('inventario:ajustarStock', 'inventario.ajustar_stock', d => inv().ajustarStock({ ...sello(d), desde_pantalla: true, omitir_aprobacion: seguridad.tiene('inventario.aprobar_ajustes'), _aprobada: false }))
+  con('inventario:getMotivos', 'inventario.ver', () => inv().getMotivos())
+  con('inventario:getUmbralAprobacion', 'inventario.ver', () => inv().getUmbralAprobacion())
+  con('inventario:setUmbralAprobacion', 'configuracion.editar_gym', v => inv().setUmbralAprobacion(v, seguridad.usuario()))
+  // Quien puede aprobar ve todas las solicitudes; los demás, solo las suyas.
+  con('aprobaciones:getAll', 'inventario.ver', f => dbm.aprobaciones.getAll({ ...(f || {}), ...(seguridad.tiene('inventario.aprobar_ajustes') ? {} : { solicitante_id: seguridad.usuario().usuario_id }) }))
+  con('aprobaciones:contarPendientes', 'inventario.ver', () => dbm.aprobaciones.contarPendientes())
+  con('aprobaciones:aprobar', 'inventario.aprobar_ajustes', id => dbm.aprobaciones.aprobar(id, seguridad.usuario()))
+  con('aprobaciones:rechazar', 'inventario.aprobar_ajustes', (id, d) => dbm.aprobaciones.rechazar(id, d, seguridad.usuario()))
   con('inventario:importarLote', 'inventario.ajustar_stock', d => inv().importarLote(sello(d)))
   con('inventario:deshacerLote', 'inventario.ajustar_stock', d => inv().deshacerLote(sello(d)))
   con('inventario:venderProductos', 'ventas.realizar', (items, meta) => inv().venderProductos(items, sello(meta)))
