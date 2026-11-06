@@ -173,6 +173,12 @@ async function principal() {
     registrar('importar', 'exportar → importar = 0 cambios por el canal real', pvI.ok === true && pvI.resumen.crear === 0 && pvI.resumen.actualizar === 0, JSON.stringify(pvI.resumen) + JSON.stringify((pvI.filas || []).filter(f => f.accion === 'actualizar')))
     const malI = await api('intercambio.aplicar', ['nombre;precio_venta', 'Producto E2E inexistente;abc', ''].join(String.fromCharCode(13, 10)), { archivo: 'mal.csv' })
     registrar('importar', 'un CSV con error se rechaza completo por el canal real', malI.ok === false && (malI.resumen?.errores || 0) >= 1)
+    const rv = await api('reportes.valorInventario')
+    registrar('reportes', 'valor del inventario por el canal real', rv.ok === true && Number.isFinite(rv.resumen.valor_total), JSON.stringify(rv.resumen))
+    const rm = await api('reportes.masVendidos', { dias: 30 })
+    registrar('reportes', 'más vendidos por el canal real', rm.ok === true && Array.isArray(rm.filas))
+    const rx = await api('reportes.exportar', 'abc', { dias: 30 })
+    registrar('reportes', 'exportar un reporte a CSV por el canal real', rx.ok === true && rx.texto.charCodeAt(0) === 0xFEFF)
     registrar('ajuste', 'producto inexistente se rechaza sin tocar nada', (await api('inventario.ajustarStock', { producto_id: 999999, tipo: 'entrada', cantidad: 1, ...U })).ok === false)
     // Antes «hallazgos» confirmados (Sprint 4): ahora se comprueba que están corregidos (Sprint 4B · Fase 1)
     const H = (await api('inventario.create', { nombre: 'E2E Sobreventa', stock: 2, precio_venta: 10 })).id

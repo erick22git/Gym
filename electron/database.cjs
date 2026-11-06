@@ -4830,6 +4830,171 @@ const compras = {
   },
 }
 
+// ─── Reportes de inventario (Fase 10) · SOLO LECTURA ─────────────────────────
+// Reglas comunes: las ventas ANULADAS no cuentan; las devoluciones (parciales) se restan de cantidad e ingreso;
+// el costo de una venta es el congelado en la línea (`costo_unitario`; NULL = sin costo, nunca se inventa).
+// Períodos: `dias` (por defecto 30, hasta hoy) o `desde`/`hasta` (YYYY-MM-DD, inclusive).
+const _REP_NECESITAN_COSTOS = ['valorInventario', 'margenPorCategoria']
+const reportes = {
+  NOMBRES: ['valorInventario', 'masVendidos', 'rotacion', 'cobertura', 'stockMuerto', 'abc', 'margenPorCategoria'],
+  NECESITAN_COSTOS: _REP_NECESITAN_COSTOS,
+  _hoy() { return queryOne("SELECT date('now','localtime') AS h").h },
+  _periodo(f = {}) {
+    const dias = f.dias === undefined ? 30 : Number(f.dias)
+    if (!Number.isInteger(dias) || dias < 1 || dias > 3650) throw new Error('Los días del período deben ser un número entero entre 1 y 3650.')
+    const hasta = f.hasta || reportes._hoy()
+    const desde = f.desde || queryOne("SELECT date(?, ?) AS d", [hasta, `-${dias - 1} days`]).d
+    return { desde, hasta, dias }
+  },
+  // Líneas vendidas (no anuladas) con su cantidad e ingreso NETOS de devoluciones.
+  _lineas(desde, hasta) {
+    const where = ["COALESCE(v.estado,'completada') <> 'anulada'", 'd.producto_id IS NOT NULL']
+    const params = []
+    if (desde) { where.push('v.fecha >= ?'); params.push(desde) }
+    if (hasta) { where.push('v.fecha <= ?'); params.push(hasta + ' 23:59:59') }
+    return queryAll(`SELECT d.id, d.producto_id, d.cantidad, d.subtotal, d.costo_unitario, v.fecha,
+        COALESCE((SELECT SUM(l.cantidad) FROM devolucion_lineas l WHERE l.detalle_id=d.id),0) AS dev_cant,
+        COALESCE((SELECT SUM(l.monto) FROM devolucion_lineas l WHERE l.detalle_id=d.id),0) AS dev_monto
+      FROM detalle_ventas_productos d JOIN ventas v ON v.id=d.venta_id WHERE ${where.join(' AND ')}`, params)
+      .map(l => ({ ...l, neta: _redondear(l.cantidad - l.dev_cant, 6), ingreso: _redondear(l.subtotal - l.dev_monto, 6) }))
+      .filter(l => l.neta > 0)
+  },
+  _productosActivos() {
+    return queryAll(`SELECT p.*, c.nombre AS categoria_nombre FROM productos p LEFT JOIN categorias_productos c ON c.id=p.categoria_id
+      WHERE p.eliminado=0 AND COALESCE(p.archivado,0)=0 ORDER BY p.nombre, p.id`)
+  },
+  _porProducto(lineas) {
+    const m = new Map()
+    for (const l of lineas) {
+      const a = m.get(l.producto_id) || { cantidad: 0, monto: 0, ultima: null }
+      a.cantidad += l.neta; a.monto += l.ingreso
+      if (!a.ultima || l.fecha > a.ultima) a.ultima = l.fecha
+      m.set(l.producto_id, a)
+    }
+    return m
+  },
+
+  valorInventario() {
+    const filas = reportes._productosActivos().filter(p => p.stock > 0).map(p => ({
+      producto_id: p.id, nombre: p.nombre, categoria: p.categoria_nombre || 'Sin categoría', stock: p.stock,
+      costo_promedio: p.costo_promedio ?? null, valor: p.costo_promedio == null ? null : _redondear(p.stock * p.costo_promedio, 6),
+    }))
+    const conCosto = filas.filter(f => f.valor !== null)
+    return {
+      ok: true, titulo: 'Valor del inventario',
+      columnas: [{ clave: 'nombre', titulo: 'Producto' }, { clave: 'categoria', titulo: 'Categoría' }, { clave: 'stock', titulo: 'Stock' }, { clave: 'costo_promedio', titulo: 'Costo promedio' }, { clave: 'valor', titulo: 'Valor' }],
+      filas,
+      resumen: { valor_total: _redondear(conCosto.reduce((s, f) => s + f.valor, 0), 6), productos_con_costo: conCosto.length, productos_sin_costo: filas.length - conCosto.length,
+        nota: filas.length - conCosto.length ? `${filas.length - conCosto.length} producto(s) con stock no tienen costo registrado y no suman al valor.` : '' },
+    }
+  },
+
+  masVendidos(f = {}) {
+    let per; try { per = reportes._periodo(f) } catch (e) { return { ok: false, error: e.message } }
+    const por = reportes._porProducto(reportes._lineas(per.desde, per.hasta))
+    const nombres = new Map(queryAll('SELECT id, nombre FROM productos').map(p => [p.id, p.nombre]))
+    let filas = [...por].map(([id, a]) => ({ producto_id: id, nombre: nombres.get(id) || `#${id}`, cantidad: _redondear(a.cantidad, 6), monto: _redondear(a.monto, 6) }))
+    const porMonto = f.orden === 'monto'
+    filas.sort((x, y) => porMonto ? (y.monto - x.monto || y.cantidad - x.cantidad || x.nombre.localeCompare(y.nombre)) : (y.cantidad - x.cantidad || y.monto - x.monto || x.nombre.localeCompare(y.nombre)))
+    if (f.limite) filas = filas.slice(0, Number(f.limite))
+    return { ok: true, titulo: 'Más vendidos', columnas: [{ clave: 'nombre', titulo: 'Producto' }, { clave: 'cantidad', titulo: 'Cantidad vendida' }, { clave: 'monto', titulo: 'Monto vendido' }], filas, resumen: { ...per } }
+  },
+
+  // Rotación = unidades netas vendidas en el período ÷ stock actual.
+  rotacion(f = {}) {
+    let per; try { per = reportes._periodo(f) } catch (e) { return { ok: false, error: e.message } }
+    const por = reportes._porProducto(reportes._lineas(per.desde, per.hasta))
+    const filas = reportes._productosActivos().map(p => {
+      const vendidas = _redondear(por.get(p.id)?.cantidad || 0, 6)
+      return { producto_id: p.id, nombre: p.nombre, stock: p.stock, vendidas, rotacion: p.stock > 0 ? _redondear(vendidas / p.stock, 4) : null, nota: p.stock > 0 ? '' : 'sin stock' }
+    }).sort((a, b) => (b.rotacion ?? -1) - (a.rotacion ?? -1) || a.nombre.localeCompare(b.nombre))
+    return { ok: true, titulo: 'Rotación', columnas: [{ clave: 'nombre', titulo: 'Producto' }, { clave: 'stock', titulo: 'Stock' }, { clave: 'vendidas', titulo: 'Vendidas en el período' }, { clave: 'rotacion', titulo: 'Rotación (vendidas ÷ stock)' }, { clave: 'nota', titulo: 'Nota' }], filas, resumen: { ...per } }
+  },
+
+  // Cobertura = stock ÷ venta diaria (netas del período ÷ días). Sin ventas en el período → «sin datos suficientes».
+  cobertura(f = {}) {
+    let per; try { per = reportes._periodo(f) } catch (e) { return { ok: false, error: e.message } }
+    if (per.dias < 7) return { ok: false, error: 'Para estimar cuántos días alcanza el stock se necesitan al menos 7 días de ventas.' }
+    const por = reportes._porProducto(reportes._lineas(per.desde, per.hasta))
+    const filas = reportes._productosActivos().filter(p => p.stock > 0).map(p => {
+      const v = por.get(p.id)?.cantidad || 0
+      return { producto_id: p.id, nombre: p.nombre, stock: p.stock, venta_diaria: v > 0 ? _redondear(v / per.dias, 4) : null,
+        cobertura_dias: v > 0 ? _redondear(p.stock / (v / per.dias), 1) : null, nota: v > 0 ? '' : 'sin datos suficientes (no se vendió en el período)' }
+    }).sort((a, b) => (a.cobertura_dias ?? Infinity) - (b.cobertura_dias ?? Infinity) || a.nombre.localeCompare(b.nombre))
+    return { ok: true, titulo: 'Cobertura en días', columnas: [{ clave: 'nombre', titulo: 'Producto' }, { clave: 'stock', titulo: 'Stock' }, { clave: 'venta_diaria', titulo: 'Venta diaria' }, { clave: 'cobertura_dias', titulo: 'Días de cobertura' }, { clave: 'nota', titulo: 'Nota' }], filas, resumen: { ...per } }
+  },
+
+  // Stock muerto: con stock, sin ventas en los últimos N días (por defecto 90) y que ya existía hace más de N días.
+  stockMuerto(f = {}) {
+    const dias = f.dias === undefined ? 90 : Number(f.dias)
+    if (!Number.isInteger(dias) || dias < 1 || dias > 3650) return { ok: false, error: 'Los días deben ser un número entero entre 1 y 3650.' }
+    const costos = f.costos !== false
+    const hoy = reportes._hoy()
+    const ult = reportes._porProducto(reportes._lineas(null, null))
+    const dif = (a, b) => Math.round((Date.parse(a.slice(0, 10)) - Date.parse(b.slice(0, 10))) / 86400000)
+    const filas = []
+    for (const p of reportes._productosActivos()) {
+      if (!(p.stock > 0)) continue
+      const u = ult.get(p.id)?.ultima || null
+      const sinVenta = u ? dif(hoy, u) : null
+      if (u ? sinVenta <= dias : dif(hoy, p.created_at || hoy) <= dias) continue
+      filas.push({ producto_id: p.id, nombre: p.nombre, stock: p.stock, ultima_venta: u ? u.slice(0, 10) : null, dias_sin_venta: sinVenta,
+        ...(costos ? { costo_promedio: p.costo_promedio ?? null, valor: p.costo_promedio == null ? null : _redondear(p.stock * p.costo_promedio, 6) } : {}) })
+    }
+    filas.sort((a, b) => (b.dias_sin_venta ?? Infinity) - (a.dias_sin_venta ?? Infinity) || a.nombre.localeCompare(b.nombre))
+    const resumen = { dias, productos: filas.length }
+    if (costos) { resumen.valor = _redondear(filas.reduce((s, x) => s + (x.valor || 0), 0), 6); resumen.sin_costo = filas.filter(x => x.valor === null).length }
+    return { ok: true, titulo: 'Stock muerto', columnas: [{ clave: 'nombre', titulo: 'Producto' }, { clave: 'stock', titulo: 'Stock' }, { clave: 'ultima_venta', titulo: 'Última venta' }, { clave: 'dias_sin_venta', titulo: 'Días sin vender' }].concat(costos ? [{ clave: 'valor', titulo: 'Valor inmovilizado' }] : []), filas, resumen }
+  },
+
+  // ABC por monto vendido neto. Un producto es A si el acumulado ANTES de sumarlo es < a %, B si es < a+b %, si no C.
+  abc(f = {}) {
+    let per; try { per = reportes._periodo(f) } catch (e) { return { ok: false, error: e.message } }
+    const a = f.a === undefined ? 80 : Number(f.a), b = f.b === undefined ? 15 : Number(f.b)
+    if (![a, b].every(Number.isFinite) || a <= 0 || b < 0 || a + b > 100) return { ok: false, error: 'Los porcentajes A y B deben ser positivos y sumar como máximo 100.' }
+    const por = reportes._porProducto(reportes._lineas(per.desde, per.hasta))
+    const nombres = new Map(queryAll('SELECT id, nombre FROM productos').map(p => [p.id, p.nombre]))
+    const lista = [...por].filter(([, x]) => x.monto > 0).map(([id, x]) => ({ producto_id: id, nombre: nombres.get(id) || `#${id}`, monto: _redondear(x.monto, 6) }))
+      .sort((x, y) => y.monto - x.monto || x.nombre.localeCompare(y.nombre))
+    const total = lista.reduce((s, x) => s + x.monto, 0)
+    let ac = 0
+    const filas = lista.map(x => {
+      const antes = total > 0 ? (ac / total) * 100 : 0
+      ac += x.monto
+      return { ...x, porcentaje: _redondear((x.monto / total) * 100, 2), acumulado: _redondear((ac / total) * 100, 2), clase: antes < a - 1e-9 ? 'A' : antes < a + b - 1e-9 ? 'B' : 'C' }
+    })
+    return { ok: true, titulo: 'Clasificación ABC', columnas: [{ clave: 'nombre', titulo: 'Producto' }, { clave: 'monto', titulo: 'Monto vendido' }, { clave: 'porcentaje', titulo: '% del total' }, { clave: 'acumulado', titulo: '% acumulado' }, { clave: 'clase', titulo: 'Clase' }], filas, resumen: { ...per, a, b, c: _redondear(100 - a - b, 2), total: _redondear(total, 6) } }
+  },
+
+  // Margen por categoría: SOLO líneas con costo registrado; informa cuántas se dejaron fuera.
+  margenPorCategoria(f = {}) {
+    let per; try { per = reportes._periodo(f) } catch (e) { return { ok: false, error: e.message } }
+    const cats = new Map(queryAll('SELECT p.id, COALESCE(c.nombre, ?) AS cat FROM productos p LEFT JOIN categorias_productos c ON c.id=p.categoria_id', ['Sin categoría']).map(r => [r.id, r.cat]))
+    const acc = new Map()
+    let excl = 0, montoExcl = 0
+    for (const l of reportes._lineas(per.desde, per.hasta)) {
+      if (l.costo_unitario == null) { excl++; montoExcl += l.ingreso; continue }
+      const c = cats.get(l.producto_id) || 'Sin categoría'
+      const a = acc.get(c) || { ingreso: 0, costo: 0 }
+      a.ingreso += l.ingreso; a.costo += l.costo_unitario * l.neta
+      acc.set(c, a)
+    }
+    const filas = [...acc].map(([categoria, a]) => {
+      const ingreso = _redondear(a.ingreso, 6), costo = _redondear(a.costo, 6), margen = _redondear(ingreso - costo, 6)
+      return { categoria, ingreso, costo, margen, margen_pct: ingreso > 0 ? _redondear((margen / ingreso) * 100, 2) : null }
+    }).sort((x, y) => y.margen - x.margen || x.categoria.localeCompare(y.categoria))
+    return { ok: true, titulo: 'Margen por categoría', columnas: [{ clave: 'categoria', titulo: 'Categoría' }, { clave: 'ingreso', titulo: 'Ingreso' }, { clave: 'costo', titulo: 'Costo' }, { clave: 'margen', titulo: 'Margen' }, { clave: 'margen_pct', titulo: 'Margen %' }], filas,
+      resumen: { ...per, lineas_excluidas: excl, monto_excluido: _redondear(montoExcl, 6), nota: excl ? `Se dejaron fuera ${excl} línea(s) de venta sin costo registrado (${_redondear(montoExcl, 2)} vendidos): el margen solo considera ventas con costo.` : '' } }
+  },
+
+  aCsv(nombre, params = {}) {
+    if (!reportes.NOMBRES.includes(nombre)) return { ok: false, error: 'Reporte desconocido.' }
+    const r = reportes[nombre](params)
+    if (!r.ok) return r
+    return { ok: true, texto: csv.generar(r.columnas.map(c => c.titulo), r.filas.map(f => r.columnas.map(c => f[c.clave]))), nombre_sugerido: `reporte-${nombre}.csv` }
+  },
+}
+
 // ─── Importar / exportar CSV (Fase 9) ─────────────────────────────────────────
 // Determinista: sin IA. Columnas por NOMBRE (en cualquier orden), vista previa antes/después, todo o nada,
 // deshacer con movimientos inversos. Celda vacía = «no cambiar». Los costos solo se leen/escriben con `opts.costos`.
@@ -5151,7 +5316,7 @@ module.exports = {
   auth, usuarios, sesiones, roles, permisos, auditoria, modulos,
   clientesExtra, notasCliente, dashboard2,
   ventas, descuentos, configuracionPOS,
-  inventario, conteos, compras, aprobaciones, intercambio, iaAuditoria, vozConfig, iaConfig, caja, papelera,
+  inventario, conteos, compras, aprobaciones, intercambio, reportes, iaAuditoria, vozConfig, iaConfig, caja, papelera,
   membresiaMiembros,
   respaldosDB, datosPrueba,
   promociones,

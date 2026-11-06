@@ -78,6 +78,7 @@ const TABS = [
   { id: 'movimientos', label: 'Movimientos', icon: BarChart2 },
   { id: 'conteo',      label: 'Conteo físico', icon: Check, permiso: 'inventario.conteo' },
   { id: 'compras',     label: 'Compras',     icon: Truck, permiso: 'inventario.compras' },
+  { id: 'reportes',    label: 'Reportes',    icon: BarChart2, permiso: 'inventario.ver' },
   { id: 'intercambio', label: 'Importar / exportar', icon: ArrowUp, permiso: 'inventario.importar|inventario.exportar' },
   { id: 'promociones', label: 'Promociones', icon: Percent },
 ]
@@ -1857,6 +1858,98 @@ function DetalleCompra({ id, onClose, onCambio }) {
   )
 }
 
+// ─── Reportes de inventario (Fase 10) ─────────────────────────────────────────
+
+const REPORTES = [
+  { id: 'masVendidos', label: 'Más vendidos', ayuda: 'Unidades y monto vendidos por producto. No cuenta ventas anuladas y resta las devoluciones.', params: ['dias'] },
+  { id: 'rotacion', label: 'Rotación', ayuda: 'Unidades vendidas en el período ÷ stock actual. Más alto = el producto se mueve más rápido.', params: ['dias'] },
+  { id: 'cobertura', label: 'Cobertura (días)', ayuda: 'Cuántos días alcanza el stock al ritmo de venta del período. Sin ventas en el período: «sin datos suficientes».', params: ['dias'] },
+  { id: 'stockMuerto', label: 'Stock sin movimiento', ayuda: 'Productos con stock que no se vendieron en los últimos N días.', params: ['dias90'] },
+  { id: 'abc', label: 'Clasificación ABC', ayuda: 'Ordena por monto vendido: A = los que hacen la mayor parte de las ventas, B = los intermedios, C = el resto.', params: ['dias', 'abc'] },
+  { id: 'valorInventario', label: 'Valor del inventario', ayuda: 'Stock × costo promedio. Los productos sin costo registrado no suman (se avisa cuántos).', params: [], costos: true },
+  { id: 'margenPorCategoria', label: 'Margen por categoría', ayuda: 'Ingreso − costo, solo de las ventas que tienen costo registrado (se avisa cuántas se dejaron fuera).', params: ['dias'], costos: true },
+]
+const fmtNum = v => (v === null || v === undefined ? '—' : typeof v === 'number' ? String(Math.round(v * 100) / 100).replace('.', ',') : String(v))
+
+function TabReportes() {
+  const { tienePermiso } = useAuth()
+  const verCostos = tienePermiso('inventario.ver_costos')
+  const puedeExportar = tienePermiso('inventario.exportar')
+  const lista = REPORTES.filter(r => !r.costos || verCostos)
+  const [id, setId] = useState(lista[0].id)
+  const [dias, setDias] = useState('30')
+  const [dias90, setDias90] = useState('90')
+  const [a, setA] = useState('80')
+  const [b, setB] = useState('15')
+  const [res, setRes] = useState(null)
+  const [error, setError] = useState('')
+  const rep = REPORTES.find(r => r.id === id)
+  const params = () => rep.params.includes('dias90') ? { dias: Number(dias90) } : { ...(rep.params.includes('dias') ? { dias: Number(dias) } : {}), ...(rep.params.includes('abc') ? { a: Number(a), b: Number(b) } : {}) }
+  async function generar() {
+    setError('')
+    const r = await window.api.reportes[id](params())
+    if (!r || r.ok === false) { setRes(null); setError(r?.error || 'No se pudo generar el reporte'); return }
+    setRes(r)
+  }
+  useEffect(() => { setRes(null); setError('') }, [id])
+  async function descargar() {
+    const r = await window.api.reportes.exportar(id, params())
+    if (!r || r.ok === false) { setError(r?.error || 'No se pudo preparar el archivo'); return }
+    const g = await window.api.intercambio.guardarArchivo(r.texto, r.nombre_sugerido)
+    if (g?.cancelado) return
+    if (g?.ok === false) { setError(g.error || 'No se pudo guardar'); return }
+    toast.success(`Reporte guardado: ${g.ruta}`)
+  }
+  const campo = (etiqueta, valor, set, extra = {}) => (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+      {etiqueta}
+      <input type="number" min="1" step="1" className="gym-input" aria-label={etiqueta} value={valor} onChange={e => set(e.target.value)} style={{ width: 80, padding: '6px 8px', fontSize: 13 }} {...extra} />
+    </label>
+  )
+  return (
+    <div data-testid="tab-reportes" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--ink)' }}>
+          Reporte
+          <select className="gym-input" aria-label="Elegir reporte" data-testid="reporte-select" value={id} onChange={e => setId(e.target.value)} style={{ padding: '6px 8px', fontSize: 13 }}>
+            {lista.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </label>
+        {rep.params.includes('dias') && campo('Días del período', dias, setDias)}
+        {rep.params.includes('dias90') && campo('Sin vender en (días)', dias90, setDias90)}
+        {rep.params.includes('abc') && campo('% clase A', a, setA)}
+        {rep.params.includes('abc') && campo('% clase B', b, setB)}
+        <button onClick={generar} aria-label="Generar el reporte" data-testid="generar-reporte" className="clientes-glass-btn btn-primary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Generar</span></button>
+        {puedeExportar && res && <button onClick={descargar} aria-label="Descargar el reporte en CSV" data-testid="descargar-reporte" className="clientes-glass-btn btn-secondary"><div className="clientes-glass-bg" /><span className="clientes-glass-content">Descargar CSV</span></button>}
+      </div>
+      <p style={{ color: 'var(--dim)', fontSize: 12.5 }}>{rep.ayuda}</p>
+      {error && <p role="alert" data-testid="reporte-error" style={{ color: 'oklch(0.75 0.18 25)', fontSize: 13 }}>Error: {error}</p>}
+      {res && (
+        <div data-testid="reporte-resultado">
+          {res.resumen?.nota && <p role="status" style={{ color: 'var(--ink)', fontSize: 13 }}>{res.resumen.nota}</p>}
+          {res.resumen?.valor_total !== undefined && <p style={{ color: 'var(--ink)', fontSize: 14 }}>Valor total: <strong>{fmtNum(res.resumen.valor_total)}</strong> ({res.resumen.productos_con_costo} productos con costo, {res.resumen.productos_sin_costo} sin costo)</p>}
+          {res.resumen?.valor !== undefined && <p style={{ color: 'var(--ink)', fontSize: 13 }}>{res.resumen.productos} producto(s) · valor inmovilizado {fmtNum(res.resumen.valor)}{res.resumen.sin_costo ? ` (${res.resumen.sin_costo} sin costo)` : ''}</p>}
+          {res.filas.length === 0 ? <p style={{ color: 'var(--dim)', padding: 20, textAlign: 'center' }}>No hay datos para este reporte en el período.</p> : (
+            <div style={{ maxHeight: 420, overflow: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 12.5, color: 'var(--ink)', borderCollapse: 'collapse' }}>
+                <caption style={{ position: 'absolute', left: -9999 }}>{res.titulo}</caption>
+                <thead><tr style={{ textAlign: 'left', color: 'var(--dim)' }}>{res.columnas.map(c => <th key={c.clave} scope="col" style={{ padding: '4px 6px' }}>{c.titulo}</th>)}</tr></thead>
+                <tbody>
+                  {res.filas.map((f, i) => (
+                    <tr key={f.producto_id ?? f.categoria ?? i} style={{ borderTop: '1px solid var(--line)' }}>
+                      {res.columnas.map(c => <td key={c.clave} style={{ padding: '4px 6px' }}>{fmtNum(f[c.clave])}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Importar / exportar CSV (Fase 9) ─────────────────────────────────────────
 
 const ETIQ_CAMPO = {
@@ -2265,6 +2358,7 @@ export default function Inventario() {
           {tab === 'movimientos' && <TabMovimientos />}
           {tab === 'conteo'      && <TabConteo />}
           {tab === 'compras'     && <TabCompras />}
+          {tab === 'reportes'    && <TabReportes />}
           {tab === 'intercambio' && <TabIntercambio categorias={categorias} proveedores={proveedores} />}
           {tab === 'promociones' && <TabPromociones />}
         </motion.div>

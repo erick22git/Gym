@@ -37,6 +37,15 @@ module.exports = function crearGuardas({ dbm, seguridad }) {
   con('intercambio:aplicar', 'inventario.importar', (texto, d) => ic().aplicar(texto, { archivo: d?.archivo, costos: costos(), ...seguridad.usuario() }))
   con('intercambio:deshacer', 'inventario.importar', id => ic().deshacer(id, seguridad.usuario()))
   con('intercambio:getImportaciones', 'inventario.importar', () => ic().getImportaciones())
+  // Reportes (Fase 10): solo lectura. Los que muestran costos exigen «ver costos»; en los demás los costos se quitan sin ese permiso.
+  const rep = () => dbm.reportes
+  const conC = (n, perm) => con(`reportes:${n}`, perm, f => rep()[n]({ ...(f || {}), costos: seguridad.tiene('inventario.ver_costos') }))
+  conC('valorInventario', 'inventario.ver_costos'); conC('margenPorCategoria', 'inventario.ver_costos')
+  for (const n of ['masVendidos', 'rotacion', 'cobertura', 'stockMuerto', 'abc']) conC(n, 'inventario.ver')
+  con('reportes:exportar', 'inventario.exportar', (nombre, f) => {
+    if (rep().NECESITAN_COSTOS.includes(nombre)) { const e = seguridad.exigir('inventario.ver_costos'); if (e) return e }
+    return rep().aCsv(nombre, { ...(f || {}), costos: seguridad.tiene('inventario.ver_costos') })
+  })
   const cont = () => dbm.conteos
   con('conteos:abrir', 'inventario.conteo', d => cont().abrir(sello(d)))
   con('conteos:getAll', 'inventario.conteo', () => cont().getAll())

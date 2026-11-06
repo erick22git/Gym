@@ -258,6 +258,16 @@ contextBridge.exposeInMainWorld('api', {
     getById: (id) => ipcRenderer.invoke('compras:getById', id),
     sugerirReposicion: () => ipcRenderer.invoke('compras:sugerirReposicion'),
   },
+  reportes: {
+    valorInventario: (f) => ipcRenderer.invoke('reportes:valorInventario', f),
+    masVendidos: (f) => ipcRenderer.invoke('reportes:masVendidos', f),
+    rotacion: (f) => ipcRenderer.invoke('reportes:rotacion', f),
+    cobertura: (f) => ipcRenderer.invoke('reportes:cobertura', f),
+    stockMuerto: (f) => ipcRenderer.invoke('reportes:stockMuerto', f),
+    abc: (f) => ipcRenderer.invoke('reportes:abc', f),
+    margenPorCategoria: (f) => ipcRenderer.invoke('reportes:margenPorCategoria', f),
+    exportar: (nombre, f) => ipcRenderer.invoke('reportes:exportar', nombre, f),
+  },
   intercambio: {
     plantilla: () => ipcRenderer.invoke('intercambio:plantilla'),
     exportarInventario: () => ipcRenderer.invoke('intercambio:exportarInventario'),
